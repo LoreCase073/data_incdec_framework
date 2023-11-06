@@ -1,5 +1,3 @@
-
-
 from utilities.generic_utils import experiment_folder, result_folder, \
                             get_task_dict, seed_everything, rollback_model, \
                             store_model, store_valid_loader, get_class_per_task, remap_targets 
@@ -64,11 +62,11 @@ if __name__ == "__main__":
     # mapping between classes and shuffled classes and re-map dataset classes for different order of classes 
     train_set, test_set, label_mapping = remap_targets(train_set, test_set, total_classes)
     
-    #TODO: forse modificare per eliminare num di label ad ogni task
-
+    #TODO: forse modificare/sostituire per eliminare num di label ad ogni task
     # class_per_task: number of classes not in the first task, if the first is larger, otherwise it is equal to total_classes/n_task
     class_per_task = get_class_per_task(args.n_class_first_task, total_classes, args.n_task)
     
+    #TODO: modificare/sostituire, rendere tale da cambiare il numero di sub-behaviors presi per ogni classe
     # task_dict = {task_id: list_of_class_ids}
     task_dict = get_task_dict(args.n_task, total_classes, class_per_task, args.n_class_first_task)   
     
@@ -81,7 +79,7 @@ if __name__ == "__main__":
     Generate Subset For Each Task
     """
 
-    #TODO: modificare per avere uno split 50% per primo allenamento e subsets per task successivi
+    #TODO: modificare/sostituire per avere uno split 50% per primo allenamento e subsets per task successivi
 
     cl_train_val = ContinualLearningDataset(train_set, task_dict,  
                                             args.n_task, args.n_class_first_task, 

@@ -41,24 +41,18 @@ def construct_video_filename(row, videos_dir, trim_format='%06d'):
        output filename for a given video.
     """
     videoid = row['video-id']
-    
-    basename = '%s_%s_%s.mp4' % (videoid.replace('-',''),
+    tmpid = videoid.replace('-','')
+    basename = '%s_%s_%s.mp4' % (tmpid,
                                  trim_format % row['start-time'],
                                  trim_format % row['end-time'])
     
-    #TODO: rimuovere questa parte commentata
-    """ if not isinstance(label_to_dir, dict):
-        dirname = label_to_dir
-    else:
-        dirname = label_to_dir[row['label-name']] """
-    
     #Makes a dir like /Kinetics/Videos/videoid/
-    id_dir = os.path.join(videos_dir,videoid)
+    id_dir = os.path.join(videos_dir,tmpid)
     if not os.path.exists(id_dir):
             os.makedirs(id_dir)
     #name of the file
     output_filename = os.path.join(id_dir, basename)
-    return output_filename
+    return output_filename, id_dir
 
 
 def download_clip(video_identifier, output_filename,
@@ -132,8 +126,9 @@ def download_clip(video_identifier, output_filename,
 
 def download_clip_wrapper(row, output_dir, trim_format, tmp_dir, behaviors):
     """Wrapper for parallel processing purposes."""
-    output_filename = construct_video_filename(row, output_dir,
+    output_filename, id_dir = construct_video_filename(row, output_dir,
                                                trim_format)
+    
     clip_id = os.path.basename(output_filename).split('.mp4')[0]
     if os.path.exists(output_filename):
         status = tuple([clip_id, True, 'Exists'])
@@ -144,16 +139,16 @@ def download_clip_wrapper(row, output_dir, trim_format, tmp_dir, behaviors):
                                     tmp_dir=tmp_dir)
     
     #create file category.csv
-    create_categ_csv(output_dir, behaviors, row['label-name'], row['video-id'])
+    create_categ_csv(id_dir, behaviors, row['label-name'], row['video-id'], downloaded, log)
 
     status = tuple([clip_id, downloaded, log])
     return status
 
-def create_categ_csv(output_dir, behaviors, subcategory, filename):
+def create_categ_csv(output_dir, behaviors, subcategory, filename, downloaded, log):
 
     #categories used to create the 
     data_dict = {
-        'FOOD': [
+        'food': [
             'eating burger',
             'eating cake',
             'eating carrots',
@@ -169,24 +164,24 @@ def create_categ_csv(output_dir, behaviors, subcategory, filename):
             'tasting wine',
             'sipping cup'
         ],
-        'PHONE': [
+        'phone': [
             'texting',
             'talking on cell phone',
             'looking at phone'
         ],
-        'SMOKING': [
+        'smoking': [
             'smoking',
             'smoking hookah',
             'smoking pipe'
         ],
-        'FATIGUE': [
+        'fatigue': [
             'sleeping',
             'yawning',
             'headbanging',
             'headbutting',
             'shaking head'
         ],
-        'SELF CARE': [
+        'selfcare': [
             'scrubbing face',
             'putting in contact lenses',
             'putting on eyeliner',
@@ -208,8 +203,8 @@ def create_categ_csv(output_dir, behaviors, subcategory, filename):
 
         if matching_categ:
             # Create a DataFrame with matching key-activity pairs
-            matching_data = [(category, subcategory, filename) for category in matching_categ]
-            df = pd.DataFrame(matching_data, columns=['Category', 'Sub-behavior', 'Filename'])
+            matching_data = [(category, subcategory, filename, downloaded, log) for category in matching_categ]
+            df = pd.DataFrame(matching_data, columns=['Category', 'Sub-behavior', 'Filename', 'Downloaded', 'Log'])
 
             # Write the DataFrame to a CSV file
             output_filename = os.path.join(output_dir, 'category.csv')
@@ -269,8 +264,6 @@ def main(input_csv, output_dir,
     if not os.path.exists(tmp_dir):
         os.makedirs(tmp_dir)
 
-    #TODO: rimuovere o modificare questa funzione, non serve fare una cartella per ogni label in questo caso.
-    #label_to_dir = create_video_folders(dataset, output_dir, tmp_dir)
     
 
     # Download all clips.

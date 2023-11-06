@@ -29,6 +29,99 @@ def find_classes(dir):
     class_to_idx = {classes[i]: i for i in range(len(classes))}
     return classes, class_to_idx
 
+
+def kinetics_classes(classes_csv):
+    df = pd.read_csv(classes_csv)
+    classes_behaviors = {}
+
+    for _, row in df.iterrows():
+        class_name = row['Class']
+        subcategory = row['Subcategory']
+        
+        # Check if the class_name is already in the dictionary, if not, create a new entry
+        if class_name not in classes_behaviors:
+            classes_behaviors[class_name] = []
+        
+        # Add the subcategory to the corresponding class_name entry in the dictionary
+        classes_behaviors[class_name].append(subcategory)
+
+    return classes_behaviors
+
+class KineticsDataset(Dataset):
+    def __init__(self, folder_csv, data_folder, transform, train=True):
+
+        #In folder_csv are place: train.csv, validation.csv, test.csv and classes.csv
+        if train:
+            self.data_csv = os.path.join(folder_csv, 'train.csv')
+        else:
+            self.data_csv = os.path.join(folder_csv, 'test.csv')
+
+        #TODO: fare caso per validation
+
+        self.data_folder = data_folder
+
+        df = pd.read_csv(self.data_csv)
+
+        self.data = []
+        self.targets = []
+
+        for _, row in df.iterrows():
+            #replace to match how the data was called in the folder
+            id_data = row['youtube_id'].replace('-','')
+            self.data.append(id_data)
+
+            #retrieve the class - targets da category.csv
+            data_dir = os.path.join(self.data_folder, id_data)
+            cat_csv_path = os.path.join(data_dir,'category.csv')
+            cat_csv = pd.read_csv(cat_csv_path)
+            cat_row = next(cat_csv.iterrows())[1]
+            matching_class = cat_row['Category']
+            self.targets.append(matching_class)
+
+        
+        #create a mapping between classes - behaviors
+        class_csv = os.path.join(folder_csv, 'classes.csv')
+        self.classes_behaviors = kinetics_classes(class_csv)
+
+        #create a index for each class
+        self.class_to_idx = {key: i for i, key in enumerate(self.classes_behaviors.keys())} 
+
+        
+        self.transform = transform
+
+        
+    
+    def __len__(self) -> int:
+        return len(self.data)
+
+    
+    def __getitem__(self, index: int) -> Tuple[Any, Any]:
+
+        #TODO: testare funzioni tale logica e che le trasformazioni possano essere applicate direttamente
+        #ai video e non alle singole immagini
+        img_id, target = self.data[index], self.targets[index]
+
+        video_id_path = os.path.join(self.data_folder,img_id)
+        images_path = os.path.join(video_id_path,'jpgs')
+
+        video = []
+        
+        for i in len(os.listdir(images_path)):
+            image_name = 'image_{:05d}.jpg'.format(i)
+            im_path = os.path.join(images_path,image_name)
+            with open(im_path, 'rb') as f:
+                img = Image.open(f)
+                img = img.convert('RGB')
+                video.append(img)
+
+
+        if self.transform is not None:
+            video = self.transform(video)
+            
+            
+        return video, target
+
+
 def get_train_val_images_tiny(data_path):
     if not os.path.exists(data_path):
         os.mkdir(data_path)
@@ -204,6 +297,31 @@ def get_dataset(dataset_type, data_path):
         test_set = TinyImagenetDataset(test_data, test_targets, class_to_idx, test_transform)
         
         n_classes = 100
+    elif dataset_type == "kinetics":
+        
+        print("Loading Kinetics")
+        
+        train_transform = [transforms.Resize(240),
+                transforms.ToTensor(),
+                #TODO:normalize?
+                #transforms.Normalize(mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225])
+                ]
+        train_transform = transforms.Compose(train_transform)
+
+        test_transform = [transforms.Resize(240),
+                        transforms.ToTensor(),
+                        #TODO:normalize?
+                        #transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))
+                          ]  
+        test_transform = transforms.Compose(test_transform)
+
+        #TODO: prendere dataset...
+        #restituire train_set, test_set e n_classes 
+
+        #TODO:prendere folder_csv
+        train_set = KineticsDataset(folder_csv, data_path, train_transform, train=True)
+        test_set = KineticsDataset(folder_csv, data_path, test_transform, train=False)
+        
     
     return train_set, test_set, n_classes
 

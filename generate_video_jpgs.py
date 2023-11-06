@@ -55,15 +55,15 @@ def video_process(video_file_path, dst_root_path, ext, fps=-1, size=240):
     print('\n')
 
 
-def class_process(class_dir_path, dst_root_path, ext, fps=-1, size=240):
-    if not class_dir_path.is_dir():
+def dir_process(id_video_path, dst_root_path, ext, fps=-1, size=240):
+    if not id_video_path.is_dir():
         return
 
-    dst_class_path = dst_root_path / class_dir_path.name
-    dst_class_path.mkdir(exist_ok=True)
+    dst_path = id_video_path.name / dst_root_path
+    dst_path.mkdir(exist_ok=True)
 
-    for video_file_path in sorted(class_dir_path.iterdir()):
-        video_process(video_file_path, dst_class_path, ext, fps, size)
+    for video_file_path in sorted(id_video_path.iterdir()):
+        video_process(video_file_path, dst_path, ext, fps, size)
 
 
 if __name__ == '__main__':
@@ -72,7 +72,7 @@ if __name__ == '__main__':
         'dir_path', default=None, type=Path, help='Directory path of videos')
     parser.add_argument(
         'dst_path',
-        default=None,
+        default='jpgs',
         type=Path,
         help='Directory path of jpg videos')
     parser.add_argument(
@@ -105,13 +105,22 @@ if __name__ == '__main__':
                 video_file_path, args.dst_path, ext, args.fps, args.size)
                                  for video_file_path in video_file_paths)
     else:
-        class_dir_paths = [x for x in sorted(args.dir_path.iterdir())]
+        #TODO: interessati a questa parte, modificare per agire sulla nuova organizzazione
+        #Kinetics/Videos/videoid/videoid.mp4
+        #Kinetics/Videos/videoid/jpgs/...
+        
+        video_file_path = [x for x in sorted(args.dir_path.iterdir())]
+        
+        #TODO: maybe da rimuovere
+        """ 
         test_set_video_path = args.dir_path / 'test'
         if test_set_video_path.exists():
-            class_dir_paths.append(test_set_video_path)
+            video_file_path.append(test_set_video_path) """
 
+        print(f"Videos from directory: {args.dir_path}")
+        
         status_list = Parallel(
             n_jobs=args.n_jobs,
-            backend='threading')(delayed(class_process)(
-                class_dir_path, args.dst_path, ext, args.fps, args.size)
-                                 for class_dir_path in class_dir_paths)
+            backend='threading')(delayed(dir_process)(
+                video_dir, args.dst_path, ext, args.fps, args.size)
+                                 for video_dir in video_file_path)
