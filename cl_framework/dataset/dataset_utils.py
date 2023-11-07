@@ -66,6 +66,13 @@ class KineticsDataset(Dataset):
         self.targets = []
         self.behaviors = []
 
+        #create a mapping between classes - behaviors
+        class_csv = os.path.join(folder_csv, 'classes.csv')
+        self.classes_behaviors = kinetics_classes(class_csv)
+
+        #create a index for each class
+        self.class_to_idx = {key: i for i, key in enumerate(self.classes_behaviors.keys())} 
+
         for _, row in df.iterrows():
             #replace to match how the data was called in the folder
             id_data = row['youtube_id'].replace('-','')
@@ -78,17 +85,12 @@ class KineticsDataset(Dataset):
             cat_row = next(cat_csv.iterrows())[1]
             matching_class = cat_row['Category']
             #retrieve the behavior from category.csv
-            self.targets.append(matching_class)
+            self.targets.append(self.class_to_idx[matching_class])
             matching_behavior = cat_row['Sub-behavior']
             self.behaviors.append(matching_behavior)
 
         
-        #create a mapping between classes - behaviors
-        class_csv = os.path.join(folder_csv, 'classes.csv')
-        self.classes_behaviors = kinetics_classes(class_csv)
-
-        #create a index for each class
-        self.class_to_idx = {key: i for i, key in enumerate(self.classes_behaviors.keys())} 
+        
 
         
         self.transform = transform

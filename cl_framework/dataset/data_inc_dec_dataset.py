@@ -25,12 +25,13 @@ class DataIncDecBaseline():
             train_indices_list = [[] for _ in range(self.n_task)]  # List of list, each list contains indices in the entire dataset to accumulate for the task
             #TODO: per ora suppongo di dividere per due, ma posso modificare come farlo... logica passata da fuori
             
+            #TODO: to be removed
             initial_train_split = int((self.len_dataset/self.initial_split))
-            #TODO: rimuovere, forse questo non utile..
-            subsequent_train_split = int((self.len_dataset)) - initial_train_split
+            
 
 
-            sub_split_indices = []
+            first_split = []
+            second_split = []
 
             #TODO: controllare di aver fatto i due split iniziali correttamente
             #now divide the two first splits of the dataset
@@ -43,18 +44,53 @@ class DataIncDecBaseline():
                     
                     current_behavior_indices = np.where(np.array(self.dataset.behaviors) == it_behaviors)[0]
 
-                    #create the two splits for each behavior
-                    first_split_indices = current_behavior_indices[:initial_train_split]
-                    second_split_indices = current_behavior_indices[initial_train_split:]
-                    #add these indeces for the first task
-                    train_indices_list[0].extend(list(first_split_indices))
-                    sub_split_indices.extend(list(second_split_indices))
+                    num_data_first_split = int(len(current_behavior_indices)/self.initial_split)
 
-                
-            #TODO: fare tutti split per ogni task, da sub_split_indices
+                    #create the two splits for each behavior
+                    first_split_indices = current_behavior_indices[:num_data_first_split]
+                    second_split_indices = current_behavior_indices[num_data_first_split:]
+                    #add these indices for the first task
+                    first_split.extend(list(first_split_indices))
+                    second_split.extend(list(second_split_indices))
+
+            #TODO: forse da rimuovere questi due 
+            #number of video to substitute from the first split and to add from the second split
+            n_first_split = int((len(first_split)/self.initial_split))
+            n_second_split = int((len(second_split)/self.initial_split))
+
+
             for i in range(self.n_task):
-                pass
-                #TODO: finire logica di splitting
+
+                for idx_class in range(self.total_classes):
+            
+
+                    #takes indices of the class
+                    current_class_indices = np.where(np.array(self.dataset.targets) == idx_class)[0]
+
+                    #takes indices of the class from the first split
+                    f_class_indices = [idx for idx in current_class_indices if idx in train_indices_list[0]]
+
+                    sec_class_indices = [idx for idx in current_class_indices if idx in second_split_indices]
+
+                    #number of data from the first split to be removed
+                    f_data_task = int(len(f_class_indices)/self.n_task)
+
+                    #number of data from the second split to be added
+                    sec_data_task = int(len(sec_class_indices)/self.n_task)
+
+                    #indices from the first split 
+                    f_idx = current_class_indices[f_data_task*i:]
+
+                    #indices from the second split 
+                    s_idx = current_class_indices[:sec_data_task*i]
+
+                    #add and remove data and make the list of indices for the task
+                    train_indices_list[i].extend(list(f_idx + s_idx))
+
+            #TODO: controllare funzioni questa logica per creare liste di indici
+                
+            
+            
                 
                         
             
@@ -66,14 +102,9 @@ class DataIncDecBaseline():
         
         else:
             #test
-            test_indices_list = [[] for _ in range(self.n_task)] 
-            for cc in range(self.total_classes):
-                test_indices  = np.where(np.array(self.dataset.targets) == cc)[0]
-                for task_id, task_classes in self.task_dictionary.items():
-                    if cc in task_classes:
-                        test_indices_list[task_id].extend(list(test_indices))
             
-            cl_test_dataset = [Subset(self.dataset, ids)  for ids in test_indices_list]
-            cl_test_sizes =[len(ids) for ids in test_indices_list]
+            
+            cl_test_dataset = []
+            cl_test_sizes =[]
 
             return cl_test_dataset, cl_test_sizes, None, None
