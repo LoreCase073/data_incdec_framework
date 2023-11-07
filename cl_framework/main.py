@@ -13,6 +13,7 @@ from continual_learning.LearningWithoutForgetting import LWF
 
 # dataset 
 from dataset.continual_learning_dataset import ContinualLearningDataset
+from dataset.data_inc_dec_dataset import DataIncDecBaseline
 from dataset.dataset_utils import get_dataset 
 import sys 
 
@@ -50,21 +51,20 @@ if __name__ == "__main__":
     Dataset Preparation
     """
 
-    #TODO: qui è necessario introdurre come gestire il dataset, come trasformazioni e altro. 
-    # Magari in prima battuta un semplice resize delle immagini e (se fps sottocampionare) prendere sottoinsieme di frames e 
-    # poi fornire in ingresso.
-    #Quindi modificare e aggiungere un dataset a: **dataset_utils.py line 134**
-
+    #TODO: completare e controllare funzioni tutto come desiderato
     train_set, test_set, total_classes = get_dataset(args.dataset, args.data_path)
     
-    #TODO: non so se utile shuffle le label...
-
-    # mapping between classes and shuffled classes and re-map dataset classes for different order of classes 
-    train_set, test_set, label_mapping = remap_targets(train_set, test_set, total_classes)
+    #TODO: non so se utile shuffle le label... per ora metto False
+    # mapping between classes and shuffled classes and re-map dataset classes for different order of classes
+    remap = False
+    if remap: 
+        train_set, test_set, label_mapping = remap_targets(train_set, test_set, total_classes)
     
-    #TODO: forse modificare/sostituire per eliminare num di label ad ogni task
+    #TODO: forse modificare/sostituire per eliminare num di label ad ogni task... per ora metto False
     # class_per_task: number of classes not in the first task, if the first is larger, otherwise it is equal to total_classes/n_task
-    class_per_task = get_class_per_task(args.n_class_first_task, total_classes, args.n_task)
+    ctask = False
+    if ctask:
+        class_per_task = get_class_per_task(args.n_class_first_task, total_classes, args.n_task)
     
     #TODO: modificare/sostituire, rendere tale da cambiare il numero di sub-behaviors presi per ogni classe
     # task_dict = {task_id: list_of_class_ids}
@@ -80,7 +80,11 @@ if __name__ == "__main__":
     """
 
     #TODO: modificare/sostituire per avere uno split 50% per primo allenamento e subsets per task successivi
-
+    #TODO: decommentare quando pronto DataIncDecBaseline
+    """ cl_train = DataIncDecBaseline(train_set, task_dict,  
+                                            args.n_task, args.n_class_first_task, 
+                                            class_per_task,total_classes,
+                                            valid_size=args.valid_size, train=True) """
     cl_train_val = ContinualLearningDataset(train_set, task_dict,  
                                             args.n_task, args.n_class_first_task, 
                                             class_per_task,total_classes,
@@ -89,7 +93,11 @@ if __name__ == "__main__":
     train_dataset_list, train_sizes, val_dataset_list, val_sizes = cl_train_val.collect()
 
     #TODO: modificare per avere un test e/o validation prestabiliti
-
+    #TODO: decommentare quando pronto DataIncDecBaseline, forse fare anche per validation
+    """ cl_test = DataIncDecBaseline(train_set, task_dict,  
+                                            args.n_task, args.n_class_first_task, 
+                                            class_per_task,total_classes,
+                                            valid_size=args.valid_size, train=True) """
     cl_test = ContinualLearningDataset(test_set, task_dict,  
                                        args.n_task, args.n_class_first_task, 
                                        class_per_task,total_classes,

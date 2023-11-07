@@ -64,19 +64,23 @@ class KineticsDataset(Dataset):
 
         self.data = []
         self.targets = []
+        self.behaviors = []
 
         for _, row in df.iterrows():
             #replace to match how the data was called in the folder
             id_data = row['youtube_id'].replace('-','')
             self.data.append(id_data)
 
-            #retrieve the class - targets da category.csv
+            #retrieve the class - targets from category.csv
             data_dir = os.path.join(self.data_folder, id_data)
             cat_csv_path = os.path.join(data_dir,'category.csv')
             cat_csv = pd.read_csv(cat_csv_path)
             cat_row = next(cat_csv.iterrows())[1]
             matching_class = cat_row['Category']
+            #retrieve the behavior from category.csv
             self.targets.append(matching_class)
+            matching_behavior = cat_row['Sub-behavior']
+            self.behaviors.append(matching_behavior)
 
         
         #create a mapping between classes - behaviors
@@ -99,7 +103,7 @@ class KineticsDataset(Dataset):
 
         #TODO: testare funzioni tale logica e che le trasformazioni possano essere applicate direttamente
         #ai video e non alle singole immagini
-        img_id, target = self.data[index], self.targets[index]
+        img_id, target, behavior = self.data[index], self.targets[index], self.behaviors[index]
 
         video_id_path = os.path.join(self.data_folder,img_id)
         images_path = os.path.join(video_id_path,'jpgs')
@@ -119,7 +123,7 @@ class KineticsDataset(Dataset):
             video = self.transform(video)
             
             
-        return video, target
+        return video, target, behavior
 
 
 def get_train_val_images_tiny(data_path):
@@ -314,9 +318,7 @@ def get_dataset(dataset_type, data_path):
                         #transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))
                           ]  
         test_transform = transforms.Compose(test_transform)
-
-        #TODO: prendere dataset...
-        #restituire train_set, test_set e n_classes 
+ 
 
         #TODO:prendere folder_csv
         train_set = KineticsDataset(folder_csv, data_path, train_transform, train=True)
