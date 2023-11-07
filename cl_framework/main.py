@@ -7,6 +7,7 @@ from torch.utils.data.dataloader import DataLoader
 
 # approaches 
 from continual_learning.FinetuningMethod import FineTuningMethod
+from continual_learning.DataIncrementalDecrementalMethod import DataIncrementalDecrementalMethod
  
 from continual_learning.LearningWithoutForgetting import LWF
 
@@ -138,7 +139,10 @@ if __name__ == "__main__":
                        task_dict=task_dict )
         
     #TODO: aggiungere approccio data incremental/decremental learning con relativa logica...
-    
+    elif args.approach == 'incdec':
+        approach = DataIncrementalDecrementalMethod(
+
+        )
   
  
      

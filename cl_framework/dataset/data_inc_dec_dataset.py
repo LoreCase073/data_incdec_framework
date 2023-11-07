@@ -103,7 +103,8 @@ class DataIncDecBaseline():
         else:
             #test
             
-            
+            #TODO: fare logica per test set?
+            #dovrei prendere comunque tutto il test set... modificare in questa maniera
             cl_test_dataset = []
             cl_test_sizes =[]
 
