@@ -41,7 +41,7 @@ def construct_video_filename(row, videos_dir, trim_format='%06d'):
        output filename for a given video.
     """
     videoid = row['video-id']
-    tmpid = videoid.replace('-','')
+    tmpid = 'id_' + videoid
     basename = '%s_%s_%s.mp4' % (tmpid,
                                  trim_format % row['start-time'],
                                  trim_format % row['end-time'])
@@ -97,7 +97,7 @@ def download_clip(video_identifier, output_filename,
         except subprocess.CalledProcessError as err:
             attempts += 1
             if attempts == num_attempts:
-                return status, err.output
+                return status, str(err.output)
         else:
             break
 
@@ -116,7 +116,7 @@ def download_clip(video_identifier, output_filename,
         output = subprocess.check_output(command, shell=True,
                                          stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as err:
-        return status, err.output
+        return status, str(err.output)
 
     # Check if the video was successfully saved.
     status = os.path.exists(output_filename)
@@ -124,7 +124,7 @@ def download_clip(video_identifier, output_filename,
     return status, 'Downloaded'
 
 
-def download_clip_wrapper(row, output_dir, trim_format, tmp_dir, behaviors):
+def download_clip_wrapper(row, output_dir, trim_format, tmp_dir, behaviors, i):
     """Wrapper for parallel processing purposes."""
     output_filename, id_dir = construct_video_filename(row, output_dir,
                                                trim_format)
@@ -132,6 +132,7 @@ def download_clip_wrapper(row, output_dir, trim_format, tmp_dir, behaviors):
     clip_id = os.path.basename(output_filename).split('.mp4')[0]
     if os.path.exists(output_filename):
         status = tuple([clip_id, True, 'Exists'])
+        print(f'Video number {i} processed.', flush=True)
         return status
 
     downloaded, log = download_clip(row['video-id'], output_filename,
@@ -142,6 +143,7 @@ def download_clip_wrapper(row, output_dir, trim_format, tmp_dir, behaviors):
     create_categ_csv(id_dir, behaviors, row['label-name'], row['video-id'], downloaded, log)
 
     status = tuple([clip_id, downloaded, log])
+    print(f'Video number {i} processed.', flush=True)
     return status
 
 def create_categ_csv(output_dir, behaviors, subcategory, filename, downloaded, log):
@@ -271,11 +273,11 @@ def main(input_csv, output_dir,
         status_lst = []
         for i, row in dataset.iterrows():
             status_lst.append(download_clip_wrapper(row, output_dir,
-                                                    trim_format, tmp_dir, behaviors))
+                                                    trim_format, tmp_dir, behaviors,i))
     else:
         status_lst = Parallel(n_jobs=num_jobs)(delayed(download_clip_wrapper)(
             row, output_dir,
-            trim_format, tmp_dir, behaviors) for i, row in dataset.iterrows())
+            trim_format, tmp_dir, behaviors,i) for i, row in dataset.iterrows())
 
     # Clean tmp dir.
     shutil.rmtree(tmp_dir)
