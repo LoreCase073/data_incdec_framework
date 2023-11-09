@@ -7,11 +7,14 @@ from continual_learning.models.BaseModel import BaseModel
 from continual_learning.metrics.metric_evaluator import MetricEvaluator
  
 
-
+#TODO: vedere se ereditare da IncrementalApproach ha senso e se modificare qualcosa
 class DataIncrementalDecrementalMethod(IncrementalApproach):
     #TODO: modificare init, non necessito di class_per_task probabilmente, non so di task_dict
+    
     def __init__(self, args, device, out_path, class_per_task, task_dict):
         super().__init__(args, device, out_path, class_per_task, task_dict)
+        #TODO: vedere se da BaseModel necessito di modificare qualcosa in caso, 
+        # probabilmente da modificare come prendere backbone
         self.model = BaseModel(backbone=self.backbone, dataset=args.dataset)
         self.print_running_approach()
 
@@ -62,6 +65,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         pass 
 
     #TODO: definire evaluation step
+    #TODO: definire quindi accuracy e AP
     def eval(self, current_training_task, test_id, loader, epoch,   verbose):
         metric_evaluator = MetricEvaluator(self.out_path, self.task_dict)
         
