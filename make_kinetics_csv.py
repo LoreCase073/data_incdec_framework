@@ -1,14 +1,17 @@
 import pandas as pd
 import os
 import argparse
+import shutil
 
 # existing_data_path = './data_incdec_framework/kinetics700_2020/train.csv'
 
-# downloaded_csv_path = './Kinetics/Download/attempt_1/download_log.csv'
+# downloaded_csv_path = './Kinetics/Download/attempt_2/download_log.csv'
 
-# log_csv = './Kinetics/error_log.csv'
+# log_csv = './Kinetics/Download/'
 
-def make_csv(existing_data_path, downloaded_csv_path, log_csv_path):
+# outdir = './Kinetics/'
+
+def make_csv(existing_data_path, downloaded_csv_path, log_csv_path, outdir, attempt_dir):
     # Define the provided activities
     activities = [
         'eating burger', 'eating cake', 'eating carrots', 'eating chips', 'eating doughnuts',
@@ -28,18 +31,25 @@ def make_csv(existing_data_path, downloaded_csv_path, log_csv_path):
     # Read the official Kinetics training CSV file
     existing_data = pd.read_csv(existing_data_path)
 
+    #path to latest attempt 
     old_csv = pd.read_csv(downloaded_csv_path)
 
-    log_csv = pd.read_csv(log_csv_path)
+    
 
     # Initialize an empty list to store matching activities
     matching_activities = []
 
+    
     #remove elements that gave problems in previous tries
-    ids = log_csv['Filename'].tolist()
-    ids_to_remove = [string[3:] for string in ids]
-        
-    filtered_existing_data = existing_data[~existing_data['youtube_id'].isin(ids_to_remove)]
+    filtered_existing_data = existing_data
+    for dir in os.listdir(log_csv_path):
+        tmp_path = os.path.join(log_csv_path, dir)
+        tmp_csv_file = os.path.join(tmp_path,'error_log.csv')
+        log_csv = pd.read_csv(tmp_csv_file)
+        ids = log_csv['Filename'].tolist()
+        ids_to_remove = [string[3:] for string in ids]
+            
+        filtered_existing_data = filtered_existing_data[~filtered_existing_data['youtube_id'].isin(ids_to_remove)]
 
     # Iterate through the provided activities and find matches in the existing data
     for activity in activities:
@@ -56,14 +66,22 @@ def make_csv(existing_data_path, downloaded_csv_path, log_csv_path):
     filtered_to_download = new_data[~new_data['youtube_id'].isin(downloaded_ids)]
 
     # Specify the output CSV file
-    kinetics_dir = './Kinetics/'
-    if not os.path.exists(kinetics_dir):
-        os.makedirs(kinetics_dir)
-    info_dir = os.path.join(kinetics_dir,'Info')
+    
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+    info_dir = os.path.join(outdir,'Info')
     if not os.path.exists(info_dir):
         os.makedirs(info_dir)
-    output_csv_file = './Kinetics/Info/train.csv'
-    to_download_csv = './Kinetics/Info/tbdownloaded.csv'
+    #if train.csv exists, move to old
+    output_csv_file = os.path.join(info_dir,'train.csv')
+    if os.path.exists(output_csv_file):
+        old_dir_csv = os.path.join(attempt_dir,'train.csv')
+        shutil.move(output_csv_file,old_dir_csv)
+    #if tbdownloaded.csv exists, move to old
+    to_download_csv = os.path.join(info_dir,'tbdownloaded.csv')
+    if os.path.exists(to_download_csv):
+        old_dir_csv = os.path.join(attempt_dir,'tbdownloaded.csv')
+        shutil.move(to_download_csv,old_dir_csv)
 
 
 
@@ -90,8 +108,14 @@ def make_csv(existing_data_path, downloaded_csv_path, log_csv_path):
     test_data = pd.DataFrame(test_match)
 
 
-    val_csv = './Kinetics/Info/validation.csv'
-    test_csv = './Kinetics/Info/test.csv'
+    val_csv = os.path.join(info_dir,'validation.csv')
+    if os.path.exists(val_csv):
+        old_dir_csv = os.path.join(attempt_dir,'validation.csv')
+        shutil.move(val_csv,old_dir_csv)
+    test_csv = os.path.join(info_dir,'test.csv')
+    if os.path.exists(test_csv):
+        old_dir_csv = os.path.join(attempt_dir,'test.csv')
+        shutil.move(test_csv,old_dir_csv)
 
     # Write the new data to the output CSV file
     eval_data.to_csv(val_csv, index=True, columns=['label', 'youtube_id', 'time_start', 'time_end', 'split'])
@@ -107,9 +131,26 @@ if __name__ == '__main__':
                    help=('CSV file containing the already downloaded files'))
     p.add_argument('log_csv_path', type=str,
                    help=('CSV file containing the log csv, with files to be ignored'))
+    p.add_argument('outdir', type=str,
+                   help=('output directory for all new csv'))
     
     
     args = p.parse_args()
-    make_csv(args.existing_data_path, args.downloaded_csv_path, args.log_csv_path)
 
+    if not os.path.exists(args.outdir):
+        os.makedirs(args.outdir)
+    info_dir = os.path.join(args.outdir,'Info')
+    if not os.path.exists(info_dir):
+        os.makedirs(info_dir)
+    old_dir = os.path.join(info_dir,'old')
+    if not os.path.exists(old_dir):
+        os.makedirs(old_dir)
+    num_dir = len(os.listdir(old_dir)) + 1
+    attempt_name = 'attempt_' + str(num_dir)
+    attempt_dir = os.path.join(old_dir,attempt_name)
+    if not os.path.exists(attempt_dir):
+        os.makedirs(attempt_dir)
+        make_csv(args.existing_data_path, args.downloaded_csv_path, args.log_csv_path, args.outdir, attempt_dir)
+    else:
+        print('Errore...')
     

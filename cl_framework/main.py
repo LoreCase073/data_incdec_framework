@@ -80,29 +80,32 @@ if __name__ == "__main__":
     Generate Subset For Each Task
     """
 
-    #TODO: modificare/sostituire per avere uno split 50% per primo allenamento e subsets per task successivi
-    #TODO: decommentare quando pronto DataIncDecBaseline
-    """ cl_train = DataIncDecBaseline(train_set, task_dict,  
-                                            args.n_task, args.n_class_first_task, 
-                                            class_per_task,total_classes,
-                                            valid_size=args.valid_size, train=True) """
-    cl_train_val = ContinualLearningDataset(train_set, task_dict,  
-                                            args.n_task, args.n_class_first_task, 
-                                            class_per_task,total_classes,
-                                            valid_size=args.valid_size, train=True)
+    #TODO: controllare che DataIncDecBaseline restituisca dataset corretti
+    if args.approach == 'incdec_baseline':
+        cl_train_val = DataIncDecBaseline(train_set, task_dict,  
+                                                args.n_task, args.n_class_first_task, 
+                                                class_per_task,total_classes,
+                                                valid_size=args.valid_size, train=True)
+    else:
+        
+        cl_train_val = ContinualLearningDataset(train_set, task_dict,  
+                                                args.n_task, args.n_class_first_task, 
+                                                class_per_task,total_classes,
+                                                valid_size=args.valid_size, train=True)
 
     train_dataset_list, train_sizes, val_dataset_list, val_sizes = cl_train_val.collect()
 
-    #TODO: modificare per avere un test e/o validation prestabiliti
-    #TODO: decommentare quando pronto DataIncDecBaseline, forse fare anche per validation
-    """ cl_test = DataIncDecBaseline(train_set, task_dict,  
-                                            args.n_task, args.n_class_first_task, 
-                                            class_per_task,total_classes,
-                                            valid_size=args.valid_size, train=True) """
-    cl_test = ContinualLearningDataset(test_set, task_dict,  
-                                       args.n_task, args.n_class_first_task, 
-                                       class_per_task,total_classes,
-                                       train=False)
+    #TODO: per il test è da fare implementazione di test set...
+    if args.approach == 'incdec_baseline':
+        cl_test = DataIncDecBaseline(train_set, task_dict,  
+                                                args.n_task, args.n_class_first_task, 
+                                                class_per_task,total_classes,
+                                                valid_size=args.valid_size, train=True)
+    else:
+        cl_test = ContinualLearningDataset(test_set, task_dict,  
+                                        args.n_task, args.n_class_first_task, 
+                                        class_per_task,total_classes,
+                                        train=False)
 
     test_dataset_list, test_sizes, _, _  = cl_test.collect()
     test_loaders = [DataLoader(test, batch_size=args.batch_size*4, shuffle=False, num_workers=args.nw) for test in test_dataset_list]

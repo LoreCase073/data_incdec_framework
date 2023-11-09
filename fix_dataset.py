@@ -21,7 +21,7 @@ root_path = './Kinetics/'
 
 download_info_path = os.path.join(root_path,'Download')
 
-num_dir = len(os.listdir(download_info_path))
+num_dir = len(os.listdir(download_info_path)) + 1
 attempt_name = 'attempt_' + str(num_dir)
 attempt_dir = os.path.join(download_info_path,attempt_name)
 if not os.path.exists(attempt_dir):
@@ -93,11 +93,11 @@ if not os.path.exists(attempt_dir):
 
 
     df = pd.DataFrame(no_download_list, columns=['Filename', 'Category', 'Sub-behavior', 'Log'])
-    output_filename = os.path.join(root_path, 'error_log.csv')
+    output_filename = os.path.join(attempt_dir, 'error_log.csv')
     df.to_csv(output_filename, index=False)
 
     df2 = pd.DataFrame(download_list, columns=['Filename', 'Category', 'Sub-behavior', 'Seconds'])
-    output_filename2 = os.path.join(root_path, 'download_log.csv')
+    output_filename2 = os.path.join(attempt_dir, 'download_log.csv')
     df2.to_csv(output_filename2, index=False)
 else:
     #TODO: fare che è dentro funzione...

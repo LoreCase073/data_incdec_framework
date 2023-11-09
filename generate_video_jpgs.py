@@ -55,11 +55,12 @@ def video_process(video_file_path, dst_root_path, ext, fps=-1, size=240):
     print('\n')
 
 
-def dir_process(id_video_path, dst_root_path, ext, fps=-1, size=240):
+def dir_process(id_video_path, dst_path, ext, fps=-1, size=240):
     if not id_video_path.is_dir():
         return
 
-    dst_path = id_video_path.name / dst_root_path
+
+    dst_path = id_video_path.name / dst_path
     dst_path.mkdir(exist_ok=True)
 
     for video_file_path in sorted(id_video_path.iterdir()):
@@ -80,6 +81,8 @@ if __name__ == '__main__':
         default='',
         type=str,
         help='Dataset name (kinetics | mit | ucf101 | hmdb51 | activitynet)')
+    parser.add_argument(
+        'csv_path', default=None, type=Path, help='Csv with paths of videos to create jpgs')
     parser.add_argument(
         '--n_jobs', default=-1, type=int, help='Number of parallel jobs')
     parser.add_argument(
