@@ -146,8 +146,8 @@ if __name__ == "__main__":
         
     #TODO: aggiungere approccio data incremental/decremental learning con relativa logica...
     elif args.approach == 'incdec':
-        approach = DataIncrementalDecrementalMethod(
-
+        approach = DataIncrementalDecrementalMethod(args=args, device = device,
+                    out_path=out_path,
         )
   
  
