@@ -2,6 +2,7 @@
 import torch
 from .resnet18 import resnet18
 from .resnet18_imagenet import resnet18_imagenet
+from resnet3d.resnet import generate_model_3dresnet
 from torch import nn
 import sys 
 import math
@@ -21,7 +22,8 @@ class BaseModel(nn.Module):
                 self.backbone = resnet18(avg_pool_size=8, pretrained=False)
             elif dataset == "imagenet-subset":
                 self.backbone = resnet18_imagenet()
-
+        elif self.backbone_type == '3dresnet18':
+            self.backbone == generate_model_3dresnet(18)
         else:
             sys.exit("Model Not Implemented")
 
@@ -31,12 +33,12 @@ class BaseModel(nn.Module):
         return self.backbone.feature_space_size
 
     def add_classification_head(self, n_out):
-      
+        #TODO: qui forse fare che se il modello è per DataIncDec, forse una sola testa, non più...
         self.heads.append(
             torch.nn.Sequential(nn.Linear(self.backbone.feature_space_size, n_out, bias=False)))
 
     
-    def reset_backbone(self):
+    def reset_backbone(self, backbone = None):
 
         if self.dataset == "cifar100":
             self.backbone = resnet18(avg_pool_size=4, pretrained=False)  
@@ -45,6 +47,8 @@ class BaseModel(nn.Module):
         
         elif self.dataset == "imagenet-subset":
             self.backbone = resnet18_imagenet()
+        elif self.dataset == "kinetics" or backbone == "3dresnet18":
+             self.backbone == generate_model_3dresnet(18)
         
 
     def forward(self, x):

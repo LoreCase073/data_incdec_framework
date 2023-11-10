@@ -5,7 +5,7 @@ import shutil
 
 # existing_data_path = './data_incdec_framework/kinetics700_2020/train.csv'
 
-# downloaded_csv_path = './Kinetics/Download/attempt_2/download_log.csv'
+# downloaded_csv_path = './Kinetics/Download/attempt_3/download_log.csv'
 
 # log_csv = './Kinetics/Download/'
 
@@ -63,7 +63,7 @@ def make_csv(existing_data_path, downloaded_csv_path, log_csv_path, outdir, atte
     downloaded = old_csv['Filename'].tolist()
     downloaded_ids = [string[3:] for string in downloaded]
 
-    filtered_to_download = new_data[~new_data['youtube_id'].isin(downloaded_ids)]
+    #filtered_to_download = new_data[~new_data['youtube_id'].isin(downloaded_ids)]
 
     # Specify the output CSV file
     
@@ -87,25 +87,28 @@ def make_csv(existing_data_path, downloaded_csv_path, log_csv_path, outdir, atte
 
     # Write the new data to the output CSV file
     new_data.to_csv(output_csv_file, index=True, columns=['label', 'youtube_id', 'time_start', 'time_end', 'split'])
-    filtered_to_download.to_csv(to_download_csv, index=True, columns=['label', 'youtube_id', 'time_start', 'time_end', 'split'])
+    #filtered_to_download.to_csv(to_download_csv, index=True, columns=['label', 'youtube_id', 'time_start', 'time_end', 'split'])
 
 
 
     #Now we repeat with new data for evaluation and test set
 
-    n=140
+    n=120
     eval_match = []
     test_match = []
+    to_download = []
 
     # Iterate through the provided activities and find matches in the existing data
     for activity in activities:
         matching_rows = filtered_existing_data[filtered_existing_data['label'] == activity].head(n)
-        eval_match.extend(matching_rows[100:120].to_dict('records'))
-        test_match.extend(matching_rows[120:140].to_dict('records'))
+        eval_match.extend(matching_rows[100:110].to_dict('records'))
+        test_match.extend(matching_rows[110:120].to_dict('records'))
+        to_download.extend(matching_rows[:120].to_dict('records'))
 
     # Create a new DataFrame from the matching activities
     eval_data = pd.DataFrame(eval_match)
     test_data = pd.DataFrame(test_match)
+    to_dl = pd.DataFrame(to_download)
 
 
     val_csv = os.path.join(info_dir,'validation.csv')
@@ -120,6 +123,7 @@ def make_csv(existing_data_path, downloaded_csv_path, log_csv_path, outdir, atte
     # Write the new data to the output CSV file
     eval_data.to_csv(val_csv, index=True, columns=['label', 'youtube_id', 'time_start', 'time_end', 'split'])
     test_data.to_csv(test_csv, index=True, columns=['label', 'youtube_id', 'time_start', 'time_end', 'split'])
+    to_dl.to_csv(to_download_csv, index=True, columns=['label', 'youtube_id', 'time_start', 'time_end', 'split'])
 
 
 if __name__ == '__main__':

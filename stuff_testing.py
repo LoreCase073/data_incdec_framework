@@ -50,3 +50,23 @@ python -m util_scripts.kinetics_json csv_dir_path 700 jpg_video_dir_path jpg dst
 #python ./ActivityNet/Crawler/Kinetics/download.py ./kinetics700_2020/trying.csv ./video/
 
 #es: python generate_video_jpgs.py ./video/ ./jpgs/ kinetics
+import pandas as pd
+
+download_log = './Kinetics/Download/attempt_3/download_log.csv'
+df1 = pd.read_csv(download_log)
+error_log = './Kinetics/Download/attempt_3/error_log.csv'
+df2 = pd.read_csv(error_log)
+data_csv = './Kinetics/Info/train.csv'
+data = pd.read_csv(data_csv)
+print(data[data.duplicated(subset=['youtube_id'], keep=False)])
+""" ids = df1['Filename'].tolist()
+ids_to_remove = [string[3:] for string in ids]
+filtered_existing_data = data[~data['youtube_id'].isin(ids_to_remove)]
+print(filtered_existing_data)
+
+ids = df2['Filename'].tolist()
+ids_to_remove = [string[3:] for string in ids]
+filtered_existing_data = filtered_existing_data[~filtered_existing_data['youtube_id'].isin(ids_to_remove)]
+
+
+print(filtered_existing_data) """

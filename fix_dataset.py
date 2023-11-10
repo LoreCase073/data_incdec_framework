@@ -31,7 +31,7 @@ if not os.path.exists(attempt_dir):
 
     info_path = os.path.join(root_path,'Info')
 
-    train_csv_path = os.path.join(info_path,'train.csv')
+    train_csv_path = os.path.join(info_path,'tbdownloaded.csv')
 
     train_csv = pd.read_csv(train_csv_path)
     #list of elements in train, which we have to check if they are downloaded

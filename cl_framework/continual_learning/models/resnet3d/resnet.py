@@ -147,7 +147,12 @@ class ResNet(nn.Module):
                                        stride=2)
 
         self.avgpool = nn.AdaptiveAvgPool3d((1, 1, 1))
-        self.fc = nn.Linear(block_inplanes[3] * block.expansion, n_classes)
+        #TODO: rimuovere, perchè la testa la vogliamo aggiungere noi da fuori
+        #self.fc = nn.Linear(block_inplanes[3] * block.expansion, n_classes)
+
+        #this is the last feature_space_size, so i can pass it out to add the 
+        # classification head from out of the model
+        self.feature_space_size = block_inplanes[3]
 
         for m in self.modules():
             if isinstance(m, nn.Conv3d):
@@ -208,12 +213,13 @@ class ResNet(nn.Module):
         x = self.avgpool(x)
 
         x = x.view(x.size(0), -1)
-        x = self.fc(x)
+        
+        #x = self.fc(x)
 
         return x
 
 
-def generate_model(model_depth, **kwargs):
+def generate_model_3dresnet(model_depth, **kwargs):
     assert model_depth in [10, 18, 34, 50, 101, 152, 200]
 
     if model_depth == 10:

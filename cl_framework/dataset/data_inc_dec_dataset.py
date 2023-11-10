@@ -1,7 +1,7 @@
 from torch.utils.data import Subset
 import numpy as np
 
-class DataIncDecBaseline():
+class DataIncDecBaselineDataset():
     def __init__(self, dataset, task_dictionary,  
                     n_task, initial_split,
                     total_classes, train=True):

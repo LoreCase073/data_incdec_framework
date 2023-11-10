@@ -14,7 +14,7 @@ from continual_learning.LearningWithoutForgetting import LWF
 
 # dataset 
 from dataset.continual_learning_dataset import ContinualLearningDataset
-from dataset.data_inc_dec_dataset import DataIncDecBaseline
+from dataset.data_inc_dec_dataset import DataIncDecBaselineDataset
 from dataset.dataset_utils import get_dataset 
 import sys 
 
@@ -71,6 +71,7 @@ if __name__ == "__main__":
     # task_dict = {task_id: list_of_class_ids}
     task_dict = get_task_dict(args.n_task, total_classes, class_per_task, args.n_class_first_task)   
     
+    #TODO: fare print diverso per diverso tipo di task del DataIncDec...
     print("Dataset: {}, N task: {}, Large First Task Classes: {}, Classes Per Task : {}".format(args.dataset,
                                                                                                   args.n_task,
                                                                                                   args.n_class_first_task,
@@ -82,7 +83,7 @@ if __name__ == "__main__":
 
     #TODO: controllare che DataIncDecBaseline restituisca dataset corretti
     if args.approach == 'incdec_baseline':
-        cl_train_val = DataIncDecBaseline(train_set, task_dict,  
+        cl_train_val = DataIncDecBaselineDataset(train_set, task_dict,  
                                                 args.n_task, args.n_class_first_task, 
                                                 class_per_task,total_classes,
                                                 valid_size=args.valid_size, train=True)
@@ -97,7 +98,7 @@ if __name__ == "__main__":
 
     #TODO: per il test è da fare implementazione di test set...
     if args.approach == 'incdec_baseline':
-        cl_test = DataIncDecBaseline(train_set, task_dict,  
+        cl_test = DataIncDecBaselineDataset(train_set, task_dict,  
                                                 args.n_task, args.n_class_first_task, 
                                                 class_per_task,total_classes,
                                                 valid_size=args.valid_size, train=True)
@@ -110,6 +111,7 @@ if __name__ == "__main__":
     test_dataset_list, test_sizes, _, _  = cl_test.collect()
     test_loaders = [DataLoader(test, batch_size=args.batch_size*4, shuffle=False, num_workers=args.nw) for test in test_dataset_list]
     
+    #TODO: valutare se necessario il validation nel caso di DataIncDec...
     if args.valid_size > 0:
         print("Creating Validation Set")
         train_loaders = [DataLoader(train, batch_size=args.batch_size, shuffle=True, num_workers=args.nw) for train in train_dataset_list]
@@ -125,6 +127,7 @@ if __name__ == "__main__":
     """
     Logger Init
     """
+    #TODO: modificare per trattare dati di DataIncDec method...
     logger = Logger(out_path=out_path, n_task=args.n_task, task_dict=task_dict, test_sizes=test_sizes)
     result_folder(out_path, "tensorboard")
     result_folder(out_path, "logger")
@@ -242,7 +245,7 @@ if __name__ == "__main__":
     
             
             
- 
+    #TODO: modificare anche SummaryLogger per fare salvataggio delle metriche necessarie per DataIncDec
     summary_logger = SummaryLogger(all_args, all_default_args, args.outpath)
     summary_logger.update_summary(exp_name, logger)
     store_valid_loader(out_path, valid_loaders, False)

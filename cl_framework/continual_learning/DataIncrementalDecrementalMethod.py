@@ -15,6 +15,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         super().__init__(args, device, out_path, class_per_task, task_dict)
         #TODO: vedere se da BaseModel necessito di modificare qualcosa in caso, 
         # probabilmente da modificare come prendere backbone
+
         self.model = BaseModel(backbone=self.backbone, dataset=args.dataset)
         self.print_running_approach()
 
@@ -22,7 +23,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
     def print_running_approach(self):
         super(DataIncrementalDecrementalMethod, self).print_running_approach()
         
-    #TODO: modifica info necessario per impostare parametri per il pretraining
+    #TODO: modifica info necessarie per impostare parametri per il pretraining
     def pre_train(self,  task_id, trn_loader, test_loader):
         self.model.add_classification_head(len(self.task_dict[task_id]))
         self.model.to(self.device)
@@ -54,7 +55,8 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
             loss.backward()
             self.optimizer.step()
 
-    #TODO: definire loss (criterion)
+    #TODO: t è il task_id, immagino di doverlo usare poi per salvare data del task
+    #cross entropy correct for our task of video classification
     def criterion(self, outputs, targets, t):
         targets = self.rescale_targets(targets, t)
         return torch.nn.functional.cross_entropy(outputs[t], targets)
@@ -66,6 +68,10 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
 
     #TODO: definire evaluation step
     #TODO: definire quindi accuracy e AP
+    #TODO: accuracy e AP vanno probabilmente generate per ogni classe e per ogni sub-behavior, 
+    # per identificare comportamenti anomali al variare dei dati e dei training
+    #TODO: controllare https://torchmetrics.readthedocs.io/en/stable/classification/average_precision.html
+    #magari ci sono già implementati metodi interessanti
     def eval(self, current_training_task, test_id, loader, epoch,   verbose):
         metric_evaluator = MetricEvaluator(self.out_path, self.task_dict)
         
@@ -90,7 +96,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                                         self.taw_probabilities(outputs, test_id),
                                         )
 
-         
+            #task aware accuracy e task agnostic accuracy
             taw_acc,  tag_acc  = metric_evaluator.get(verbose=verbose)
  
               
