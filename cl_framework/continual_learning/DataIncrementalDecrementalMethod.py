@@ -11,8 +11,8 @@ from continual_learning.metrics.metric_evaluator import MetricEvaluator
 class DataIncrementalDecrementalMethod(IncrementalApproach):
     #TODO: modificare init, non necessito di class_per_task probabilmente, non so di task_dict
     
-    def __init__(self, args, device, out_path, class_per_task, task_dict):
-        super().__init__(args, device, out_path, class_per_task, task_dict)
+    def __init__(self, args, device, out_path, behaviors_per_task, task_dict):
+        super().__init__(args, device, out_path, behaviors_per_task, task_dict)
         #TODO: vedere se da BaseModel necessito di modificare qualcosa in caso
 
         self.model = BaseModel(backbone=self.backbone, dataset=args.dataset)
@@ -35,6 +35,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         
         #TODO: modificare, forse non prendere quello precedente e cambiare direttamente la logica
         #perchè 2 tipi di approcci diversi
+        #TODO: forse da non modificare nulla, ma non so per la logica delle teste multiple...
         super(DataIncrementalDecrementalMethod, self).pre_train(task_id)
 
     #TODO: forse non necessario da cambiare, controllare...

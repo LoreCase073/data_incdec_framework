@@ -1,6 +1,7 @@
 from utilities.generic_utils import experiment_folder, result_folder, \
                             get_task_dict, seed_everything, rollback_model, \
-                            store_model, store_valid_loader, get_class_per_task, remap_targets 
+                            store_model, store_valid_loader, get_class_per_task, remap_targets, get_behaviors_per_task, \
+                            get_task_dict_incdec
 from utilities.parse_utils import get_args
 from utilities.matrix_logger import Logger
 from torch.utils.data.dataloader import DataLoader
@@ -58,18 +59,25 @@ if __name__ == "__main__":
     #TODO: non so se utile shuffle le label... per ora metto False
     # mapping between classes and shuffled classes and re-map dataset classes for different order of classes
     remap = False
-    if remap: 
+    if not (args.approach == 'incdec'): 
         train_set, test_set, label_mapping = remap_targets(train_set, test_set, total_classes)
     
-    #TODO: forse modificare/sostituire per eliminare num di label ad ogni task... per ora metto False
+    #TODO: forse modificare/sostituire per eliminare num di label ad ogni task... 
     # class_per_task: number of classes not in the first task, if the first is larger, otherwise it is equal to total_classes/n_task
-    ctask = False
-    if ctask:
+    
+    if args.approach == 'incdec':
+        #TODO: to implement
+        behaviors_per_task = get_behaviors_per_task(total_classes, args.n_task, args.baseline)
+    else:
         class_per_task = get_class_per_task(args.n_class_first_task, total_classes, args.n_task)
     
     #TODO: modificare/sostituire, rendere tale da cambiare il numero di sub-behaviors presi per ogni classe
     # task_dict = {task_id: list_of_class_ids}
-    task_dict = get_task_dict(args.n_task, total_classes, class_per_task, args.n_class_first_task)   
+    if args.approach == 'incdec':
+        #TODO: to implement
+        behaviors = get_task_dict_incdec(args.n_task, total_classes, behaviors_per_task, args.baseline)
+    else:
+        task_dict = get_task_dict(args.n_task, total_classes, class_per_task, args.n_class_first_task)   
     
     #TODO: fare print diverso per diverso tipo di task del DataIncDec...
     print("Dataset: {}, N task: {}, Large First Task Classes: {}, Classes Per Task : {}".format(args.dataset,
@@ -82,7 +90,7 @@ if __name__ == "__main__":
     """
 
     #TODO: controllare che DataIncDecBaseline restituisca dataset corretti
-    if args.approach == 'incdec_baseline':
+    if args.approach == 'incdec':
         cl_train_val = DataIncDecBaselineDataset(train_set, task_dict,  
                                                 args.n_task, args.n_class_first_task, 
                                                 class_per_task,total_classes,
@@ -97,7 +105,7 @@ if __name__ == "__main__":
     train_dataset_list, train_sizes, val_dataset_list, val_sizes = cl_train_val.collect()
 
     #TODO: per il test è da fare implementazione di test set...
-    if args.approach == 'incdec_baseline':
+    if args.approach == 'incdec':
         cl_test = DataIncDecBaselineDataset(train_set, task_dict,  
                                                 args.n_task, args.n_class_first_task, 
                                                 class_per_task,total_classes,
@@ -148,6 +156,8 @@ if __name__ == "__main__":
     elif args.approach == 'incdec':
         approach = DataIncrementalDecrementalMethod(args=args, device = device,
                     out_path=out_path,
+                    behaviors_per_task=behaviors_per_task,
+                    task_dict=task_dict,
         )
   
  

@@ -138,3 +138,54 @@ def store_valid_loader(out_path, valid_loaders, store):
     if store:
         for i, loader in enumerate(valid_loaders):
             torch.save(loader, os.path.join(out_path, 'dataloader_'+str(i)+'.pth'))
+
+
+
+
+
+def get_behaviors_per_task(total_classes, n_task=6, baseline=True):
+
+    if baseline == True:
+        behaviors_to_change = 0
+    else:
+        #TODO: aggiungere logica oltre la baseline
+        pass
+
+
+    return behaviors_to_change
+
+
+def get_task_dict_incdec(n_task, total_classes, behaviors_per_task, baseline):
+    #TODO: per ora implemento così, per renderlo migliore da passare con altra funzione o file esterno
+    data_dict = {
+    'food': [
+        'eating burger', 'eating cake', 'eating carrots', 'eating chips', 'eating doughnuts',
+        'eating hotdog', 'eating ice cream', 'eating spaghetti', 'eating watermelon',
+        'sucking lolly', 'tasting beer', 'tasting food', 'tasting wine', 'sipping cup'
+    ],
+    'phone': [
+        'texting', 'talking on cell phone', 'looking at phone'
+    ],
+    'smoking': [
+        'smoking', 'smoking hookah', 'smoking pipe'
+    ],
+    'fatigue': [
+        'sleeping', 'yawning', 'headbanging', 'headbutting', 'shaking head'
+    ],
+    'selfcare': [
+        'scrubbing face', 'putting in contact lenses', 'putting on eyeliner', 'putting on foundation',
+        'putting on lipstick', 'putting on mascara', 'brushing hair', 'brushing teeth', 'braiding hair',
+        'combing hair', 'dyeing eyebrows', 'dyeing hair'
+    ]
+    }
+
+    d = {}
+       
+    if baseline == True:
+        for i in range(n_task):
+            d.append(data_dict)
+    else:
+        #TODO: aggiungere logica oltre la baseline
+        pass
+               
+    return d 
