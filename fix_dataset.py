@@ -35,16 +35,38 @@ if not os.path.exists(attempt_dir):
 
     train_csv = pd.read_csv(train_csv_path)
     #list of elements in train, which we have to check if they are downloaded
-    train_ids = train_csv['youtube_id'].tolist()
+    """ train_ids = train_csv['youtube_id'].tolist()
+    time_start = train_csv['time_start'].tolist()
+    time_end = train_csv['time_end'].tolist() """
+    #iterate and change names to be matched in the directory convention
+    train_ids = []
+    for index, row in train_csv.iterrows():
+        tmp_id = 'id_' + str(row['youtube_id']) + '_' + '{:06d}'.format(row['time_start']) + '_' + '{:06d}'.format(row['time_end'])
+        train_ids.append(tmp_id)
 
     no_download_list = []
 
     download_list = []
 
-    #TODO: aggiungere check per ultimi video scaricati e funzionanti, non tutti..
-    for name in os.listdir(video_path):
+    
+    for n in os.listdir(video_path):
+        name = n
         name_path = os.path.join(video_path,name)
+        #remove directory if no mp4 file and change name if name of directory is different from mp4 file
+        mp4_file = [file for file in os.listdir(name_path) if file.endswith('.mp4')]
         cat_csv = os.path.join(name_path,'category.csv')
+        
+        if mp4_file:
+            mp4_name = mp4_file[0]
+            mp4_name_nosfx = mp4_name.replace('.mp4','')
+            if name != mp4_name_nosfx:
+                new_dir_name = os.path.join(video_path,mp4_name_nosfx)
+                os.rename(name_path,new_dir_name)
+                cat_csv = os.path.join(new_dir_name,'category.csv')
+                name = mp4_name_nosfx
+
+
+
         df = pd.read_csv(cat_csv)
         cat_row = next(df.iterrows())[1]
         id_video = cat_row['Filename']
@@ -52,12 +74,16 @@ if not os.path.exists(attempt_dir):
         id_class = cat_row['Category']
         id_behavior = cat_row['Sub-behavior']
         log = cat_row['Log']
-        new_name = 'id_' + id_video
 
-        # Rename the folder if wrong name
-        if name != new_name:
-            new_path = os.path.join(video_path,new_name)
-            os.rename(name_path, new_path)
+        if name != id_video:
+            df.at[0,'Filename'] = name
+            df.to_csv(cat_csv)
+            id_video = name
+        
+
+        #to erase not correctly downloaded files, to be uncommented when used
+        """ if not(mp4_file) and not(downloaded):
+            shutil.rmtree(name_path) """
 
         #if elements is in train_ids
         if id_video in train_ids:
@@ -67,27 +93,22 @@ if not os.path.exists(attempt_dir):
                 mp4_file = [file for file in os.listdir(name_path) if file.endswith('.mp4')]
                 if mp4_file:
                     mp4_name = mp4_file[0]
-                    num_suffix = 18
-                    correct_name = new_name + mp4_name[-num_suffix:]
-                    if mp4_name != correct_name:
-                        video = os.path.join(name_path,mp4_name)
-                        new_video = os.path.join(name_path,correct_name)
-                        os.rename(video, new_video)
+                    
 
                     #check for length of the video
-                    v = os.path.join(name_path,correct_name)
+                    v = os.path.join(name_path,mp4_name)
                     duration = get_length(v)
 
                     #add to error if length is 0.0
                     if duration == 0.0:
-                        new_tuple = (new_name, id_class, id_behavior, 'Error: length is 0.')
+                        new_tuple = (name, id_class, id_behavior, 'Error: length is 0.')
                         no_download_list.append(new_tuple)
                     else:
                         #add to list to be printed
-                        new_tuple = (new_name, id_class, id_behavior,duration)
+                        new_tuple = (name, id_class, id_behavior,duration)
                         download_list.append(new_tuple)
             else:
-                new_tuple = (new_name, id_class, id_behavior, log)
+                new_tuple = (name, id_class, id_behavior, log)
                 no_download_list.append(new_tuple)
 
 

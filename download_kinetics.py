@@ -45,9 +45,9 @@ def construct_video_filename(row, videos_dir, trim_format='%06d'):
     basename = '%s_%s_%s.mp4' % (tmpid,
                                  trim_format % row['start-time'],
                                  trim_format % row['end-time'])
-    
+    tmp_name = basename.replace('.mp4','')
     #Makes a dir like /Kinetics/Videos/videoid/
-    id_dir = os.path.join(videos_dir,tmpid)
+    id_dir = os.path.join(videos_dir,tmp_name)
     if not os.path.exists(id_dir):
             os.makedirs(id_dir)
     #name of the file
@@ -140,7 +140,7 @@ def download_clip_wrapper(row, output_dir, trim_format, tmp_dir, behaviors, i):
                                     tmp_dir=tmp_dir)
     
     #create file category.csv
-    create_categ_csv(id_dir, behaviors, row['label-name'], row['video-id'], downloaded, log)
+    create_categ_csv(id_dir, behaviors, row['label-name'], clip_id, downloaded, log)
 
     status = tuple([clip_id, downloaded, log])
     print(f'Video number {i} processed.', flush=True)

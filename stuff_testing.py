@@ -52,14 +52,39 @@ python -m util_scripts.kinetics_json csv_dir_path 700 jpg_video_dir_path jpg dst
 #es: python generate_video_jpgs.py ./video/ ./jpgs/ kinetics
 import pandas as pd
 
-download_log = './Kinetics/Download/attempt_3/download_log.csv'
-df1 = pd.read_csv(download_log)
-error_log = './Kinetics/Download/attempt_3/error_log.csv'
+""" activities = [
+        'eating burger', 'eating cake', 'eating carrots', 'eating chips', 'eating doughnuts',
+        'eating hotdog', 'eating ice cream', 'eating spaghetti', 'eating watermelon', 'sucking lolly',
+        'tasting beer', 'tasting food', 'tasting wine', 'sipping cup',
+        'texting', 'talking on cell phone', 'looking at phone',
+        'smoking', 'smoking hookah', 'smoking pipe',
+        'sleeping', 'yawning', 'headbanging', 'headbutting', 'shaking head',
+        'scrubbing face', 'putting in contact lenses', 'putting on eyeliner', 'putting on foundation',
+        'putting on lipstick', 'putting on mascara', 'brushing hair', 'brushing teeth', 'braiding hair',
+        'combing hair', 'dyeing eyebrows', 'dyeing hair'
+    ]
+
+validate_csv = './Kinetics/Validation_Info/validate_kinetics.csv'
+output_csv = './Kinetics/Validation_Info/validation.csv'
+df1 = pd.read_csv(validate_csv)
+
+matching_activities = []
+
+for activity in activities:
+        matching_rows = df1[df1['label'] == activity]
+        matching_activities.extend(matching_rows.to_dict('records'))
+
+new_data = pd.DataFrame(matching_activities)
+
+new_data.to_csv(output_csv, index=True, columns=['label', 'youtube_id', 'time_start', 'time_end', 'split']) """
+
+
+error_log = './Kinetics/Download/attempt_13/error_log.csv'
 df2 = pd.read_csv(error_log)
-data_csv = './Kinetics/Info/train.csv'
+data_csv = './Kinetics/Info/tbdownloaded.csv'
 data = pd.read_csv(data_csv)
 print(data[data.duplicated(subset=['youtube_id'], keep=False)])
-""" ids = df1['Filename'].tolist()
+ids = df1['Filename'].tolist()
 ids_to_remove = [string[3:] for string in ids]
 filtered_existing_data = data[~data['youtube_id'].isin(ids_to_remove)]
 print(filtered_existing_data)
@@ -69,4 +94,4 @@ ids_to_remove = [string[3:] for string in ids]
 filtered_existing_data = filtered_existing_data[~filtered_existing_data['youtube_id'].isin(ids_to_remove)]
 
 
-print(filtered_existing_data) """
+print(filtered_existing_data)

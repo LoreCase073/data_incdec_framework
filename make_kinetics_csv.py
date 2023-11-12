@@ -32,7 +32,7 @@ def make_csv(existing_data_path, downloaded_csv_path, log_csv_path, outdir, atte
     existing_data = pd.read_csv(existing_data_path)
 
     #path to latest attempt 
-    old_csv = pd.read_csv(downloaded_csv_path)
+    #old_csv = pd.read_csv(downloaded_csv_path)
 
     
 
@@ -60,8 +60,8 @@ def make_csv(existing_data_path, downloaded_csv_path, log_csv_path, outdir, atte
     new_data = pd.DataFrame(matching_activities)
 
     # files already downloaded, do not try again
-    downloaded = old_csv['Filename'].tolist()
-    downloaded_ids = [string[3:] for string in downloaded]
+    """ downloaded = old_csv['Filename'].tolist()
+    downloaded_ids = [string[3:] for string in downloaded] """
 
     #filtered_to_download = new_data[~new_data['youtube_id'].isin(downloaded_ids)]
 

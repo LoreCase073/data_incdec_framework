@@ -75,7 +75,7 @@ class KineticsDataset(Dataset):
 
         for _, row in df.iterrows():
             #replace to match how the data was called in the folder
-            id_data = row['youtube_id'].replace('-','')
+            id_data = 'id_' + str(row['youtube_id']) + '_' + '{:06d}'.format(row['time_start']) + '_' + '{:06d}'.format(row['time_end'])
             self.data.append(id_data)
 
             #retrieve the class - targets from category.csv
