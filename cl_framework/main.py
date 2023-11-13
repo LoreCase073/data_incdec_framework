@@ -75,7 +75,7 @@ if __name__ == "__main__":
     # task_dict = {task_id: list_of_class_ids}
     if args.approach == 'incdec':
         #TODO: to implement
-        behaviors = get_task_dict_incdec(args.n_task, total_classes, behaviors_per_task, args.baseline)
+        task_dict, behavior_dicts = get_task_dict_incdec(args.n_task, total_classes, behaviors_per_task, args.baseline)
     else:
         task_dict = get_task_dict(args.n_task, total_classes, class_per_task, args.n_class_first_task)   
     
@@ -158,6 +158,7 @@ if __name__ == "__main__":
                     out_path=out_path,
                     behaviors_per_task=behaviors_per_task,
                     task_dict=task_dict,
+                    behavior_dicts = behavior_dicts,
         )
   
  

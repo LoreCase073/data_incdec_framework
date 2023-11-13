@@ -11,11 +11,15 @@ from continual_learning.metrics.metric_evaluator import MetricEvaluator
 class DataIncrementalDecrementalMethod(IncrementalApproach):
     #TODO: modificare init, non necessito di class_per_task probabilmente, non so di task_dict
     
-    def __init__(self, args, device, out_path, behaviors_per_task, task_dict):
-        super().__init__(args, device, out_path, behaviors_per_task, task_dict)
+    def __init__(self, args, device, out_path, behaviors_per_task, task_dict, behavior_dicts):
+        #TODO: class_per_task, come passarlo
+        class_per_task = 5
+        super().__init__(args, device, out_path, class_per_task, task_dict)
         #TODO: vedere se da BaseModel necessito di modificare qualcosa in caso
 
         self.model = BaseModel(backbone=self.backbone, dataset=args.dataset)
+        #TODO: forse modificare come aggiungere head, tanto la si crea una sola volta
+        self.model.add_classification_head(len(self.task_dict[0]))
         self.print_running_approach()
 
 
@@ -26,7 +30,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
     def pre_train(self,  task_id, trn_loader, test_loader):
         #TODO: aggiunta della classification head non penso debba dipendere dal task_id, siccome
         #il numero di classi non cambia
-        self.model.add_classification_head(len(self.task_dict[task_id]))
+        #self.model.add_classification_head(len(self.task_dict[task_id]))
         self.model.to(self.device)
         # necessary only for tsne 
         self.old_model = deepcopy(self.model)
@@ -54,7 +58,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
             outputs, _ = self.model(images)
             
             #TODO: verificare che criterion debba dipendere da task_id, forse si per poterlo salvare/fare accorgimenti diversi
-            loss = self.criterion(outputs, targets, task_id)
+            loss = self.criterion(outputs, targets)
 
             self.optimizer.zero_grad()
             loss.backward()
@@ -62,10 +66,11 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
 
     #TODO: t è il task_id, immagino di doverlo usare poi per salvare data del task
     #cross entropy correct for our task of video classification
-    def criterion(self, outputs, targets, t):
+    def criterion(self, outputs, targets):
         #TODO: rescale targets non dovrebbe servire...
         #targets = self.rescale_targets(targets, t)
-        return torch.nn.functional.cross_entropy(outputs[t], targets)
+        #here is 0 cause we only have a head
+        return torch.nn.functional.cross_entropy(outputs[0], targets)
         
         
         
@@ -95,7 +100,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                 outputs, features = self.model(images)
                 _, old_features = self.old_model(images)
                 
-                cls_loss += self.criterion(outputs, targets, test_id) * current_batch_size
+                cls_loss += self.criterion(outputs, targets) * current_batch_size
                  
 
                 metric_evaluator.update(targets, self.rescale_targets(targets, test_id), 
