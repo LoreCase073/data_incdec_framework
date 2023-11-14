@@ -5,6 +5,7 @@ import argparse
 from pathlib import Path
 
 from joblib import Parallel, delayed
+import os
 
 
 def video_process(video_file_path, dst_root_path, ext, fps=-1, size=240):
@@ -26,9 +27,9 @@ def video_process(video_file_path, dst_root_path, ext, fps=-1, size=240):
     duration = float(res[3])
     n_frames = int(frame_rate * duration)
 
-    name = video_file_path.stem
-    dst_dir_path = dst_root_path / name
-    dst_dir_path.mkdir(exist_ok=True)
+    #name = video_file_path.stem
+    dst_dir_path = Path(dst_root_path)
+
     n_exist_frames = len([
         x for x in dst_dir_path.iterdir()
         if x.suffix == '.jpg' and x.name[0] != '.'
@@ -60,8 +61,10 @@ def dir_process(id_video_path, dst_path, ext, fps=-1, size=240):
         return
 
 
-    dst_path = id_video_path.name / dst_path
-    dst_path.mkdir(exist_ok=True)
+    dst_path = os.path.join(id_video_path,dst_path)
+    if not os.path.exists(dst_path):
+        os.makedirs(dst_path)
+    
 
     for video_file_path in sorted(id_video_path.iterdir()):
         video_process(video_file_path, dst_path, ext, fps, size)
@@ -81,8 +84,6 @@ if __name__ == '__main__':
         default='',
         type=str,
         help='Dataset name (kinetics | mit | ucf101 | hmdb51 | activitynet)')
-    parser.add_argument(
-        'csv_path', default=None, type=Path, help='Csv with paths of videos to create jpgs')
     parser.add_argument(
         '--n_jobs', default=-1, type=int, help='Number of parallel jobs')
     parser.add_argument(

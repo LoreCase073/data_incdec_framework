@@ -11,10 +11,10 @@ from continual_learning.metrics.metric_evaluator_incdec import MetricEvaluatorIn
 class DataIncrementalDecrementalMethod(IncrementalApproach):
     #TODO: modificare init, non necessito di class_per_task probabilmente, non so di task_dict
     
-    def __init__(self, args, device, out_path, behaviors_per_task, task_dict, behavior_dicts):
+    def __init__(self, args, device, out_path, task_dict, total_classes,behaviors_per_task, behavior_dicts):
         #TODO: class_per_task, come passarlo
-        class_per_task = 5
-        super().__init__(args, device, out_path, class_per_task, task_dict)
+        self.total_classes = total_classes
+        super().__init__(args, device, out_path, total_classes, task_dict)
         #TODO: vedere se da BaseModel necessito di modificare qualcosa in caso
 
         self.model = BaseModel(backbone=self.backbone, dataset=args.dataset)
@@ -104,8 +104,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                  
 
                 metric_evaluator.update(targets, 
-                                        self.compute_probabilities(outputs, 0),
-                                        )
+                                        self.compute_probabilities(outputs, 0))
 
             #task aware accuracy e task agnostic accuracy
             acc = metric_evaluator.get(verbose=verbose)

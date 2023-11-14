@@ -4,12 +4,13 @@ import numpy as np
 class DataIncDecBaselineDataset():
     def __init__(self, dataset, task_dictionary,  
                     n_task, initial_split,
-                    total_classes, train=True):
+                    total_classes, train=True, validation=None, valid_size=None):
         
         self.dataset = dataset
         self.train = train 
-        #TODO:definire se necessito di task_dictionary e per cosa
+        #TODO: probabilmente non necessito nella baseline del dictionary, non usato. In caso, rimuovere
         self.task_dictionary = task_dictionary 
+
         #initial_split will explain how to split the data
         #will usually be 50-50
         self.initial_split = initial_split
@@ -19,29 +20,31 @@ class DataIncDecBaselineDataset():
         #number of classes
         self.total_classes = total_classes
 
+        self.validation = validation
+
     def collect(self):
         #train
         if self.train:
-            train_indices_list = [[] for _ in range(self.n_task)]  # List of list, each list contains indices in the entire dataset to accumulate for the task
-            #TODO: per ora suppongo di dividere per due, ma posso modificare come farlo... logica passata da fuori
-            
-            #TODO: to be removed
-            initial_train_split = int((self.len_dataset/self.initial_split))
-            
 
-
+            # List of list, each list contains indices in the entire dataset to accumulate for the task
+            train_indices_list = [[] for _ in range(self.n_task)]  
+            
             first_split = []
             second_split = []
 
-            #TODO: controllare di aver fatto i due split iniziali correttamente
+            
             #now divide the two first splits of the dataset
+            #TODO: controllare di aver fatto i due split iniziali correttamente
             for idx_class in range(self.total_classes):
                 #takes the class name from the idx
+                #class_to_idx {class: idx}
                 class_name = [ c for c, idx in self.dataset.class_to_idx.items() if idx == idx_class ]
 
                 #iterate over the behaviors for class_name
-                for it_behaviors in range(self.dataset.classes_behaviors[class_name]):
+                #classes_behaviors {class: [sub1,sub2...]}
+                for it_behaviors in (self.dataset.classes_behaviors[class_name]):
                     
+                    #Return indices of elements from the current it_behaviors
                     current_behavior_indices = np.where(np.array(self.dataset.behaviors) == it_behaviors)[0]
 
                     num_data_first_split = int(len(current_behavior_indices)/self.initial_split)
@@ -53,10 +56,11 @@ class DataIncDecBaselineDataset():
                     first_split.extend(list(first_split_indices))
                     second_split.extend(list(second_split_indices))
 
-            #TODO: forse da rimuovere questi due 
+            
             #number of video to substitute from the first split and to add from the second split
-            n_first_split = int((len(first_split)/self.initial_split))
-            n_second_split = int((len(second_split)/self.initial_split))
+            #TODO: forse da rimuovere questi due 
+            """ n_first_split = int((len(first_split)/self.initial_split))
+            n_second_split = int((len(second_split)/self.initial_split)) """
 
 
             for i in range(self.n_task):
@@ -88,24 +92,40 @@ class DataIncDecBaselineDataset():
                     train_indices_list[i].extend(list(f_idx + s_idx))
 
             #TODO: controllare funzioni questa logica per creare liste di indici
-                
-            
-            
-                
-                        
+                         
             
             cl_train_dataset = [Subset(self.dataset, ids)  for ids in train_indices_list]
             cl_train_sizes = [len(ids) for ids in train_indices_list]
 
+            #TODO: implementare validation set, sia per validation esterno sia da separarlo da train
+            val_indices_list = [[] for _ in range(self.n_task)] 
+            if self.validation != None:
+                #Here validation passed from out of the train, same for all the tasks
+                for i in range(self.n_task):
+                    for idx_class in range(self.total_classes):
+                        current_class_indices = np.where(np.array(self.validation.targets) == idx_class)[0]
+                        val_indices_list[i].extend(list(current_class_indices))
+            else:
+                #TODO: implement if validation is not passed from out of the train
+                pass
+
+            cl_val_dataset = [Subset(self.dataset, ids)  for ids in val_indices_list]
+            cl_val_sizes =[len(ids) for ids in val_indices_list]
+
   
-            return cl_train_dataset, cl_train_sizes, None, None
+            return cl_train_dataset, cl_train_sizes, cl_val_dataset, cl_val_sizes
         
         else:
-            #test
+            #TEST
             
-            #TODO: fare logica per test set?
-            #dovrei prendere comunque tutto il test set... modificare in questa maniera
-            cl_test_dataset = []
-            cl_test_sizes =[]
+            #TODO: controllare logica per test, dovrebbe essere sempre uguale per ogni task
+            test_indices_list = [[] for _ in range(self.n_task)] 
+            for i in range(self.n_task):
+                    for idx_class in range(self.total_classes):
+                        current_class_indices = np.where(np.array(self.validation.targets) == idx_class)[0]
+                        test_indices_list[i].extend(list(current_class_indices))
+            
+            cl_test_dataset = [Subset(self.dataset, ids)  for ids in test_indices_list]
+            cl_test_sizes =[len(ids) for ids in test_indices_list]
 
             return cl_test_dataset, cl_test_sizes, None, None

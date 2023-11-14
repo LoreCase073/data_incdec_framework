@@ -54,27 +54,26 @@ if __name__ == "__main__":
     """
 
     #TODO: completare e controllare funzioni tutto come desiderato
-    train_set, test_set, total_classes = get_dataset(args.dataset, args.data_path)
+    train_set, test_set, validation_set, total_classes = get_dataset(args.dataset, args.data_path)
     
-    #TODO: non so se utile shuffle le label... per ora metto False
+    
     # mapping between classes and shuffled classes and re-map dataset classes for different order of classes
-    remap = False
+    #TODO: non so se utile shuffle le label... per ora eliminato
     if not (args.approach == 'incdec'): 
         train_set, test_set, label_mapping = remap_targets(train_set, test_set, total_classes)
     
-    #TODO: forse modificare/sostituire per eliminare num di label ad ogni task... 
+     
     # class_per_task: number of classes not in the first task, if the first is larger, otherwise it is equal to total_classes/n_task
-    
     if args.approach == 'incdec':
-        #TODO: to implement
+        #TODO: to implement oltre la baseline...
         behaviors_per_task = get_behaviors_per_task(total_classes, args.n_task, args.baseline)
     else:
         class_per_task = get_class_per_task(args.n_class_first_task, total_classes, args.n_task)
     
-    #TODO: modificare/sostituire, rendere tale da cambiare il numero di sub-behaviors presi per ogni classe
+    
     # task_dict = {task_id: list_of_class_ids}
     if args.approach == 'incdec':
-        #TODO: to implement
+        #TODO: aggiungere logica oltre la baseline
         task_dict, behavior_dicts = get_task_dict_incdec(args.n_task, total_classes, behaviors_per_task, args.baseline)
     else:
         task_dict = get_task_dict(args.n_task, total_classes, class_per_task, args.n_class_first_task)   
@@ -91,12 +90,17 @@ if __name__ == "__main__":
 
     #TODO: controllare che DataIncDecBaseline restituisca dataset corretti
     if args.approach == 'incdec':
-        cl_train_val = DataIncDecBaselineDataset(train_set, task_dict,  
-                                                args.n_task, args.n_class_first_task, 
-                                                class_per_task,total_classes,
-                                                valid_size=args.valid_size, train=True)
+        if args.baseline:
+            #TODO: controllare restituzione del validation e train
+            cl_train_val = DataIncDecBaselineDataset(train_set, task_dict,  
+                                                    args.n_task, args.initial_split, 
+                                                    total_classes,
+                                                    train=True, validation=validation_set,
+                                                    valid_size=args.valid_size,)
+        else:
+            #TODO: to be implemented the logic over the baseline
+            print('Still not implemented...')
     else:
-        
         cl_train_val = ContinualLearningDataset(train_set, task_dict,  
                                                 args.n_task, args.n_class_first_task, 
                                                 class_per_task,total_classes,
@@ -104,12 +108,17 @@ if __name__ == "__main__":
 
     train_dataset_list, train_sizes, val_dataset_list, val_sizes = cl_train_val.collect()
 
-    #TODO: per il test è da fare implementazione di test set...
+    #TODO: controllare restituzione del test
     if args.approach == 'incdec':
-        cl_test = DataIncDecBaselineDataset(train_set, task_dict,  
-                                                args.n_task, args.n_class_first_task, 
-                                                class_per_task,total_classes,
-                                                valid_size=args.valid_size, train=True)
+        if args.baseline:
+            cl_test = DataIncDecBaselineDataset(train_set, task_dict,  
+                                                    args.n_task, args.initial_split, 
+                                                    total_classes,
+                                                    train=False, validation=None,
+                                                    valid_size=None,)
+        else:
+            #TODO: to be implemented the logic over the baseline
+            print('Still not implemented...')
     else:
         cl_test = ContinualLearningDataset(test_set, task_dict,  
                                         args.n_task, args.n_class_first_task, 
@@ -156,8 +165,9 @@ if __name__ == "__main__":
     elif args.approach == 'incdec':
         approach = DataIncrementalDecrementalMethod(args=args, device = device,
                     out_path=out_path,
-                    behaviors_per_task=behaviors_per_task,
                     task_dict=task_dict,
+                    n_classes=total_classes,
+                    behaviors_per_task=behaviors_per_task,
                     behavior_dicts = behavior_dicts,
         )
   

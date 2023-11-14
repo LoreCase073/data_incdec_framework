@@ -110,6 +110,9 @@ if not os.path.exists(attempt_dir):
             else:
                 new_tuple = (name, id_class, id_behavior, log)
                 no_download_list.append(new_tuple)
+        """ else:
+            print(id_video)
+            shutil.rmtree(name_path) """
 
 
 

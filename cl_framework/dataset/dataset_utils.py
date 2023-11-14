@@ -48,11 +48,13 @@ def kinetics_classes(classes_csv):
     return classes_behaviors
 
 class KineticsDataset(Dataset):
-    def __init__(self, folder_csv, data_folder, transform, train=True):
+    def __init__(self, folder_csv, data_folder, transform, dataset_type):
 
         #In folder_csv are place: train.csv, validation.csv, test.csv and classes.csv
-        if train:
+        if dataset_type == 'train':
             self.data_csv = os.path.join(folder_csv, 'train.csv')
+        elif dataset_type == 'validation':
+            self.data_csv = os.path.join(folder_csv, 'validation.csv')
         else:
             self.data_csv = os.path.join(folder_csv, 'test.csv')
 
@@ -70,7 +72,7 @@ class KineticsDataset(Dataset):
         class_csv = os.path.join(folder_csv, 'classes.csv')
         self.classes_behaviors = kinetics_classes(class_csv)
 
-        #create a index for each class
+        #create a index for each class -- {class: idx}
         self.class_to_idx = {key: i for i, key in enumerate(self.classes_behaviors.keys())} 
 
         for _, row in df.iterrows():
@@ -88,10 +90,6 @@ class KineticsDataset(Dataset):
             self.targets.append(self.class_to_idx[matching_class])
             matching_behavior = cat_row['Sub-behavior']
             self.behaviors.append(matching_behavior)
-
-        
-        
-
         
         self.transform = transform
 
@@ -247,6 +245,8 @@ def get_dataset(dataset_type, data_path):
                                                 download=True, transform=train_transform)
             test_set = torchvision.datasets.CIFAR100(root='./dataset/data', train=False,
                                             download=True, transform=test_transform)
+            #Validation is taken from train set in logic ahead in the code pipeline
+            valid_set = None
             n_classes = 100
  
 
@@ -273,6 +273,8 @@ def get_dataset(dataset_type, data_path):
         
  
         train_set = TinyImagenetDataset(train_data, train_targets, class_to_idx, train_transform)
+        #Validation is taken from train set in logic ahead in the code pipeline
+        valid_set = None
         test_set = TinyImagenetDataset(test_data, test_targets, class_to_idx, test_transform)
         
         n_classes = 200
@@ -300,6 +302,8 @@ def get_dataset(dataset_type, data_path):
             ])
         
         train_set = TinyImagenetDataset(train_data, train_targets, class_to_idx, train_transform)
+        #Validation is taken from train set in logic ahead in the code pipeline
+        valid_set = None
         test_set = TinyImagenetDataset(test_data, test_targets, class_to_idx, test_transform)
         
         n_classes = 100
@@ -323,11 +327,15 @@ def get_dataset(dataset_type, data_path):
  
 
         #TODO:prendere folder_csv
-        train_set = KineticsDataset(folder_csv, data_path, train_transform, train=True)
-        test_set = KineticsDataset(folder_csv, data_path, test_transform, train=False)
+        train_set = KineticsDataset(folder_csv, data_path, train_transform, dataset_type='train')
+        #Here validation is passed outside, separately from the train
+        #TODO: implementare logica per validation set, forse in futuro implementare scelta se farlo
+        #da training
+        valid_set = KineticsDataset(folder_csv, data_path, train_transform, dataset_type='validation')
+        test_set = KineticsDataset(folder_csv, data_path, test_transform, dataset_type='test')
         
     
-    return train_set, test_set, n_classes
+    return train_set, test_set, valid_set, n_classes
 
  
             
