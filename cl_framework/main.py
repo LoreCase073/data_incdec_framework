@@ -192,6 +192,7 @@ if __name__ == "__main__":
 
             approach.pre_train(task_id, train_loader,  valid_loaders[task_id])
 
+            #TODO: se IncDec, non necessito di taw or tag, rimuovere
             best_taw_accuracy,  best_tag_accuracy = 0, 0
             best_loss = math.inf 
             
@@ -213,6 +214,7 @@ if __name__ == "__main__":
 
                 approach.train(task_id, train_loader, epoch, n_epochs)
                 
+                #TODO: se IncDec, non necessito di taw or tag, rimuovere
                 taw_acc, tag_acc, test_loss  = approach.eval(task_id, task_id, valid_loaders[task_id], epoch,  verbose=True)
                 
                 previous_lr = approach.optimizer.param_groups[0]["lr"]
@@ -221,6 +223,7 @@ if __name__ == "__main__":
                     
                 current_lr = approach.optimizer.param_groups[0]["lr"]
                 
+                #TODO: se IncDec, non necessito di taw or tag, rimuovere
                 if taw_acc > best_taw_accuracy:
                     old_accuracy = best_taw_accuracy
                     best_taw_accuracy = taw_acc
@@ -237,9 +240,9 @@ if __name__ == "__main__":
         
 
         for test_id in range(task_id + 1):
-
+            #TODO: se IncDec, non necessito di taw or tag, rimuovere
             acc_taw_value, acc_tag_value, _,  = approach.eval(task_id, test_id, test_loaders[test_id], epoch,  verbose=False)                                                                                                            
-            logger.update_accuracy(current_training_task_id=task_id, test_id=test_id, acc_taw_value=acc_taw_value,  acc_tag_value=acc_tag_value)
+            logger.update_accuracy(current_training_task_id=task_id, test_id=test_id, acc_taw_value=acc_taw_value, acc_tag_value=acc_tag_value)
             if test_id < task_id:
                 logger.update_forgetting(current_training_task_id=task_id, test_id=test_id)
             logger.print_latest(current_training_task_id=task_id, test_id=test_id)

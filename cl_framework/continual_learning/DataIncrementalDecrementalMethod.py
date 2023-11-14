@@ -4,7 +4,7 @@ from copy import deepcopy
 
 from continual_learning.IncrementalApproach import IncrementalApproach
 from continual_learning.models.BaseModel import BaseModel
-from continual_learning.metrics.metric_evaluator import MetricEvaluator
+from continual_learning.metrics.metric_evaluator_incdec import MetricEvaluatorIncDec
  
 
 #TODO: vedere se ereditare da IncrementalApproach ha senso e se modificare qualcosa
@@ -85,7 +85,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
     #magari ci sono già implementati metodi interessanti
     def eval(self, current_training_task, test_id, loader, epoch,   verbose):
         #TODO: modificare anche metric evaluator per gestire anche AP e differenziazione tra classi...
-        metric_evaluator = MetricEvaluator(self.out_path, self.task_dict)
+        metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.task_dict)
         
         cls_loss, n_samples = 0, 0 
    
@@ -103,30 +103,29 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                 cls_loss += self.criterion(outputs, targets) * current_batch_size
                  
 
-                metric_evaluator.update(targets, self.rescale_targets(targets, test_id), 
-                                        self.tag_probabilities(outputs), 
-                                        self.taw_probabilities(outputs, test_id),
+                metric_evaluator.update(targets, 
+                                        self.compute_probabilities(outputs, 0),
                                         )
 
             #task aware accuracy e task agnostic accuracy
-            taw_acc,  tag_acc  = metric_evaluator.get(verbose=verbose)
+            acc = metric_evaluator.get(verbose=verbose)
  
               
-            self.log(current_training_task, test_id, epoch, cls_loss/n_samples, tag_acc , taw_acc)          
+            self.log(current_training_task, test_id, epoch, cls_loss/n_samples, acc)          
             
             if verbose:
                 print(" - classification loss: {}".format(cls_loss/n_samples))
 
-            return taw_acc, tag_acc, cls_loss/n_samples
+            return acc, _, cls_loss/n_samples
         
     #TODO: definire log da fare...
-    def log(self, current_training_task, test_id, epoch, cls_loss,   tag_acc , taw_acc):
+    def log(self, current_training_task, test_id, epoch, cls_loss , acc):
         name_tb = "training_task_" + str(current_training_task) + "/dataset_" + str(test_id) + "_classification_loss"
         self.logger.add_scalar(name_tb, cls_loss, epoch)
 
+        name_tb = "training_task_" + str(current_training_task) + "/dataset_" + str(test_id) + "_accuracy"
+        self.logger.add_scalar(name_tb, acc, epoch)
 
-        name_tb = "training_task_" + str(current_training_task) + "/dataset_" + str(test_id) + "_TAG_accuracy "
-        self.logger.add_scalar(name_tb, tag_acc, epoch)
-
-        name_tb = "training_task_" + str(current_training_task) + "/dataset_" + str(test_id) + "_TAW_accuracy"
-        self.logger.add_scalar(name_tb, taw_acc, epoch)
+    def compute_probabilities(self, outputs, head_id):
+      probabilities = torch.nn.Softmax(dim=1)(outputs[head_id])
+      return probabilities
