@@ -24,8 +24,8 @@ class MetricEvaluatorIncDec():
     def get(self, verbose):
         self.probabilities = torch.cat(self.probabilities)
         self.labels = torch.cat(self.labels).cpu().numpy()
-
-        acc = accuracy_score(self.taw_labels, torch.max(self.taw_probabilities, axis = 1)[1].cpu().numpy())
+        #TODO: check if it is axis = 1, but should be
+        acc = accuracy_score(self.labels, torch.max(self.probabilities, axis = 1)[1].cpu().numpy())
  
 
         if verbose:

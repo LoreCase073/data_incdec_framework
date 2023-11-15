@@ -3,7 +3,7 @@ from utilities.generic_utils import experiment_folder, result_folder, \
                             store_model, store_valid_loader, get_class_per_task, remap_targets, get_behaviors_per_task, \
                             get_task_dict_incdec
 from utilities.parse_utils import get_args
-from utilities.matrix_logger import Logger
+from utilities.matrix_logger import Logger, IncDecLogger
 from torch.utils.data.dataloader import DataLoader
 
 # approaches 
@@ -145,7 +145,11 @@ if __name__ == "__main__":
     Logger Init
     """
     #TODO: modificare per trattare dati di DataIncDec method...
-    logger = Logger(out_path=out_path, n_task=args.n_task, task_dict=task_dict, test_sizes=test_sizes)
+    #per ora con un if...
+    if args.approach == 'incdec':
+        logger = IncDecLogger(out_path=out_path, n_task=args.n_task, task_dict=task_dict, test_sizes=test_sizes)
+    else:
+        logger = Logger(out_path=out_path, n_task=args.n_task, task_dict=task_dict, test_sizes=test_sizes)
     result_folder(out_path, "tensorboard")
     result_folder(out_path, "logger")
  
@@ -203,7 +207,7 @@ if __name__ == "__main__":
             approach.pre_train(task_id, train_loader,  valid_loaders[task_id])
 
             #TODO: se IncDec, non necessito di taw or tag, rimuovere
-            best_taw_accuracy,  best_tag_accuracy = 0, 0
+            best_taw_accuracy,  best_tag_accuracy, best_accuracy = 0, 0
             best_loss = math.inf 
             
             if task_id == 0 and args.dataset == "imagenet-subset":
@@ -225,7 +229,11 @@ if __name__ == "__main__":
                 approach.train(task_id, train_loader, epoch, n_epochs)
                 
                 #TODO: se IncDec, non necessito di taw or tag, rimuovere
-                taw_acc, tag_acc, test_loss  = approach.eval(task_id, task_id, valid_loaders[task_id], epoch,  verbose=True)
+                #Per ora metto un if...
+                if args.approach == 'incdec':
+                    acc, _ , test_loss = approach.eval(task_id, task_id, valid_loaders[task_id], epoch, verbose=True)
+                else:
+                    taw_acc, tag_acc, test_loss  = approach.eval(task_id, task_id, valid_loaders[task_id], epoch,  verbose=True)
                 
                 previous_lr = approach.optimizer.param_groups[0]["lr"]
                 
@@ -234,11 +242,19 @@ if __name__ == "__main__":
                 current_lr = approach.optimizer.param_groups[0]["lr"]
                 
                 #TODO: se IncDec, non necessito di taw or tag, rimuovere
-                if taw_acc > best_taw_accuracy:
-                    old_accuracy = best_taw_accuracy
-                    best_taw_accuracy = taw_acc
-                    store_model(approach, out_path)
-                    print(f"  --> from acc {old_accuracy:.3f} to {taw_acc:.3f}")
+                #Per ora metto un if...
+                if args.approach == 'incdec':
+                    if acc > best_accuracy:
+                        old_accuracy = best_accuracy
+                        best_accuracy = acc
+                        store_model(approach, out_path)
+                        print(f"  --> from acc {old_accuracy:.3f} to {acc:.3f}")
+                else:
+                    if taw_acc > best_taw_accuracy:
+                        old_accuracy = best_taw_accuracy
+                        best_taw_accuracy = taw_acc
+                        store_model(approach, out_path)
+                        print(f"  --> from acc {old_accuracy:.3f} to {taw_acc:.3f}")
             
             
         """
@@ -251,11 +267,21 @@ if __name__ == "__main__":
 
         for test_id in range(task_id + 1):
             #TODO: se IncDec, non necessito di taw or tag, rimuovere
-            acc_taw_value, acc_tag_value, _,  = approach.eval(task_id, test_id, test_loaders[test_id], epoch,  verbose=False)                                                                                                            
-            logger.update_accuracy(current_training_task_id=task_id, test_id=test_id, acc_taw_value=acc_taw_value, acc_tag_value=acc_tag_value)
-            if test_id < task_id:
-                logger.update_forgetting(current_training_task_id=task_id, test_id=test_id)
-            logger.print_latest(current_training_task_id=task_id, test_id=test_id)
+            #Per ora metto if...
+            if args.approach == 'incdec':
+                acc_value, _, _,  = approach.eval(task_id, test_id, test_loaders[test_id], epoch,  verbose=False)
+                #TODO: modificare update_accuracy per gestire data_incdec
+                logger.update_accuracy(current_training_task_id=task_id, test_id=test_id, acc_taw_value=acc_value, acc_tag_value=None)
+                #TODO: questo è forse per misurare quando si dimentica dei vecchi task, introdurre qualche metrica del genere
+                if test_id < task_id:
+                    logger.update_forgetting(current_training_task_id=task_id, test_id=test_id)
+                logger.print_latest(current_training_task_id=task_id, test_id=test_id)
+            else:
+                acc_taw_value, acc_tag_value, _,  = approach.eval(task_id, test_id, test_loaders[test_id], epoch,  verbose=False)                                                                                                            
+                logger.update_accuracy(current_training_task_id=task_id, test_id=test_id, acc_taw_value=acc_taw_value, acc_tag_value=acc_tag_value)
+                if test_id < task_id:
+                    logger.update_forgetting(current_training_task_id=task_id, test_id=test_id)
+                logger.print_latest(current_training_task_id=task_id, test_id=test_id)
 
  
         """
@@ -273,6 +299,3 @@ if __name__ == "__main__":
     summary_logger = SummaryLogger(all_args, all_default_args, args.outpath)
     summary_logger.update_summary(exp_name, logger)
     store_valid_loader(out_path, valid_loaders, False)
-
-
-

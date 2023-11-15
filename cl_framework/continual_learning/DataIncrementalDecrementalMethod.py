@@ -83,7 +83,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
     # per identificare comportamenti anomali al variare dei dati e dei training
     #TODO: controllare https://torchmetrics.readthedocs.io/en/stable/classification/average_precision.html
     #magari ci sono già implementati metodi interessanti
-    def eval(self, current_training_task, test_id, loader, epoch,   verbose):
+    def eval(self, current_training_task, test_id, loader, epoch, verbose):
         #TODO: modificare anche metric evaluator per gestire anche AP e differenziazione tra classi...
         metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.task_dict)
         
