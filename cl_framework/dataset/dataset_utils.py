@@ -48,9 +48,10 @@ def kinetics_classes(classes_csv):
     return classes_behaviors
 
 class KineticsDataset(Dataset):
-    def __init__(self, folder_csv, data_folder, transform, dataset_type):
+    def __init__(self, data_path, transform, dataset_type):
 
         #In folder_csv are place: train.csv, validation.csv, test.csv and classes.csv
+        folder_csv = os.path.join(data_path,'Info')
         if dataset_type == 'train':
             self.data_csv = os.path.join(folder_csv, 'train.csv')
         elif dataset_type == 'validation':
@@ -60,7 +61,7 @@ class KineticsDataset(Dataset):
 
         #TODO: fare caso per validation
 
-        self.data_folder = data_folder
+        self.data_folder = os.path.join(data_path,'Videos')
 
         df = pd.read_csv(self.data_csv)
 
@@ -324,15 +325,17 @@ def get_dataset(dataset_type, data_path):
                         #transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))
                           ]  
         test_transform = transforms.Compose(test_transform)
+
+
  
 
         #TODO:prendere folder_csv
-        train_set = KineticsDataset(folder_csv, data_path, train_transform, dataset_type='train')
+        train_set = KineticsDataset(data_path, train_transform, dataset_type='train')
         #Here validation is passed outside, separately from the train
         #TODO: implementare logica per validation set, forse in futuro implementare scelta se farlo
         #da training
-        valid_set = KineticsDataset(folder_csv, data_path, train_transform, dataset_type='validation')
-        test_set = KineticsDataset(folder_csv, data_path, test_transform, dataset_type='test')
+        valid_set = KineticsDataset(data_path, train_transform, dataset_type='validation')
+        test_set = KineticsDataset(data_path, test_transform, dataset_type='test')
         
     
     return train_set, test_set, valid_set, n_classes

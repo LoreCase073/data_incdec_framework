@@ -46,6 +46,7 @@ class DataIncDecBaselineDataset():
                     
                     #Return indices of elements from the current it_behaviors
                     current_behavior_indices = np.where(np.array(self.dataset.behaviors) == it_behaviors)[0]
+                    current_behavior_indices = np.random.shuffle(current_behavior_indices)
 
                     num_data_first_split = int(len(current_behavior_indices)/self.initial_split)
 
@@ -70,6 +71,7 @@ class DataIncDecBaselineDataset():
 
                     #takes indices of the class
                     current_class_indices = np.where(np.array(self.dataset.targets) == idx_class)[0]
+                    current_class_indices = np.random.shuffle(current_class_indices)
 
                     #takes indices of the class from the first split
                     f_class_indices = [idx for idx in current_class_indices if idx in train_indices_list[0]]
@@ -83,10 +85,10 @@ class DataIncDecBaselineDataset():
                     sec_data_task = int(len(sec_class_indices)/self.n_task)
 
                     #indices from the first split 
-                    f_idx = current_class_indices[f_data_task*i:]
+                    f_idx = f_class_indices[f_data_task*i:]
 
                     #indices from the second split 
-                    s_idx = current_class_indices[:sec_data_task*i]
+                    s_idx = sec_class_indices[:sec_data_task*i]
 
                     #add and remove data and make the list of indices for the task
                     train_indices_list[i].extend(list(f_idx + s_idx))

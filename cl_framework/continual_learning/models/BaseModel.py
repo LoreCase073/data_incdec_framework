@@ -2,7 +2,7 @@
 import torch
 from .resnet18 import resnet18
 from .resnet18_imagenet import resnet18_imagenet
-from resnet3d.resnet import generate_model_3dresnet
+from .resnet3d.resnet import generate_model_3dresnet
 from torch import nn
 import sys 
 import math
