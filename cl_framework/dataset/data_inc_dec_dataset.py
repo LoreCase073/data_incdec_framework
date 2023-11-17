@@ -38,7 +38,7 @@ class DataIncDecBaselineDataset():
             for idx_class in range(self.total_classes):
                 #takes the class name from the idx
                 #class_to_idx {class: idx}
-                class_name = [ c for c, idx in self.dataset.class_to_idx.items() if idx == idx_class ]
+                class_name = [ c for c, idx in self.dataset.class_to_idx.items() if idx == idx_class ][0]
 
                 #iterate over the behaviors for class_name
                 #classes_behaviors {class: [sub1,sub2...]}
@@ -46,7 +46,7 @@ class DataIncDecBaselineDataset():
                     
                     #Return indices of elements from the current it_behaviors
                     current_behavior_indices = np.where(np.array(self.dataset.behaviors) == it_behaviors)[0]
-                    current_behavior_indices = np.random.shuffle(current_behavior_indices)
+                    np.random.shuffle(current_behavior_indices)
 
                     num_data_first_split = int(len(current_behavior_indices)/self.initial_split)
 
@@ -71,18 +71,18 @@ class DataIncDecBaselineDataset():
 
                     #takes indices of the class
                     current_class_indices = np.where(np.array(self.dataset.targets) == idx_class)[0]
-                    current_class_indices = np.random.shuffle(current_class_indices)
+                    np.random.shuffle(current_class_indices)
 
                     #takes indices of the class from the first split
-                    f_class_indices = [idx for idx in current_class_indices if idx in train_indices_list[0]]
+                    f_class_indices = [idx for idx in current_class_indices if idx in first_split]
 
-                    sec_class_indices = [idx for idx in current_class_indices if idx in second_split_indices]
+                    sec_class_indices = [idx for idx in current_class_indices if idx in second_split]
 
                     #number of data from the first split to be removed
-                    f_data_task = int(len(f_class_indices)/self.n_task)
+                    f_data_task = int(len(f_class_indices)/(self.n_task-1))
 
                     #number of data from the second split to be added
-                    sec_data_task = int(len(sec_class_indices)/self.n_task)
+                    sec_data_task = int(len(sec_class_indices)/(self.n_task-1))
 
                     #indices from the first split 
                     f_idx = f_class_indices[f_data_task*i:]

@@ -336,6 +336,9 @@ def get_dataset(dataset_type, data_path):
         #da training
         valid_set = KineticsDataset(data_path, train_transform, dataset_type='validation')
         test_set = KineticsDataset(data_path, test_transform, dataset_type='test')
+
+        #TODO: per ora aggiungo a mano, modificare da prendere dall'esterno
+        n_classes = 5
         
     
     return train_set, test_set, valid_set, n_classes

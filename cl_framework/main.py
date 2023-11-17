@@ -78,11 +78,11 @@ if __name__ == "__main__":
     else:
         task_dict = get_task_dict(args.n_task, total_classes, class_per_task, args.n_class_first_task)   
     
-    #TODO: fare print diverso per diverso tipo di task del DataIncDec...
-    print("Dataset: {}, N task: {}, Large First Task Classes: {}, Classes Per Task : {}".format(args.dataset,
+    #TODO: fare print diverso per diverso tipo di task del DataIncDec... per ora commento
+    """ print("Dataset: {}, N task: {}, Large First Task Classes: {}, Classes Per Task : {}".format(args.dataset,
                                                                                                   args.n_task,
                                                                                                   args.n_class_first_task,
-                                                                                                  class_per_task))
+                                                                                                  class_per_task)) """
         
     """
     Generate Subset For Each Task

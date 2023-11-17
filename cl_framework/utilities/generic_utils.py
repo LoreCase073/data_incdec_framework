@@ -186,7 +186,7 @@ def get_task_dict_incdec(n_task, total_classes, behaviors_per_task, baseline):
     if baseline == True:
         for i in range(n_task):
             d[i] = (len(data_dict.keys()))
-            behavior_dicts.appen(data_dict)
+            behavior_dicts.append(data_dict)
     else:
         #TODO: aggiungere logica oltre la baseline
         pass
