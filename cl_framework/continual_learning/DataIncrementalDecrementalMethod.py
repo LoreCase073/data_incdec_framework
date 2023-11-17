@@ -19,7 +19,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
 
         self.model = BaseModel(backbone=self.backbone, dataset=args.dataset)
         #TODO: forse modificare come aggiungere head, tanto la si crea una sola volta
-        self.model.add_classification_head(len(self.task_dict[0]))
+        self.model.add_classification_head(self.total_classes)
         self.print_running_approach()
 
 
@@ -49,7 +49,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         
        
             
-        for images, targets in  tqdm(train_loader):
+        for images, targets, _ in  tqdm(train_loader):
             images = images.to(self.device)
             targets = targets.to(self.device)
             
@@ -91,7 +91,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
    
         with torch.no_grad():
             self.model.eval()
-            for images, targets  in  loader:
+            for images, targets, _  in  loader:
                 images = images.to(self.device)
                 targets = targets.type(dtype=torch.int64).to(self.device)
                 current_batch_size = images.shape[0]

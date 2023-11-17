@@ -23,7 +23,7 @@ class BaseModel(nn.Module):
             elif dataset == "imagenet-subset":
                 self.backbone = resnet18_imagenet()
         elif self.backbone_type == '3dresnet18':
-            self.backbone == generate_model_3dresnet(18)
+            self.backbone = generate_model_3dresnet(18)
         else:
             sys.exit("Model Not Implemented")
 

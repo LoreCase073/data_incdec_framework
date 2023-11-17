@@ -124,7 +124,7 @@ class DataIncDecBaselineDataset():
             test_indices_list = [[] for _ in range(self.n_task)] 
             for i in range(self.n_task):
                     for idx_class in range(self.total_classes):
-                        current_class_indices = np.where(np.array(self.validation.targets) == idx_class)[0]
+                        current_class_indices = np.where(np.array(self.dataset.targets) == idx_class)[0]
                         test_indices_list[i].extend(list(current_class_indices))
             
             cl_test_dataset = [Subset(self.dataset, ids)  for ids in test_indices_list]

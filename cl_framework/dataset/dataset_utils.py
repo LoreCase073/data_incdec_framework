@@ -18,6 +18,7 @@ from PIL import Image
 from typing import Tuple,Any 
 from torch.utils.data import DataLoader
 from tqdm import tqdm 
+import torch
 
 def find_classes(dir):
     if sys.version_info >= (3, 5):
@@ -115,31 +116,22 @@ class KineticsDataset(Dataset):
             images_path = os.path.join(video_id_path,'jpgs')
 
         video = []
-        video_len = self.fps*10
+        std_video_len = self.fps*10
+
+        tmp_len = len(os.listdir(images_path))
+
         
-        for i in len(os.listdir(images_path)):
-            image_name = 'image_{:05d}.jpg'.format(i)
+        for i in range(std_video_len):
+            image_name = 'image_{:05d}.jpg'.format((i%tmp_len)+1)
             im_path = os.path.join(images_path,image_name)
             with open(im_path, 'rb') as f:
                 img = Image.open(f)
                 img = img.convert('RGB')
-                video.append(img)
-
-        tmp_len = len(video)
-        if tmp_len < video_len:
-            for i in range(video_len-tmp_len):
-                image_name = 'image_{:05d}.jpg'.format(i)
-                im_path = os.path.join(images_path,image_name)
-                with open(im_path, 'rb') as f:
-                    img = Image.open(f)
-                    img = img.convert('RGB')
-                    video.append(img)
-
-
-        if self.transform is not None:
-            video = self.transform(video)
-            
-            
+                if self.transform is not None:
+                        img = self.transform(img)
+                video.append(img)      
+        
+        video = torch.stack(video,0).permute(1, 0, 2, 3)
         return video, target, behavior
 
 
@@ -329,6 +321,7 @@ def get_dataset(dataset_type, data_path):
         print("Loading Kinetics")
         
         train_transform = [transforms.Resize(240),
+                           transforms.CenterCrop(240),
                 transforms.ToTensor(),
                 #TODO:normalize?
                 #transforms.Normalize(mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225])
@@ -336,6 +329,7 @@ def get_dataset(dataset_type, data_path):
         train_transform = transforms.Compose(train_transform)
 
         test_transform = [transforms.Resize(240),
+                          transforms.CenterCrop(240),
                         transforms.ToTensor(),
                         #TODO:normalize?
                         #transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))

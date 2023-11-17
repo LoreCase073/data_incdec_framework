@@ -170,7 +170,7 @@ if __name__ == "__main__":
         approach = DataIncrementalDecrementalMethod(args=args, device = device,
                     out_path=out_path,
                     task_dict=task_dict,
-                    n_classes=total_classes,
+                    total_classes=total_classes,
                     behaviors_per_task=behaviors_per_task,
                     behavior_dicts = behavior_dicts,
         )
@@ -197,7 +197,7 @@ if __name__ == "__main__":
         else:
  
             
-            print("#"*40 + " --> TRAINING HEAD {}".format(task_id))
+            print("#"*40 + " --> TRAINING HEAD/TASK {}".format(task_id))
 
             """
             Pre-train
@@ -207,7 +207,7 @@ if __name__ == "__main__":
             approach.pre_train(task_id, train_loader,  valid_loaders[task_id])
 
             #TODO: se IncDec, non necessito di taw or tag, rimuovere
-            best_taw_accuracy,  best_tag_accuracy, best_accuracy = 0, 0
+            best_taw_accuracy,  best_tag_accuracy, best_accuracy = 0, 0, 0
             best_loss = math.inf 
             
             if task_id == 0 and args.dataset == "imagenet-subset":
@@ -296,6 +296,6 @@ if __name__ == "__main__":
             
             
     #TODO: modificare anche SummaryLogger per fare salvataggio delle metriche necessarie per DataIncDec
-    summary_logger = SummaryLogger(all_args, all_default_args, args.outpath)
+    summary_logger = SummaryLogger(all_args, all_default_args, args.outpath, args.approach)
     summary_logger.update_summary(exp_name, logger)
     store_valid_loader(out_path, valid_loaders, False)

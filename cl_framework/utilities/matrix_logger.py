@@ -138,7 +138,7 @@ class IncDecLogger():
 
         self.pred_acc = np.zeros((n_task, n_task))
         #TODO: vedere se con nuovo task_dict, da modificare cosa restituire
-        self.task_len  =  [len(item) for item in task_dict.values()]
+        self.task_len  =  [item for item in task_dict.values()]
         self.test_sizes = test_sizes
 
         self.out_path = os.path.join(out_path, "logger")
