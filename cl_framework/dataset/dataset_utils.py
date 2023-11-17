@@ -48,7 +48,7 @@ def kinetics_classes(classes_csv):
     return classes_behaviors
 
 class KineticsDataset(Dataset):
-    def __init__(self, data_path, transform, dataset_type):
+    def __init__(self, data_path, transform, dataset_type, fps):
 
         #In folder_csv are place: train.csv, validation.csv, test.csv and classes.csv
         folder_csv = os.path.join(data_path,'Info')
@@ -94,6 +94,8 @@ class KineticsDataset(Dataset):
         
         self.transform = transform
 
+        self.fps = fps
+
         
     
     def __len__(self) -> int:
@@ -107,9 +109,13 @@ class KineticsDataset(Dataset):
         img_id, target, behavior = self.data[index], self.targets[index], self.behaviors[index]
 
         video_id_path = os.path.join(self.data_folder,img_id)
-        images_path = os.path.join(video_id_path,'jpgs')
+        if self.fps == 5:
+            images_path = os.path.join(video_id_path,'5fps_jpgs')
+        else:
+            images_path = os.path.join(video_id_path,'jpgs')
 
         video = []
+        video_len = self.fps*10
         
         for i in len(os.listdir(images_path)):
             image_name = 'image_{:05d}.jpg'.format(i)
@@ -118,6 +124,16 @@ class KineticsDataset(Dataset):
                 img = Image.open(f)
                 img = img.convert('RGB')
                 video.append(img)
+
+        tmp_len = len(video)
+        if tmp_len < video_len:
+            for i in range(video_len-tmp_len):
+                image_name = 'image_{:05d}.jpg'.format(i)
+                im_path = os.path.join(images_path,image_name)
+                with open(im_path, 'rb') as f:
+                    img = Image.open(f)
+                    img = img.convert('RGB')
+                    video.append(img)
 
 
         if self.transform is not None:
@@ -329,13 +345,13 @@ def get_dataset(dataset_type, data_path):
 
  
 
-        #TODO:prendere folder_csv
-        train_set = KineticsDataset(data_path, train_transform, dataset_type='train')
+        #TODO: per ora fps passati sempre a 5, aggiungere logica esterna per modificarlo
+        train_set = KineticsDataset(data_path, train_transform, dataset_type='train', fps=5)
         #Here validation is passed outside, separately from the train
         #TODO: implementare logica per validation set, forse in futuro implementare scelta se farlo
         #da training
-        valid_set = KineticsDataset(data_path, train_transform, dataset_type='validation')
-        test_set = KineticsDataset(data_path, test_transform, dataset_type='test')
+        valid_set = KineticsDataset(data_path, train_transform, dataset_type='validation', fps=5)
+        test_set = KineticsDataset(data_path, test_transform, dataset_type='test', fps=5)
 
         #TODO: per ora aggiungo a mano, modificare da prendere dall'esterno
         n_classes = 5

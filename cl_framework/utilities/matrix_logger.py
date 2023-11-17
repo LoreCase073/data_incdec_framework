@@ -130,10 +130,11 @@ class FileOutputDuplicator(object):
 class IncDecLogger():
     def __init__(self, out_path, n_task, task_dict, test_sizes, begin_time=None) -> None:
         self.acc = np.zeros((n_task, n_task))
-        #TODO: vedere se necessarias
+        self.ap = np.zeros((n_task, n_task))
+        #TODO: vedere se necessaria
         self.forg_acc = np.zeros((n_task, n_task))
         
-        self.perstep_acc = np.zeros((n_task, n_task))
+        #self.perstep_acc = np.zeros((n_task, n_task))
 
         self.pred_acc = np.zeros((n_task, n_task))
         #TODO: vedere se con nuovo task_dict, da modificare cosa restituire
@@ -155,20 +156,21 @@ class IncDecLogger():
         
 
 
-    def update_accuracy(self, current_training_task_id, test_id, acc_value, acc_tag_value):
+    def update_accuracy(self, current_training_task_id, test_id, acc_value, ap_value):
         self.acc[current_training_task_id, test_id] = acc_value * 100
+        self.ap[current_training_task_id, test_id] = ap_value
 
 
         self.pred_acc[current_training_task_id, test_id] =  acc_value * self.test_sizes[test_id]
         
 
-        self.perstep_acc[current_training_task_id, test_id] =  (acc_value*100) *  self.task_len[test_id]
+        #self.perstep_acc[current_training_task_id, test_id] =  (acc_value*100) *  self.task_len[test_id]
          
 
 
     def update_forgetting(self, current_training_task_id, test_id):
         #TODO: da implementare logica per tenere di conto del Forgetting dei dati precedenti, per ora non lo fa...
-        self.forg_acc[current_training_task_id, test_id] = self.acc_taw[:current_training_task_id, test_id].max(0) - self.acc_taw[current_training_task_id, test_id]
+        self.forg_acc[current_training_task_id, test_id] = self.acc[:current_training_task_id, test_id].max(0) - self.acc[current_training_task_id, test_id]
         
   
 
@@ -181,7 +183,7 @@ class IncDecLogger():
     def compute_average(self):
 
         self.avg_acc = self.acc.sum(1) / np.tril(np.ones(self.acc.shape[0])).sum(1)
-        self.avg_perstep_acc = self.perstep_acc.sum(1) / (np.tril(np.array(self.task_len))).sum(1)
+        #self.avg_perstep_acc = self.perstep_acc.sum(1) / (np.tril(np.array(self.task_len))).sum(1)
     
      
         if  np.array_equal(self.forg_acc, np.zeros((self.forg_acc.shape[0],self.forg_acc.shape[0]))):
@@ -200,7 +202,7 @@ class IncDecLogger():
 
 
         np.savetxt(os.path.join(self.out_path, 'avg_acc.out'), self.avg_acc, delimiter=',', fmt='%.3f')
-        np.savetxt(os.path.join(self.out_path, 'avg_perstep_acc.out'), self.avg_perstep_acc, delimiter=',', fmt='%.3f')     
+        #np.savetxt(os.path.join(self.out_path, 'avg_perstep_acc.out'), self.avg_perstep_acc, delimiter=',', fmt='%.3f')     
         
         np.savetxt(os.path.join(self.out_path, 'forg_acc.out'), self.forg_acc, delimiter=',', fmt='%.3f')       
 

@@ -1,6 +1,6 @@
 import torch
 import os
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, average_precision_score
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -15,8 +15,8 @@ class MetricEvaluatorIncDec():
 
 
 
-    def update(self, labels, taw_probabilities):
-        self.probabilities.append(taw_probabilities)
+    def update(self, labels, probabilities):
+        self.probabilities.append(probabilities)
         self.labels.append(labels)
 
     
@@ -26,12 +26,14 @@ class MetricEvaluatorIncDec():
         self.labels = torch.cat(self.labels).cpu().numpy()
         #TODO: check if it is axis = 1, but should be
         acc = accuracy_score(self.labels, torch.max(self.probabilities, axis = 1)[1].cpu().numpy())
+        ap = average_precision_score(self.labels, torch.max(self.probabilities, axis = 1)[1].cpu().numpy())
  
 
         if verbose:
             print(" - task accuracy: {}".format(acc))
+            print(" - task average precision: {}".format(ap))
 
-        return acc 
+        return acc, ap
     
 
 

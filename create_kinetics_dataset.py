@@ -49,6 +49,6 @@ if __name__ == '__main__':
 
     """ download_kinetics(args.path_to_scripts, args.input_csv, args.output_dir, num_jobs=2) """
 
-    fps = 10
+    fps = 5
     make_images(args.path_to_scripts, args.output_dir, args.dst_images, 'kinetics', 
                 n_jobs=1, fps=fps, size=240)

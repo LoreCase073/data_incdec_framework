@@ -64,10 +64,10 @@ class DataIncDecBaselineDataset():
             n_second_split = int((len(second_split)/self.initial_split)) """
 
 
-            for i in range(self.n_task):
-
-                for idx_class in range(self.total_classes):
             
+            for idx_class in range(self.total_classes):
+                    
+                for i in range(self.n_task):     
 
                     #takes indices of the class
                     current_class_indices = np.where(np.array(self.dataset.targets) == idx_class)[0]

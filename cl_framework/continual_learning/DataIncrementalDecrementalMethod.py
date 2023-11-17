@@ -107,7 +107,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                                         self.compute_probabilities(outputs, 0))
 
             #task aware accuracy e task agnostic accuracy
-            acc = metric_evaluator.get(verbose=verbose)
+            acc, ap = metric_evaluator.get(verbose=verbose)
  
               
             self.log(current_training_task, test_id, epoch, cls_loss/n_samples, acc)          
@@ -115,7 +115,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
             if verbose:
                 print(" - classification loss: {}".format(cls_loss/n_samples))
 
-            return acc, _, cls_loss/n_samples
+            return acc, ap, cls_loss/n_samples
         
     #TODO: definire log da fare...
     def log(self, current_training_task, test_id, epoch, cls_loss , acc):

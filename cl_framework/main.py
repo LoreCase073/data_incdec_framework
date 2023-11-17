@@ -269,9 +269,9 @@ if __name__ == "__main__":
             #TODO: se IncDec, non necessito di taw or tag, rimuovere
             #Per ora metto if...
             if args.approach == 'incdec':
-                acc_value, _, _,  = approach.eval(task_id, test_id, test_loaders[test_id], epoch,  verbose=False)
+                acc_value, ap_value, _,  = approach.eval(task_id, test_id, test_loaders[test_id], epoch,  verbose=False)
                 #TODO: modificare update_accuracy per gestire data_incdec
-                logger.update_accuracy(current_training_task_id=task_id, test_id=test_id, acc_taw_value=acc_value, acc_tag_value=None)
+                logger.update_accuracy(current_training_task_id=task_id, test_id=test_id, acc_value=acc_value, ap_value=ap_value)
                 #TODO: questo è forse per misurare quando si dimentica dei vecchi task, introdurre qualche metrica del genere
                 if test_id < task_id:
                     logger.update_forgetting(current_training_task_id=task_id, test_id=test_id)
