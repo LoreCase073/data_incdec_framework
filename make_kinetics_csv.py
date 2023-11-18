@@ -47,7 +47,7 @@ def make_csv(existing_data_path, downloaded_csv_path, log_csv_path, outdir, atte
         tmp_csv_file = os.path.join(tmp_path,'error_log.csv')
         log_csv = pd.read_csv(tmp_csv_file)
         ids = log_csv['Filename'].tolist()
-        ids_to_remove = [string[3:] for string in ids]
+        ids_to_remove = [string[3:14] for string in ids]
             
         filtered_existing_data = filtered_existing_data[~filtered_existing_data['youtube_id'].isin(ids_to_remove)]
 

@@ -23,7 +23,6 @@ class SummaryLogger():
         
         self.incdec_columns = ['Model_name'] + self.list_parameter_names + ['Avg_acc', 
                                                                      'Avg_forg_acc',
-                                                                     'Avg_perstep_acc',
                                                                      'Last_avg_acc',
                                                                      ]
       
@@ -32,7 +31,7 @@ class SummaryLogger():
 
 
 
-    def update_summary(self, exp_name, logger):
+    def update_summary(self, exp_name, logger, avg_time):
         if self.approach == 'incdec':
             list_avg_acc = list(np.around(logger.avg_acc, decimals=3))
             list_avg_forg_acc = list(np.around(logger.avg_forg_acc, decimals=3))
@@ -44,6 +43,8 @@ class SummaryLogger():
                                 ["#".join(str(item) for item in list_avg_acc)]+
                                 ["#".join(str(item) for item in list_avg_forg_acc)]+
                                 [list_avg_acc[-1]]], columns=self.incdec_columns)
+            
+            df_time = pd.DataFrame([avg_time],columns=['Avg_Time_per_ep'])
         else:
             list_avg_taw_acc = list(np.around(logger.avg_acc_taw, decimals=3))
             list_avg_tag_acc  = list(np.around(logger.avg_acc_tag, decimals=3))

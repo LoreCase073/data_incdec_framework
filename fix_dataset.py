@@ -100,8 +100,8 @@ if not os.path.exists(attempt_dir):
                     duration = get_length(v)
 
                     #add to error if length is 0.0
-                    if duration == 0.0:
-                        new_tuple = (name, id_class, id_behavior, 'Error: length is 0.')
+                    if duration <= 1.0:
+                        new_tuple = (name, id_class, id_behavior, 'Error: length is less than 1.')
                         no_download_list.append(new_tuple)
                     else:
                         #add to list to be printed

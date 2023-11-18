@@ -14,8 +14,8 @@ def download_kinetics(script_path, input_csv, output_dir,trim_format='%06d', num
     command = ' '.join(command)
 
     
-    output = subprocess.check_output(command, shell=True,
-                                                stderr=subprocess.STDOUT)
+    output = subprocess.run(command, shell=True,
+                                                capture_output=True)
 
 
 def make_images(script_path, dir_path, dst_path, dataset='kinetics', n_jobs=5, fps=5, size=240):
@@ -28,8 +28,8 @@ def make_images(script_path, dir_path, dst_path, dataset='kinetics', n_jobs=5, f
     command = ' '.join(command)
 
     
-    output = subprocess.check_output(command, shell=True,
-                                                stderr=subprocess.STDOUT)
+    output = subprocess.run(command, shell=True,
+                                                capture_output=True, text=True)
 
 if __name__ == '__main__':
     description = 'Helper script for downloading and trimming kinetics videos.'

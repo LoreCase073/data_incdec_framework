@@ -52,7 +52,7 @@ def video_process(video_file_path, dst_root_path, ext, fps=-1, size=240):
     ffmpeg_cmd = ['ffmpeg', '-i', str(video_file_path), '-vf', vf_param]
     ffmpeg_cmd += ['-threads', '1', '{}/image_%05d.jpg'.format(dst_dir_path)]
     print(ffmpeg_cmd)
-    subprocess.run(ffmpeg_cmd)
+    subprocess.run(ffmpeg_cmd, capture_output=True)
     print('\n')
 
 
@@ -64,7 +64,6 @@ def dir_process(id_video_path, dst_path, ext, fps=-1, size=240):
     dst_path = os.path.join(id_video_path,dst_path)
     if not os.path.exists(dst_path):
         os.makedirs(dst_path)
-    
 
     for video_file_path in sorted(id_video_path.iterdir()):
         video_process(video_file_path, dst_path, ext, fps, size)
@@ -122,9 +121,13 @@ if __name__ == '__main__':
             video_file_path.append(test_set_video_path) """
 
         print(f"Videos from directory: {args.dir_path}")
-        
-        status_list = Parallel(
-            n_jobs=args.n_jobs,
-            backend='threading')(delayed(dir_process)(
-                video_dir, args.dst_path, ext, args.fps, args.size)
-                                 for video_dir in video_file_path)
+
+        if args.n_jobs == 1:
+            for video_dir in video_file_path:
+                status_list = dir_process(video_dir, args.dst_path, ext, args.fps, args.size)
+        else:             
+            status_list = Parallel(
+                n_jobs=args.n_jobs,
+                backend='threading')(delayed(dir_process)(
+                    video_dir, args.dst_path, ext, args.fps, args.size)
+                                    for video_dir in video_file_path)

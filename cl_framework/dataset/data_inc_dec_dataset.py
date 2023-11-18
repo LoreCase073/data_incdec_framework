@@ -111,7 +111,7 @@ class DataIncDecBaselineDataset():
                 #TODO: implement if validation is not passed from out of the train
                 pass
 
-            cl_val_dataset = [Subset(self.dataset, ids)  for ids in val_indices_list]
+            cl_val_dataset = [Subset(self.validation, ids)  for ids in val_indices_list]
             cl_val_sizes =[len(ids) for ids in val_indices_list]
 
   

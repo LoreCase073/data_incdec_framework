@@ -48,11 +48,12 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         self.model.train()
         
        
-            
+        train_loss, n_samples = 0, 0
         for images, targets, _ in  tqdm(train_loader):
             images = images.to(self.device)
             targets = targets.to(self.device)
-            
+            current_batch_size = images.shape[0]
+            n_samples += current_batch_size
  
 
             outputs, _ = self.model(images)
@@ -63,6 +64,9 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
+            train_loss += loss * current_batch_size
+        
+        self.train_log(task_id, epoch, train_loss/n_samples)  
 
     #TODO: t è il task_id, immagino di doverlo usare poi per salvare data del task
     #cross entropy correct for our task of video classification
@@ -85,13 +89,12 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
     #magari ci sono già implementati metodi interessanti
     def eval(self, current_training_task, test_id, loader, epoch, verbose):
         #TODO: modificare anche metric evaluator per gestire anche AP e differenziazione tra classi...
-        metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.task_dict)
+        metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.task_dict, self.total_classes)
         
         cls_loss, n_samples = 0, 0 
-   
         with torch.no_grad():
             self.model.eval()
-            for images, targets, _  in  loader:
+            for images, targets, _  in tqdm(loader):
                 images = images.to(self.device)
                 targets = targets.type(dtype=torch.int64).to(self.device)
                 current_batch_size = images.shape[0]
@@ -107,7 +110,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                                         self.compute_probabilities(outputs, 0))
 
             #task aware accuracy e task agnostic accuracy
-            acc, ap = metric_evaluator.get(verbose=verbose)
+            acc, ap, acc_per_class = metric_evaluator.get(verbose=verbose)
  
               
             self.log(current_training_task, test_id, epoch, cls_loss/n_samples, acc)          
@@ -115,7 +118,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
             if verbose:
                 print(" - classification loss: {}".format(cls_loss/n_samples))
 
-            return acc, ap, cls_loss/n_samples
+            return acc, ap, cls_loss/n_samples, acc_per_class
         
     #TODO: definire log da fare...
     def log(self, current_training_task, test_id, epoch, cls_loss , acc):
@@ -124,6 +127,11 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
 
         name_tb = "training_task_" + str(current_training_task) + "/dataset_" + str(test_id) + "_accuracy"
         self.logger.add_scalar(name_tb, acc, epoch)
+
+    def train_log(self, current_training_task, epoch, cls_loss):
+        name_tb = "training_task_" + str(current_training_task) + "/training_classification_loss"
+        self.logger.add_scalar(name_tb, cls_loss, epoch)
+
 
     def compute_probabilities(self, outputs, head_id):
       probabilities = torch.nn.Softmax(dim=1)(outputs[head_id])

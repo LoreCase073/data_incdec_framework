@@ -128,12 +128,12 @@ class FileOutputDuplicator(object):
 
 
 class IncDecLogger():
-    def __init__(self, out_path, n_task, task_dict, test_sizes, begin_time=None) -> None:
+    def __init__(self, out_path, n_task, task_dict, test_sizes, num_classes, begin_time=None) -> None:
         self.acc = np.zeros((n_task, n_task))
-        self.ap = np.zeros((n_task, n_task))
+        self.ap = np.empty((n_task, n_task, num_classes))
         #TODO: vedere se necessaria
         self.forg_acc = np.zeros((n_task, n_task))
-        
+        self.acc_per_class = np.empty((n_task, n_task, num_classes))
         #self.perstep_acc = np.zeros((n_task, n_task))
 
         self.pred_acc = np.zeros((n_task, n_task))
@@ -156,9 +156,10 @@ class IncDecLogger():
         
 
 
-    def update_accuracy(self, current_training_task_id, test_id, acc_value, ap_value):
+    def update_accuracy(self, current_training_task_id, test_id, acc_value, ap_value, acc_per_class):
         self.acc[current_training_task_id, test_id] = acc_value * 100
         self.ap[current_training_task_id, test_id] = ap_value
+        self.acc_per_class[current_training_task_id, test_id] = acc_per_class
 
 
         self.pred_acc[current_training_task_id, test_id] =  acc_value * self.test_sizes[test_id]
@@ -197,7 +198,9 @@ class IncDecLogger():
           
     def print_file(self):
         np.savetxt(os.path.join(self.out_path, 'acc.out'), self.acc, delimiter=',', fmt='%.3f')
-        np.savetxt(os.path.join(self.out_path, 'pred_acc.out'), self.pred_acc, delimiter=',', fmt='%.3f')
+        np.savetxt(os.path.join(self.out_path, 'acc.out'), self.acc, delimiter=',', fmt='%.3f')
+        np.savetxt(os.path.join(self.out_path, 'ap.out'), np.reshape(self.ap,(self.ap.shape[0]*self.ap.shape[1],-1)), delimiter=',', fmt='%.3f')
+        np.savetxt(os.path.join(self.out_path, 'acc_per_class.out'), np.reshape(self.acc_per_class,(self.acc_per_class.shape[0]*self.acc_per_class.shape[1],-1)), delimiter=',', fmt='%.3f')
         #np.savetxt(os.path.join(self.out_path, "perstep_acc_taw.out"), self.perstep_acc_taw, delimiter=',', fmt='%.3f')
 
 
