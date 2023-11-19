@@ -97,7 +97,7 @@ if __name__ == "__main__":
                                                     args.n_task, args.initial_split, 
                                                     total_classes,
                                                     train=True, validation=validation_set,
-                                                    valid_size=args.valid_size,)
+                                                    valid_size=args.valid_size)
         else:
             #TODO: to be implemented the logic over the baseline
             print('Still not implemented...')
@@ -179,6 +179,7 @@ if __name__ == "__main__":
                     total_classes=total_classes,
                     behaviors_per_task=behaviors_per_task,
                     behavior_dicts = behavior_dicts,
+                    imbalanced=args.imbalanced
         )
   
     

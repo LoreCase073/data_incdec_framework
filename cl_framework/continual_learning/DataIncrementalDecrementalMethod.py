@@ -2,18 +2,22 @@ import torch
 from tqdm import tqdm
 from copy import deepcopy
 
+from sklearn.utils import compute_class_weight
+
 from continual_learning.IncrementalApproach import IncrementalApproach
 from continual_learning.models.BaseModel import BaseModel
 from continual_learning.metrics.metric_evaluator_incdec import MetricEvaluatorIncDec
+import numpy as np
  
 
 #TODO: vedere se ereditare da IncrementalApproach ha senso e se modificare qualcosa
 class DataIncrementalDecrementalMethod(IncrementalApproach):
     #TODO: modificare init, non necessito di class_per_task probabilmente, non so di task_dict
     
-    def __init__(self, args, device, out_path, task_dict, total_classes,behaviors_per_task, behavior_dicts):
+    def __init__(self, args, device, out_path, task_dict, total_classes,behaviors_per_task, behavior_dicts, imbalanced=True):
         #TODO: class_per_task, come passarlo
         self.total_classes = total_classes
+        self.imbalanced = imbalanced
         super().__init__(args, device, out_path, total_classes, task_dict)
         #TODO: vedere se da BaseModel necessito di modificare qualcosa in caso
 
@@ -46,6 +50,12 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
     def train(self, task_id, train_loader, epoch, epochs):
         self.model.to(self.device)
         self.model.train()
+
+        if self.imbalanced:
+            class_weights = torch.Tensor(compute_class_weight('balanced', classes=np.unique(train_loader.dataset.dataset.targets), 
+                                                              y=train_loader.dataset.dataset.targets)).to(self.device)
+        else:
+            class_weights=None
         
        
         train_loss, n_samples = 0, 0
@@ -59,7 +69,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
             outputs, _ = self.model(images)
             
             #TODO: verificare che criterion debba dipendere da task_id, forse si per poterlo salvare/fare accorgimenti diversi
-            loss = self.criterion(outputs, targets)
+            loss = self.criterion(outputs, targets, class_weights=class_weights)
 
             self.optimizer.zero_grad()
             loss.backward()
@@ -70,11 +80,11 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
 
     #TODO: t è il task_id, immagino di doverlo usare poi per salvare data del task
     #cross entropy correct for our task of video classification
-    def criterion(self, outputs, targets):
+    def criterion(self, outputs, targets, class_weights=None):
         #TODO: rescale targets non dovrebbe servire...
         #targets = self.rescale_targets(targets, t)
         #here is 0 cause we only have a head
-        return torch.nn.functional.cross_entropy(outputs[0], targets)
+        return torch.nn.functional.cross_entropy(outputs[0], targets, class_weights)
         
         
         
@@ -90,6 +100,12 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
     def eval(self, current_training_task, test_id, loader, epoch, verbose):
         #TODO: modificare anche metric evaluator per gestire anche AP e differenziazione tra classi...
         metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.task_dict, self.total_classes)
+
+        if self.imbalanced:
+            class_weights = torch.Tensor(compute_class_weight('balanced', classes=np.unique(loader.dataset.dataset.targets), 
+                                                              y=loader.dataset.dataset.targets)).to(self.device)
+        else:
+            class_weights=None
         
         cls_loss, n_samples = 0, 0 
         with torch.no_grad():
@@ -103,7 +119,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                 outputs, features = self.model(images)
                 _, old_features = self.old_model(images)
                 
-                cls_loss += self.criterion(outputs, targets) * current_batch_size
+                cls_loss += self.criterion(outputs, targets, class_weights=class_weights) * current_batch_size
                  
 
                 metric_evaluator.update(targets, 

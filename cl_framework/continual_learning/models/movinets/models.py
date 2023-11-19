@@ -657,3 +657,159 @@ class MoViNet(nn.Module):
 
     def clean_activation_buffers(self) -> None:
         self.apply(self._clean_activation_buffers)
+
+
+class MoViNetIncDec(nn.Module):
+    def __init__(self,
+                 cfg: "CfgNode",
+                 causal: bool = True,
+                 pretrained: bool = False,
+                 #num_classes: int = 600,
+                 conv_type: str = "3d",
+                 tf_like: bool = False
+                 ) -> None:
+        super().__init__()
+        """
+        causal: causal mode
+        pretrained: pretrained models
+        If pretrained is True:
+            num_classes is set to 600,
+            conv_type is set to "3d" if causal is False,
+                "2plus1d" if causal is True
+            tf_like is set to True
+        num_classes: number of classes for classifcation
+        conv_type: type of convolution either 3d or 2plus1d
+        tf_like: tf_like behaviour, basically same padding for convolutions
+        """
+        if pretrained:
+            tf_like = True
+            #num_classes = 600
+            conv_type = "2plus1d" if causal else "3d"
+        blocks_dic = OrderedDict()
+
+        norm_layer = nn.BatchNorm3d if conv_type == "3d" else nn.BatchNorm2d
+        activation_layer = Swish if conv_type == "3d" else nn.Hardswish
+        
+        #These have to be saved to create the head later
+        self.conv7_out_channels = cfg.conv7.out_channels
+        self.dense9_hidden_dim = cfg.dense9.hidden_dim
+        self.tf_like_head = tf_like
+        self.causal_head = causal
+        self.conv_type_head = conv_type
+
+        # conv1
+        self.conv1 = ConvBlock3D(
+            in_planes=cfg.conv1.input_channels,
+            out_planes=cfg.conv1.out_channels,
+            kernel_size=cfg.conv1.kernel_size,
+            stride=cfg.conv1.stride,
+            padding=cfg.conv1.padding,
+            causal=causal,
+            conv_type=conv_type,
+            tf_like=tf_like,
+            norm_layer=norm_layer,
+            activation_layer=activation_layer
+            )
+        # blocks
+        for i, block in enumerate(cfg.blocks):
+            for j, basicblock in enumerate(block):
+                blocks_dic[f"b{i}_l{j}"] = BasicBneck(basicblock,
+                                                      causal=causal,
+                                                      conv_type=conv_type,
+                                                      tf_like=tf_like,
+                                                      norm_layer=norm_layer,
+                                                      activation_layer=activation_layer
+                                                      )
+        self.blocks = nn.Sequential(blocks_dic)
+        # conv7
+        self.conv7 = ConvBlock3D(
+            in_planes=cfg.conv7.input_channels,
+            out_planes=cfg.conv7.out_channels,
+            kernel_size=cfg.conv7.kernel_size,
+            stride=cfg.conv7.stride,
+            padding=cfg.conv7.padding,
+            causal=causal,
+            conv_type=conv_type,
+            tf_like=tf_like,
+            norm_layer=norm_layer,
+            activation_layer=activation_layer
+            )
+        
+        if causal:
+            self.cgap = TemporalCGAvgPool3D()
+        if pretrained:
+            if causal:
+                if cfg.name not in ["A0", "A1", "A2"]:
+                    raise ValueError("Only A0,A1,A2 streaming" +
+                                     "networks are available pretrained")
+                state_dict = (torch.hub
+                              .load_state_dict_from_url(cfg.stream_weights))
+            else:
+                state_dict = torch.hub.load_state_dict_from_url(cfg.weights)
+            self.load_state_dict(state_dict)
+        else:
+            self.apply(self._weight_init)
+        self.causal = causal
+
+    def avg(self, x: Tensor) -> Tensor:
+        if self.causal:
+            avg = F.adaptive_avg_pool3d(x, (x.shape[2], 1, 1))
+            avg = self.cgap(avg)[:, :, -1:]
+        else:
+            avg = F.adaptive_avg_pool3d(x, 1)
+        return avg
+
+    @staticmethod
+    def _weight_init(m):  # TODO check this
+        if isinstance(m, nn.Conv3d):
+            nn.init.kaiming_normal_(m.weight, mode='fan_out')
+            if m.bias is not None:
+                nn.init.zeros_(m.bias)
+        elif isinstance(m, (nn.BatchNorm3d, nn.BatchNorm2d, nn.GroupNorm)):
+            nn.init.ones_(m.weight)
+            nn.init.zeros_(m.bias)
+        elif isinstance(m, nn.Linear):
+            nn.init.normal_(m.weight, 0, 0.01)
+            nn.init.zeros_(m.bias)
+
+    def _forward_impl(self, x: Tensor) -> Tensor:
+        x = self.conv1(x)
+        x = self.blocks(x)
+        x = self.conv7(x)
+        x = self.avg(x)
+
+        return x
+
+    def forward(self, x: Tensor) -> Tensor:
+        return self._forward_impl(x)
+
+    @staticmethod
+    def _clean_activation_buffers(m):
+        if issubclass(type(m), CausalModule):
+            m.reset_activation()
+
+    def clean_activation_buffers(self) -> None:
+        self.apply(self._clean_activation_buffers)
+    
+
+    def add_head(self, num_classes):
+        return nn.Sequential(
+            # dense9
+            ConvBlock3D(self.conv7_out_channels,
+                        self.dense9_hidden_dim,
+                        kernel_size=(1, 1, 1),
+                        tf_like=self.tf_like_head,
+                        causal=self.causal_head,
+                        conv_type=self.conv_type_head,
+                        bias=True),
+            Swish(),
+            nn.Dropout(p=0.2, inplace=True),
+            # dense10d
+            ConvBlock3D(self.dense9_hidden_dim,
+                        num_classes,
+                        kernel_size=(1, 1, 1),
+                        tf_like=self.tf_like_head,
+                        causal=self.causal_head,
+                        conv_type=self.conv_type_head,
+                        bias=True),
+        )

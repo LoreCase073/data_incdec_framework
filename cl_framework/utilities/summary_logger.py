@@ -45,6 +45,7 @@ class SummaryLogger():
                                 [list_avg_acc[-1]]], columns=self.incdec_columns)
             
             df_time = pd.DataFrame([avg_time],columns=['Avg_Time_per_ep'])
+            df_time.to_csv(os.path.join(self.out_path, exp_name,  "avg_time.csv"), index=False)
         else:
             list_avg_taw_acc = list(np.around(logger.avg_acc_taw, decimals=3))
             list_avg_tag_acc  = list(np.around(logger.avg_acc_tag, decimals=3))

@@ -130,10 +130,10 @@ class FileOutputDuplicator(object):
 class IncDecLogger():
     def __init__(self, out_path, n_task, task_dict, test_sizes, num_classes, begin_time=None) -> None:
         self.acc = np.zeros((n_task, n_task))
-        self.ap = np.empty((n_task, n_task, num_classes))
+        self.ap = np.zeros((n_task, n_task, num_classes))
         #TODO: vedere se necessaria
         self.forg_acc = np.zeros((n_task, n_task))
-        self.acc_per_class = np.empty((n_task, n_task, num_classes))
+        self.acc_per_class = np.zeros((n_task, n_task, num_classes))
         #self.perstep_acc = np.zeros((n_task, n_task))
 
         self.pred_acc = np.zeros((n_task, n_task))

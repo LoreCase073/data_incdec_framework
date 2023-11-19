@@ -10,6 +10,7 @@ def get_args():
     """
     parser.add_argument("--approach", type=str,default="lwf", choices=["finetuning", "ewc","lwf","incdec"])
     parser.add_argument("--baseline", default=True, type=bool) 
+    parser.add_argument("--imbalanced", default=True, type=bool) 
     parser.add_argument("--outpath", "-op",default="./", type=str) 
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--nw", type=int, default=2, help="num workers for data loader")
@@ -49,7 +50,7 @@ def get_args():
     """
     Network Params
     """
-    parser.add_argument("--backbone", type=str, default="resnet18", choices=["resnet18","3dresnet18"])
+    parser.add_argument("--backbone", type=str, default="resnet18", choices=["resnet18","3dresnet18","movinet"])
     parser.add_argument("--firsttask_modelpath", type=str, default="None", help="specify model path if start from a pre-trained model after first task")
 
     
