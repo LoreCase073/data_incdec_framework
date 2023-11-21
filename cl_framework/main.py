@@ -37,6 +37,7 @@ if __name__ == "__main__":
         
     # device
     device = "cuda:" + str(args.device)
+    
      
     # if True create folder exp_folder, else create folder with the name of the approach
     dev_mode = False
@@ -242,7 +243,7 @@ if __name__ == "__main__":
                 #TODO: se IncDec, non necessito di taw or tag, rimuovere
                 #Per ora metto un if...
                 if args.approach == 'incdec':
-                    acc, _ , test_loss, _ = approach.eval(task_id, task_id, valid_loaders[task_id], epoch, verbose=True)
+                    acc, _ , test_loss, _, _,_ = approach.eval(task_id, task_id, valid_loaders[task_id], epoch, verbose=True)
                 else:
                     taw_acc, tag_acc, test_loss  = approach.eval(task_id, task_id, valid_loaders[task_id], epoch,  verbose=True)
                 
@@ -269,7 +270,7 @@ if __name__ == "__main__":
 
                 avg_time_train.update(time.time() - end_time)
 
-                print(f"Time {avg_time_train.val:.3f} ({avg_time_train.avg:.3f})\t")
+                print(f"Last time {avg_time_train.val:.3f} - Average time ({avg_time_train.avg:.3f})\t")
             
             
         """
@@ -284,9 +285,9 @@ if __name__ == "__main__":
             #TODO: se IncDec, non necessito di taw or tag, rimuovere
             #Per ora metto if...
             if args.approach == 'incdec':
-                acc_value, ap_value, _, acc_per_class  = approach.eval(task_id, test_id, test_loaders[test_id], epoch,  verbose=False)
+                acc_value, ap_value, _, acc_per_class, mean_ap, map_weighted  = approach.eval(task_id, test_id, test_loaders[test_id], epoch,  verbose=False)
                 #TODO: modificare update_accuracy per gestire data_incdec
-                logger.update_accuracy(current_training_task_id=task_id, test_id=test_id, acc_value=acc_value, ap_value=ap_value, acc_per_class=acc_per_class)
+                logger.update_accuracy(current_training_task_id=task_id, test_id=test_id, acc_value=acc_value, ap_value=ap_value, acc_per_class=acc_per_class, mean_ap=mean_ap, map_weighted=map_weighted)
                 #TODO: questo è forse per misurare quando si dimentica dei vecchi task, introdurre qualche metrica del genere
                 if test_id < task_id:
                     logger.update_forgetting(current_training_task_id=task_id, test_id=test_id)

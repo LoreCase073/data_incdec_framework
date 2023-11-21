@@ -30,18 +30,28 @@ class MetricEvaluatorIncDec():
         acc = accuracy_score(self.labels, torch.max(self.probabilities, axis = 1)[1].cpu().numpy())
         ap_metric = MulticlassAveragePrecision(num_classes=self.num_classes, average=None)
 
+        map_metric = MulticlassAveragePrecision(num_classes=self.num_classes, average='macro')
+
+        map_weighted_metric = MulticlassAveragePrecision(num_classes=self.num_classes, average='weighted')
+
         acc_per_class_metric = MulticlassAccuracy(num_classes=self.num_classes, average=None)
 
         acc_per_class = acc_per_class_metric(self.probabilities, torch.tensor(self.labels))
 
         ap = ap_metric(self.probabilities, torch.tensor(self.labels))
 
+        mean_ap = map_metric(self.probabilities, torch.tensor(self.labels))
+
+        map_weighted = map_weighted_metric(self.probabilities, torch.tensor(self.labels))
+
         if verbose:
             print(" - task accuracy: {}".format(acc))
             print(" - task average precision: {}".format(ap))
             print(" - task acc per class: {}".format(acc_per_class))
+            print(" - task mAP: {}".format(mean_ap))
+            print(" - task weighted mAP: {}".format(map_weighted))
 
-        return acc, ap, acc_per_class
+        return acc, ap, acc_per_class, mean_ap, map_weighted
     
 
 

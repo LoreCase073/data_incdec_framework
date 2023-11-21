@@ -9,8 +9,8 @@ def get_args():
     Structural hyperparams 
     """
     parser.add_argument("--approach", type=str,default="lwf", choices=["finetuning", "ewc","lwf","incdec"])
-    parser.add_argument("--baseline", default=True, type=bool) 
-    parser.add_argument("--imbalanced", default=True, type=bool) 
+    parser.add_argument("--baseline", action='store_true') 
+    parser.add_argument("--imbalanced", action='store_true') 
     parser.add_argument("--outpath", "-op",default="./", type=str) 
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--nw", type=int, default=2, help="num workers for data loader")

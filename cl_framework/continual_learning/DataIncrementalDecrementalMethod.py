@@ -48,6 +48,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
 
     #TODO: forse non necessario da cambiare, controllare...
     def train(self, task_id, train_loader, epoch, epochs):
+        print(torch.cuda.current_device())
         self.model.to(self.device)
         self.model.train()
 
@@ -67,8 +68,6 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
  
 
             outputs, _ = self.model(images)
-            
-            #TODO: verificare che criterion debba dipendere da task_id, forse si per poterlo salvare/fare accorgimenti diversi
             loss = self.criterion(outputs, targets, class_weights=class_weights)
 
             self.optimizer.zero_grad()
@@ -126,23 +125,29 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                                         self.compute_probabilities(outputs, 0))
 
             #task aware accuracy e task agnostic accuracy
-            acc, ap, acc_per_class = metric_evaluator.get(verbose=verbose)
+            acc, ap, acc_per_class, mean_ap, map_weighted = metric_evaluator.get(verbose=verbose)
  
               
-            self.log(current_training_task, test_id, epoch, cls_loss/n_samples, acc)          
+            self.log(current_training_task, test_id, epoch, cls_loss/n_samples, acc, mean_ap, map_weighted)          
             
             if verbose:
                 print(" - classification loss: {}".format(cls_loss/n_samples))
 
-            return acc, ap, cls_loss/n_samples, acc_per_class
+            return acc, ap, cls_loss/n_samples, acc_per_class, mean_ap, map_weighted
         
     #TODO: definire log da fare...
-    def log(self, current_training_task, test_id, epoch, cls_loss , acc):
+    def log(self, current_training_task, test_id, epoch, cls_loss , acc, mean_ap, map_weighted):
         name_tb = "training_task_" + str(current_training_task) + "/dataset_" + str(test_id) + "_classification_loss"
         self.logger.add_scalar(name_tb, cls_loss, epoch)
 
         name_tb = "training_task_" + str(current_training_task) + "/dataset_" + str(test_id) + "_accuracy"
         self.logger.add_scalar(name_tb, acc, epoch)
+
+        name_tb = "training_task_" + str(current_training_task) + "/dataset_" + str(test_id) + "_mAP"
+        self.logger.add_scalar(name_tb, mean_ap, epoch)
+
+        name_tb = "training_task_" + str(current_training_task) + "/dataset_" + str(test_id) + "_weighted_mAP"
+        self.logger.add_scalar(name_tb, map_weighted, epoch)
 
     def train_log(self, current_training_task, epoch, cls_loss):
         name_tb = "training_task_" + str(current_training_task) + "/training_classification_loss"
