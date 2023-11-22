@@ -160,8 +160,8 @@ class IncDecLogger():
 
     def update_accuracy(self, current_training_task_id, test_id, acc_value, ap_value, acc_per_class, mean_ap, map_weighted):
         self.acc[current_training_task_id, test_id] = acc_value * 100
-        self.mean_ap[current_training_task_id, test_id] = acc_value * 100
-        self.map_weighted[current_training_task_id, test_id] = acc_value * 100
+        self.mean_ap[current_training_task_id, test_id] = mean_ap * 100
+        self.map_weighted[current_training_task_id, test_id] = map_weighted * 100
         self.ap[current_training_task_id, test_id] = ap_value
         self.acc_per_class[current_training_task_id, test_id] = acc_per_class
 

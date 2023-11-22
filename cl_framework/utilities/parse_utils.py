@@ -50,7 +50,7 @@ def get_args():
     """
     Network Params
     """
-    parser.add_argument("--backbone", type=str, default="resnet18", choices=["resnet18","3dresnet18","movinet"])
+    parser.add_argument("--backbone", type=str, default="resnet18", choices=["resnet18","3dresnet18","3dresnet10","movinet"])
     parser.add_argument("--firsttask_modelpath", type=str, default="None", help="specify model path if start from a pre-trained model after first task")
 
     

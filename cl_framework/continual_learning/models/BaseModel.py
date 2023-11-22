@@ -26,6 +26,8 @@ class BaseModel(nn.Module):
                 self.backbone = resnet18_imagenet()
         elif self.backbone_type == '3dresnet18':
             self.backbone = generate_model_3dresnet(18)
+        elif self.backbone_type == '3dresnet10':
+            self.backbone = generate_model_3dresnet(10)
         elif self.backbone_type == 'movinet':
             self.backbone = MoViNetIncDec(_C.MODEL.MoViNetA0, causal = False, pretrained = False)
         else:

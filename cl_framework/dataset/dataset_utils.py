@@ -320,7 +320,7 @@ def get_dataset(dataset_type, data_path):
         
         print("Loading Kinetics")
         
-        train_transform = [transforms.Resize(172),
+        train_transform = [transforms.Resize(size=(172,172)),
                            transforms.CenterCrop(172),
                 transforms.ToTensor(),
                 #TODO:normalize?
@@ -328,7 +328,7 @@ def get_dataset(dataset_type, data_path):
                 ]
         train_transform = transforms.Compose(train_transform)
 
-        test_transform = [transforms.Resize(172),
+        test_transform = [transforms.Resize(size=(172,172)),
                           transforms.CenterCrop(172),
                         transforms.ToTensor(),
                         #TODO:normalize?
