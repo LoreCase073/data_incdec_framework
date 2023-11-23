@@ -57,8 +57,11 @@ class KineticsDataset(Dataset):
             self.data_csv = os.path.join(folder_csv, 'train.csv')
         elif dataset_type == 'validation':
             self.data_csv = os.path.join(folder_csv, 'validation.csv')
-        else:
+        elif dataset_type == 'test':
             self.data_csv = os.path.join(folder_csv, 'test.csv')
+        else:
+            #This only to get all the data, used for mean and std
+            self.data_csv = os.path.join(folder_csv, 'tbdownloaded.csv')
 
         #TODO: fare caso per validation
 
@@ -321,18 +324,20 @@ def get_dataset(dataset_type, data_path):
         print("Loading Kinetics")
         
         train_transform = [transforms.Resize(size=(172,172)),
+                           #TODO: in futuro provare con un random crop invece che centercrop
                            transforms.CenterCrop(172),
-                transforms.ToTensor(),
-                #TODO:normalize?
-                #transforms.Normalize(mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225])
+                           transforms.RandomHorizontalFlip(),
+                            transforms.ToTensor(),
+                            #added normalization factors computed on the actual dataset, training set
+                            transforms.Normalize(mean=[0.4516, 0.3883, 0.3569],std=[0.2925, 0.2791, 0.2746])
                 ]
         train_transform = transforms.Compose(train_transform)
 
         test_transform = [transforms.Resize(size=(172,172)),
-                          transforms.CenterCrop(172),
-                        transforms.ToTensor(),
-                        #TODO:normalize?
-                        #transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))
+                            transforms.CenterCrop(172),
+                            transforms.ToTensor(),
+                            #added normalization factors computed on the actual dataset, training set
+                            transforms.Normalize(mean=[0.4516, 0.3883, 0.3569],std=[0.2925, 0.2791, 0.2746])
                           ]  
         test_transform = transforms.Compose(test_transform)
 
@@ -344,7 +349,7 @@ def get_dataset(dataset_type, data_path):
         #Here validation is passed outside, separately from the train
         #TODO: implementare logica per validation set, forse in futuro implementare scelta se farlo
         #da training
-        valid_set = KineticsDataset(data_path, train_transform, dataset_type='validation', fps=5)
+        valid_set = KineticsDataset(data_path, test_transform, dataset_type='validation', fps=5)
         test_set = KineticsDataset(data_path, test_transform, dataset_type='test', fps=5)
 
         #TODO: per ora aggiungo a mano, modificare da prendere dall'esterno

@@ -8,18 +8,21 @@ from continual_learning.IncrementalApproach import IncrementalApproach
 from continual_learning.models.BaseModel import BaseModel
 from continual_learning.metrics.metric_evaluator_incdec import MetricEvaluatorIncDec
 import numpy as np
+import matplotlib.pyplot as plt
+import itertools
  
 
 #TODO: vedere se ereditare da IncrementalApproach ha senso e se modificare qualcosa
 class DataIncrementalDecrementalMethod(IncrementalApproach):
     #TODO: modificare init, non necessito di class_per_task probabilmente, non so di task_dict
     
-    def __init__(self, args, device, out_path, task_dict, total_classes,behaviors_per_task, behavior_dicts, imbalanced=True):
+    def __init__(self, args, device, out_path, task_dict, total_classes, behaviors_per_task, behavior_dicts, imbalanced=True):
         #TODO: class_per_task, come passarlo
         self.total_classes = total_classes
         self.imbalanced = imbalanced
         super().__init__(args, device, out_path, total_classes, task_dict)
         #TODO: vedere se da BaseModel necessito di modificare qualcosa in caso
+        self.class_names = list(behavior_dicts.keys())
 
         self.model = BaseModel(backbone=self.backbone, dataset=args.dataset)
         #TODO: forse modificare come aggiungere head, tanto la si crea una sola volta
@@ -96,7 +99,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
     # per identificare comportamenti anomali al variare dei dati e dei training
     #TODO: controllare https://torchmetrics.readthedocs.io/en/stable/classification/average_precision.html
     #magari ci sono già implementati metodi interessanti
-    def eval(self, current_training_task, test_id, loader, epoch, verbose):
+    def eval(self, current_training_task, test_id, loader, epoch, verbose, testing=False):
         #TODO: modificare anche metric evaluator per gestire anche AP e differenziazione tra classi...
         metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.task_dict, self.total_classes)
 
@@ -125,10 +128,15 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                                         self.compute_probabilities(outputs, 0))
 
             #task aware accuracy e task agnostic accuracy
-            acc, ap, acc_per_class, mean_ap, map_weighted = metric_evaluator.get(verbose=verbose)
- 
+            acc, ap, acc_per_class, mean_ap, map_weighted, confusion_matrix = metric_evaluator.get(verbose=verbose)
+
+
+            metric_evaluator.log_pr_curves(logger=self.logger, classes_names=self.class_names, epoch=current_training_task, test_id=test_id, testing=testing)
+
+
+            cm_figure = self.plot_confusion_matrix(confusion_matrix, class_names=self.class_names)
               
-            self.log(current_training_task, test_id, epoch, cls_loss/n_samples, acc, mean_ap, map_weighted)          
+            self.log(current_training_task, test_id, epoch, cls_loss/n_samples, acc, mean_ap, map_weighted, cm_figure, testing)          
             
             if verbose:
                 print(" - classification loss: {}".format(cls_loss/n_samples))
@@ -136,18 +144,36 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
             return acc, ap, cls_loss/n_samples, acc_per_class, mean_ap, map_weighted
         
     #TODO: definire log da fare...
-    def log(self, current_training_task, test_id, epoch, cls_loss , acc, mean_ap, map_weighted):
-        name_tb = "training_task_" + str(current_training_task) + "/dataset_" + str(test_id) + "_classification_loss"
-        self.logger.add_scalar(name_tb, cls_loss, epoch)
+    def log(self, current_training_task, test_id, epoch, cls_loss , acc, mean_ap, map_weighted, cm_figure, testing):
+        if not testing:
+            name_tb = "training_task_" + str(current_training_task) + "/dataset_" + str(test_id) + "_classification_loss"
+            self.logger.add_scalar(name_tb, cls_loss, epoch)
 
-        name_tb = "training_task_" + str(current_training_task) + "/dataset_" + str(test_id) + "_accuracy"
-        self.logger.add_scalar(name_tb, acc, epoch)
+            name_tb = "training_task_" + str(current_training_task) + "/dataset_" + str(test_id) + "_accuracy"
+            self.logger.add_scalar(name_tb, acc, epoch)
 
-        name_tb = "training_task_" + str(current_training_task) + "/dataset_" + str(test_id) + "_mAP"
-        self.logger.add_scalar(name_tb, mean_ap, epoch)
+            name_tb = "training_task_" + str(current_training_task) + "/dataset_" + str(test_id) + "_mAP"
+            self.logger.add_scalar(name_tb, mean_ap, epoch)
 
-        name_tb = "training_task_" + str(current_training_task) + "/dataset_" + str(test_id) + "_weighted_mAP"
-        self.logger.add_scalar(name_tb, map_weighted, epoch)
+            name_tb = "training_task_" + str(current_training_task) + "/dataset_" + str(test_id) + "_weighted_mAP"
+            self.logger.add_scalar(name_tb, map_weighted, epoch)
+
+            name_tb = "training_task_" + str(current_training_task) + "/dataset_" + str(test_id) + "_confusion_matrix"
+            self.logger.add_figure(name_tb,cm_figure,epoch)
+        else:
+            name_tb = "test_task" + "/dataset_" + str(test_id) + "_accuracy"
+            self.logger.add_scalar(name_tb, acc, epoch)
+
+            name_tb = "test_task" + "/dataset_" + str(test_id) + "_mAP"
+            self.logger.add_scalar(name_tb, mean_ap, epoch)
+
+            name_tb = "test_task" + "/dataset_" + str(test_id) + "_weighted_mAP"
+            self.logger.add_scalar(name_tb, map_weighted, epoch)
+
+            name_tb = "test_task" + "/dataset_" + str(test_id) + "_confusion_matrix"
+            self.logger.add_figure(name_tb,cm_figure,epoch)
+        
+        
 
     def train_log(self, current_training_task, epoch, cls_loss):
         name_tb = "training_task_" + str(current_training_task) + "/training_classification_loss"
@@ -157,3 +183,35 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
     def compute_probabilities(self, outputs, head_id):
       probabilities = torch.nn.Softmax(dim=1)(outputs[head_id])
       return probabilities
+    
+
+    def plot_confusion_matrix(cm, class_names):
+        """
+        Returns a matplotlib figure containing the plotted confusion matrix.
+
+        Args:
+            cm (array, shape = [n, n]): a confusion matrix of integer classes
+            class_names (array, shape = [n]): String names of the integer classes
+        """
+        figure = plt.figure(figsize=(8, 8))
+        plt.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
+        plt.title("Confusion matrix")
+        plt.colorbar()
+        tick_marks = np.arange(len(class_names))
+        plt.xticks(tick_marks, class_names, rotation=45)
+        plt.yticks(tick_marks, class_names)
+
+        # Compute the labels from the normalized confusion matrix.
+        labels = np.around(cm.astype('float') / cm.sum(axis=1)[:, np.newaxis], decimals=2)
+
+        # Use white text if squares are dark; otherwise black.
+        threshold = cm.max() / 2.
+        for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+            color = "white" if cm[i, j] > threshold else "black"
+            plt.text(j, i, labels[i, j], horizontalalignment="center", color=color)
+
+        plt.tight_layout()
+        plt.ylabel('True label')
+        plt.xlabel('Predicted label')
+        return figure
+    

@@ -1,1 +1,1 @@
-python ./data_incdec_framework/create_kinetics_dataset.py ./data_incdec_framework/ ./Kinetics/Info/tbdownloaded.csv ./Kinetics/Videos/ 5fps_jpgs
+python ./data_incdec_framework/create_kinetics_dataset.py ./data_incdec_framework/ ./Kinetics/second/Info/tbdownloaded.csv ./Kinetics/Videos/ 5fps_jpgs
