@@ -1,9 +1,11 @@
 import torch
 import os
-from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.metrics import accuracy_score, confusion_matrix, precision_recall_curve, PrecisionRecallDisplay
 import matplotlib.pyplot as plt
 import numpy as np
 from torchmetrics.classification import MulticlassAccuracy, MulticlassAveragePrecision
+from sklearn.preprocessing import label_binarize
+
 
 class MetricEvaluatorIncDec():
     def __init__(self, out_path, task_dict, num_classes):
@@ -40,7 +42,17 @@ class MetricEvaluatorIncDec():
         mean_ap = map_metric(self.probabilities, torch.tensor(self.labels))
         map_weighted = map_weighted_metric(self.probabilities, torch.tensor(self.labels))
 
-        confusion_matrix = confusion_matrix(self.labels, torch.max(self.probabilities, axis = 1)[1].cpu().numpy())
+        c_matrix = confusion_matrix(self.labels, torch.max(self.probabilities, axis = 1)[1].cpu().numpy())
+
+        # precision recall curve
+        Y = label_binarize(self.labels, classes=[i for i in range(self.num_classes)])
+        precision = dict()
+        recall = dict()
+        for i in range(self.num_classes):
+            precision[i], recall[i], _ = precision_recall_curve(Y[:, i],
+                                                                self.probabilities[:, i])
+        
+        
 
         if verbose:
             print(" - task accuracy: {}".format(acc))
@@ -49,26 +61,4 @@ class MetricEvaluatorIncDec():
             print(" - task mAP: {}".format(mean_ap))
             print(" - task weighted mAP: {}".format(map_weighted))
 
-        return acc, ap, acc_per_class, mean_ap, map_weighted, confusion_matrix
-    
-    def log_pr_curves(self, logger, classes_names,epoch, test_id, testing):
-
-        for i in range(len(classes_names)):
-            self.add_pr_curve_tensorboard(logger, i, self.probabilities, self.labels, classes_names[i], epoch,test_id, testing)
-        
-
-    def add_pr_curve_tensorboard(logger, class_index, test_probs, test_label, class_name, epoch,test_id, testing):
-        '''
-        Takes in a "class_index" from 0 to 9 and plots the corresponding
-        precision-recall curve
-        '''
-        tensorboard_truth = test_label == class_index
-        tensorboard_probs = test_probs[:, class_index]
-        if not testing:
-            name_tb = "training_task_" + str(epoch) + "/dataset_" + str(test_id) + "_class_" + str(class_name) + "pr_curve"
-        else:
-            name_tb = "test_task" + "/dataset_" + str(test_id) + "_class_" + str(class_name) + "pr_curve"
-        logger.add_pr_curve(name_tb,
-                            tensorboard_truth,
-                            tensorboard_probs,
-                            global_step=epoch)
+        return acc, ap, acc_per_class, mean_ap, map_weighted, c_matrix, precision, recall

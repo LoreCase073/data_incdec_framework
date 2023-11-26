@@ -90,10 +90,8 @@ if __name__ == "__main__":
     Generate Subset For Each Task
     """
 
-    #TODO: controllare che DataIncDecBaseline restituisca dataset corretti
     if args.approach == 'incdec':
         if args.baseline:
-            #TODO: controllare restituzione del validation e train
             cl_train_val = DataIncDecBaselineDataset(train_set, task_dict,  
                                                     args.n_task, args.initial_split, 
                                                     total_classes,
@@ -110,7 +108,6 @@ if __name__ == "__main__":
 
     train_dataset_list, train_sizes, val_dataset_list, val_sizes = cl_train_val.collect()
 
-    #TODO: controllare restituzione del test
     if args.approach == 'incdec':
         if args.baseline:
             cl_test = DataIncDecBaselineDataset(test_set, task_dict,  
@@ -131,7 +128,6 @@ if __name__ == "__main__":
     #test_loaders = [DataLoader(test, batch_size=args.batch_size*4, shuffle=False, num_workers=args.nw) for test in test_dataset_list]
     test_loaders = [DataLoader(test, batch_size=args.batch_size, shuffle=False, num_workers=args.nw) for test in test_dataset_list]
     
-    #TODO: valutare se necessario il validation nel caso di DataIncDec...
     if args.valid_size > 0 or validation_set != None:
         print("Creating Validation Set")
         train_loaders = [DataLoader(train, batch_size=args.batch_size, shuffle=True, num_workers=args.nw) for train in train_dataset_list]
@@ -148,8 +144,6 @@ if __name__ == "__main__":
     """
     Logger Init
     """
-    #TODO: modificare per trattare dati di DataIncDec method...
-    #per ora con un if...
     if args.approach == 'incdec':
         logger = IncDecLogger(out_path=out_path, n_task=args.n_task, task_dict=task_dict, test_sizes=test_sizes, num_classes=total_classes)
     else:
@@ -172,7 +166,6 @@ if __name__ == "__main__":
                        class_per_task=class_per_task,
                        task_dict=task_dict )
         
-    #TODO: aggiungere approccio data incremental/decremental learning con relativa logica...
     elif args.approach == 'incdec':
         approach = DataIncrementalDecrementalMethod(args=args, device = device,
                     out_path=out_path,
@@ -214,7 +207,7 @@ if __name__ == "__main__":
 
             approach.pre_train(task_id, train_loader,  valid_loaders[task_id])
 
-            #TODO: se IncDec, non necessito di taw or tag, rimuovere
+            
             best_taw_accuracy,  best_tag_accuracy, best_accuracy = 0, 0, 0
             best_loss = math.inf 
             
@@ -227,6 +220,9 @@ if __name__ == "__main__":
             """
             Main train Loop
             """
+            #for early stopping when the validation loss doesn't improve
+            no_decrement_count = 0
+            best_loss = float(math.inf)
                     
             for epoch in range(n_epochs):
                 print("Epoch {}/{}".format(epoch, n_epochs))
@@ -240,10 +236,8 @@ if __name__ == "__main__":
 
                 approach.train(task_id, train_loader, epoch, n_epochs)
                 
-                #TODO: se IncDec, non necessito di taw or tag, rimuovere
-                #Per ora metto un if...
                 if args.approach == 'incdec':
-                    acc, _ , test_loss, _, _,_ = approach.eval(task_id, task_id, valid_loaders[task_id], epoch, verbose=True)
+                    acc, _ , test_loss, _, _,_ = approach.eval(task_id, task_id, valid_loaders[task_id], epoch, verbose=True, testing=False)
                 else:
                     taw_acc, tag_acc, test_loss  = approach.eval(task_id, task_id, valid_loaders[task_id], epoch,  verbose=True)
                 
@@ -253,8 +247,6 @@ if __name__ == "__main__":
                     
                 current_lr = approach.optimizer.param_groups[0]["lr"]
                 
-                #TODO: se IncDec, non necessito di taw or tag, rimuovere
-                #Per ora metto un if...
                 if args.approach == 'incdec':
                     if acc > best_accuracy:
                         old_accuracy = best_accuracy
@@ -268,9 +260,21 @@ if __name__ == "__main__":
                         store_model(approach, out_path)
                         print(f"  --> from acc {old_accuracy:.3f} to {taw_acc:.3f}")
 
+                #checks if the validation loss has decreased or not
+                if test_loss < best_loss:
+                    no_decrement_count = 0
+                    best_loss = test_loss
+                else:
+                    no_decrement_count += 1
+
                 avg_time_train.update(time.time() - end_time)
 
                 print(f"Last time {avg_time_train.val:.3f} - Average time ({avg_time_train.avg:.3f})\t")
+
+                #early stops if too many epochs without improving
+                if no_decrement_count == args.early_stopping_val:
+                    print(f"Early stopping because classification loss didn't improve for{args.early_stopping_val} epochs\t")
+                    break
             
             
         """
@@ -282,11 +286,9 @@ if __name__ == "__main__":
         
 
         for test_id in range(task_id + 1):
-            #TODO: se IncDec, non necessito di taw or tag, rimuovere
-            #Per ora metto if...
+            
             if args.approach == 'incdec':
-                acc_value, ap_value, _, acc_per_class, mean_ap, map_weighted  = approach.eval(task_id, test_id, test_loaders[test_id], epoch,  verbose=False)
-                #TODO: modificare update_accuracy per gestire data_incdec
+                acc_value, ap_value, _, acc_per_class, mean_ap, map_weighted  = approach.eval(task_id, test_id, test_loaders[test_id], epoch,  verbose=False, testing=True)
                 logger.update_accuracy(current_training_task_id=task_id, test_id=test_id, acc_value=acc_value, ap_value=ap_value, acc_per_class=acc_per_class, mean_ap=mean_ap, map_weighted=map_weighted)
                 #TODO: questo è forse per misurare quando si dimentica dei vecchi task, introdurre qualche metrica del genere
                 if test_id < task_id:
@@ -309,9 +311,6 @@ if __name__ == "__main__":
         approach.post_train(task_id=task_id, trn_loader=train_loader)
 
     
-            
-            
-    #TODO: modificare anche SummaryLogger per fare salvataggio delle metriche necessarie per DataIncDec
     summary_logger = SummaryLogger(all_args, all_default_args, args.outpath, args.approach)
     summary_logger.update_summary(exp_name, logger, avg_time_train.avg)
     store_valid_loader(out_path, valid_loaders, False)

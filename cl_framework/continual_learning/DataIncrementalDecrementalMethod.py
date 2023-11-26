@@ -10,6 +10,7 @@ from continual_learning.metrics.metric_evaluator_incdec import MetricEvaluatorIn
 import numpy as np
 import matplotlib.pyplot as plt
 import itertools
+from sklearn.metrics import PrecisionRecallDisplay
  
 
 #TODO: vedere se ereditare da IncrementalApproach ha senso e se modificare qualcosa
@@ -22,7 +23,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         self.imbalanced = imbalanced
         super().__init__(args, device, out_path, total_classes, task_dict)
         #TODO: vedere se da BaseModel necessito di modificare qualcosa in caso
-        self.class_names = list(behavior_dicts.keys())
+        self.class_names = list(behavior_dicts[0].keys())
 
         self.model = BaseModel(backbone=self.backbone, dataset=args.dataset)
         #TODO: forse modificare come aggiungere head, tanto la si crea una sola volta
@@ -128,15 +129,14 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                                         self.compute_probabilities(outputs, 0))
 
             #task aware accuracy e task agnostic accuracy
-            acc, ap, acc_per_class, mean_ap, map_weighted, confusion_matrix = metric_evaluator.get(verbose=verbose)
+            acc, ap, acc_per_class, mean_ap, map_weighted, confusion_matrix, precision, recall = metric_evaluator.get(verbose=verbose)
+            
 
+            cm_figure = self.plot_confusion_matrix(confusion_matrix, self.class_names)
 
-            metric_evaluator.log_pr_curves(logger=self.logger, classes_names=self.class_names, epoch=current_training_task, test_id=test_id, testing=testing)
-
-
-            cm_figure = self.plot_confusion_matrix(confusion_matrix, class_names=self.class_names)
+            pr_figure = self.plot_pr_curve(precision, recall)
               
-            self.log(current_training_task, test_id, epoch, cls_loss/n_samples, acc, mean_ap, map_weighted, cm_figure, testing)          
+            self.log(current_training_task, test_id, epoch, cls_loss/n_samples, acc, mean_ap, map_weighted, cm_figure, pr_figure, testing)          
             
             if verbose:
                 print(" - classification loss: {}".format(cls_loss/n_samples))
@@ -144,7 +144,8 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
             return acc, ap, cls_loss/n_samples, acc_per_class, mean_ap, map_weighted
         
     #TODO: definire log da fare...
-    def log(self, current_training_task, test_id, epoch, cls_loss , acc, mean_ap, map_weighted, cm_figure, testing):
+    def log(self, current_training_task, test_id, epoch, cls_loss , acc, mean_ap, map_weighted, cm_figure, pr_figure, testing):
+
         if not testing:
             name_tb = "training_task_" + str(current_training_task) + "/dataset_" + str(test_id) + "_classification_loss"
             self.logger.add_scalar(name_tb, cls_loss, epoch)
@@ -160,6 +161,9 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
 
             name_tb = "training_task_" + str(current_training_task) + "/dataset_" + str(test_id) + "_confusion_matrix"
             self.logger.add_figure(name_tb,cm_figure,epoch)
+
+            name_tb = "training_task_" + str(current_training_task) + "/dataset_" + str(test_id) + "_pr_curve"
+            self.logger.add_figure(name_tb,pr_figure,epoch)
         else:
             name_tb = "test_task" + "/dataset_" + str(test_id) + "_accuracy"
             self.logger.add_scalar(name_tb, acc, epoch)
@@ -172,6 +176,9 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
 
             name_tb = "test_task" + "/dataset_" + str(test_id) + "_confusion_matrix"
             self.logger.add_figure(name_tb,cm_figure,epoch)
+
+            name_tb = "test_task" + "/dataset_" + str(test_id) + "_pr_curve"
+            self.logger.add_figure(name_tb,pr_figure,epoch)
         
         
 
@@ -185,7 +192,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
       return probabilities
     
 
-    def plot_confusion_matrix(cm, class_names):
+    def plot_confusion_matrix(self, cm, class_names):
         """
         Returns a matplotlib figure containing the plotted confusion matrix.
 
@@ -215,3 +222,24 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         plt.xlabel('Predicted label')
         return figure
     
+
+
+    
+
+
+    def plot_pr_curve(self, precision, recall):
+        """
+        Returns a matplotlib figure containing the plotted confusion matrix.
+
+        Args:
+            cm (array, shape = [n, n]): a confusion matrix of integer classes
+            class_names (array, shape = [n]): String names of the integer classes
+        """
+        figure, ax = plt.subplots(figsize=(8, 8))
+        for i in range(self.total_classes):
+            display = PrecisionRecallDisplay(
+                recall=recall[i],
+                precision=precision[i]
+            )
+            display.plot(ax=ax, name=f"Precision-recall for class {self.class_names[i]}")
+        return figure
