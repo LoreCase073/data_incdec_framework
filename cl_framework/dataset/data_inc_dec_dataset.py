@@ -1,5 +1,6 @@
-from torch.utils.data import Subset
+from torch.utils.data import Subset, WeightedRandomSampler
 import numpy as np
+import torch
 
 class DataIncDecBaselineDataset():
     def __init__(self, dataset, task_dictionary,  
@@ -21,6 +22,12 @@ class DataIncDecBaselineDataset():
         self.total_classes = total_classes
 
         self.validation = validation
+
+        self.class_sample_count = np.array([len(np.where(self.dataset.targets == t)[0]) for t in np.unique(self.dataset.targets)])
+        self.sample_weight = 1. / self.class_sample_count
+
+
+    
 
     def collect(self):
         #train
@@ -94,6 +101,9 @@ class DataIncDecBaselineDataset():
                     train_indices_list[i].extend(list(f_idx + s_idx))
 
             #TODO: controllare funzioni questa logica per creare liste di indici
+
+            
+
                          
             
             cl_train_dataset = [Subset(self.dataset, ids)  for ids in train_indices_list]
@@ -131,3 +141,10 @@ class DataIncDecBaselineDataset():
             cl_test_sizes =[len(ids) for ids in test_indices_list]
 
             return cl_test_dataset, cl_test_sizes, None, None
+        
+    def get_weighted_random_sampler(self,indices):
+        
+        samples_weight = np.array(self.sample_weight[[self.dataset.targets[i] for i in indices]])
+        sampler = WeightedRandomSampler(samples_weight, len(samples_weight))
+
+        return sampler

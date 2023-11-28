@@ -106,6 +106,7 @@ if __name__ == "__main__":
                                                 class_per_task,total_classes,
                                                 valid_size=args.valid_size, train=True)
 
+    
     train_dataset_list, train_sizes, val_dataset_list, val_sizes = cl_train_val.collect()
 
     if args.approach == 'incdec':
@@ -127,16 +128,29 @@ if __name__ == "__main__":
     test_dataset_list, test_sizes, _, _  = cl_test.collect()
     #test_loaders = [DataLoader(test, batch_size=args.batch_size*4, shuffle=False, num_workers=args.nw) for test in test_dataset_list]
     test_loaders = [DataLoader(test, batch_size=args.batch_size, shuffle=False, num_workers=args.nw) for test in test_dataset_list]
-    
+
+
+    train_loaders = []
     if args.valid_size > 0 or validation_set != None:
+        if args.sampler == 'imbalance_sampler':
+            for train in train_dataset_list:
+                sampler = cl_train_val.get_weighted_random_sampler(train.indices)
+                train_loaders.append(DataLoader(train, batch_size=args.batch_size, shuffle=False, num_workers=args.nw, sampler=sampler))
+        else:
+            train_loaders = [DataLoader(train, batch_size=args.batch_size, shuffle=True, num_workers=args.nw) for train in train_dataset_list]
         print("Creating Validation Set")
-        train_loaders = [DataLoader(train, batch_size=args.batch_size, shuffle=True, num_workers=args.nw) for train in train_dataset_list]
+        
         #valid_loaders = [DataLoader(valid, batch_size=args.batch_size*4, shuffle=False, num_workers=args.nw) for valid in val_dataset_list]
         valid_loaders = [DataLoader(valid, batch_size=args.batch_size, shuffle=False, num_workers=args.nw) for valid in val_dataset_list]
     
     else:
         print("Not using Validation")
-        train_loaders = [DataLoader(train, batch_size=args.batch_size, shuffle=True, num_workers=args.nw) for train in train_dataset_list]
+        if args.sampler == 'imbalance_sampler':
+            for train in train_dataset_list:
+                sampler = cl_train_val.get_weighted_random_sampler(train.indices)
+                train_loaders.append(DataLoader(train, batch_size=args.batch_size, shuffle=False, num_workers=args.nw, sampler=sampler))
+        else:
+            train_loaders = [DataLoader(train, batch_size=args.batch_size, shuffle=True, num_workers=args.nw) for train in train_dataset_list]
         valid_loaders = test_loaders
  
 

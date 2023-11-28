@@ -36,11 +36,13 @@ class OptimizerManager:
                                             weight_decay=2e-4)
  
         if self.scheduler_type == "multi_step":
-            print("Scheduling lr after 45 and 90 epochs")
+            print("Scheduling lr after 20 and 40 epochs")
             scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
-                                                            milestones=[45, 90],
+                                                            milestones=[20, 40],
                                                             gamma=0.1, verbose=True
                                                                )
+        elif self.scheduler_type == "reduce_plateau":
+            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=10)
         else:
             print("Fixed Learning Rate")
             scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,

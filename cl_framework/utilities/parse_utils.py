@@ -37,7 +37,7 @@ def get_args():
     parser.add_argument("--lr_first_task", type=float, default=1e-3, help="for tiny-imagenet and cifar100, for imagenet-subet default  are in IncrementalApproach.py")
     parser.add_argument("--backbone_lr", type=float, default=1e-5)
     parser.add_argument("--head_lr", type=float, default=1e-5)
-    parser.add_argument("--scheduler_type", type=str, default="fixd", choices=["fixd", "multi_step"])
+    parser.add_argument("--scheduler_type", type=str, default="fixd", choices=["fixd", "multi_step","reduce_plateau"])
     parser.add_argument("--device", type=int, default=0)
     
     "Dataset Settings"
@@ -48,6 +48,8 @@ def get_args():
     parser.add_argument("--n_task", type=int, default=6, help="number of task")
     parser.add_argument("--initial_split", type=int, default=2, help="how to divide in the initial split the dataset. 2 will divide in 50%/50%")
     parser.add_argument("--valid_size", type=float, default=0.0, help="percentage of train for validation set, default not use validation set")
+    parser.add_argument("--sampler", type=str, default="imbalance_sampler", choices=["imbalance_sampler","balanced"])
+
     """
     Network Params
     """

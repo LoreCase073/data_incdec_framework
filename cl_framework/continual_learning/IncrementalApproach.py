@@ -47,7 +47,7 @@ class IncrementalApproach(metaclass=abc.ABCMeta):
       if self.dataset == "imagenet-subset":
          self.milestones_first_task = [80, 120, 150]
       else:
-         self.milestones_first_task = [45, 90]
+         self.milestones_first_task = [20, 40]
 
       
       
