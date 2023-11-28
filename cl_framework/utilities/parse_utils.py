@@ -11,11 +11,14 @@ def get_args():
     parser.add_argument("--approach", type=str,default="lwf", choices=["finetuning", "ewc","lwf","incdec"])
     parser.add_argument("--baseline", action='store_true') 
     parser.add_argument("--imbalanced", action='store_true') 
+    parser.add_argument("--accumulation", action='store_true') 
+    parser.add_argument("--n_accumulation", type=int, default=1)
     parser.add_argument("--outpath", "-op",default="./", type=str) 
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--nw", type=int, default=2, help="num workers for data loader")
     parser.add_argument("--freeze_bn", type=str, default="no")
     parser.add_argument("--early_stopping_val", type=int, default=10)
+    parser.add_argument("--weight_decay", default=0, type=float)
 
     
     """

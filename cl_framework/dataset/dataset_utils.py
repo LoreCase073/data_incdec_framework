@@ -323,9 +323,9 @@ def get_dataset(dataset_type, data_path):
         
         print("Loading Kinetics")
         
-        train_transform = [transforms.Resize(size=(172,172)),
+        train_transform = [transforms.Resize(size=(200,200)),
                            #TODO: in futuro provare con un random crop invece che centercrop
-                           transforms.CenterCrop(172),
+                           transforms.RandomCrop(172),
                            transforms.RandomHorizontalFlip(),
                             transforms.ToTensor(),
                             #added normalization factors computed on the actual dataset, training set

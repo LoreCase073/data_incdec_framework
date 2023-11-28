@@ -10,7 +10,7 @@ class OptimizerManager:
         self.scheduler_type = scheduler_type
         self.approach = approach
     
-    def get_optimizer(self, task_id, model, auxiliary_classifier):
+    def get_optimizer(self, task_id, model, auxiliary_classifier, weight_decay):
         if task_id > 0:
             model.freeze_bn() 
 
@@ -25,7 +25,7 @@ class OptimizerManager:
         params = backbone_params + head_params
         if self.backbone_lr == self.head_lr:
             print("Using Adam with a single lr {}".format(self.backbone_lr))
-            optimizer =  torch.optim.Adam(params, lr=self.backbone_lr, weight_decay=2e-4)
+            optimizer =  torch.optim.Adam(params, lr=self.backbone_lr, weight_decay=weight_decay)
         
         else:
             print("Using Adam with two lr. Backbone: {}, Head: {}".format(self.backbone_lr, self.head_lr))
@@ -33,7 +33,7 @@ class OptimizerManager:
             optimizer = torch.optim.Adam([{'params': head_params, 'lr':self.head_lr},
                                             {'params': backbone_params}
                                             ],lr=self.backbone_lr, 
-                                            weight_decay=2e-4)
+                                            weight_decay=weight_decay)
  
         if self.scheduler_type == "multi_step":
             print("Scheduling lr after 20 and 40 epochs")

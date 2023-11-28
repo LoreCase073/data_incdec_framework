@@ -29,6 +29,7 @@ class IncrementalApproach(metaclass=abc.ABCMeta):
       self.logger = SummaryWriter(os.path.join(out_path, "tensorboard"))
       self.milestones_first_task = None 
       self.dataset = args.dataset
+      self.weight_decay = args.weight_decay
       if self.dataset=="cifar100":
          self.image_size = 32
       elif self.dataset=="tiny-imagenet":
@@ -75,14 +76,14 @@ class IncrementalApproach(metaclass=abc.ABCMeta):
                                                          )
          else:
     
-            self.optimizer = torch.optim.Adam(params_to_optimize, lr=self.lr_first_task, weight_decay=2e-4)
+            self.optimizer = torch.optim.Adam(params_to_optimize, lr=self.lr_first_task, weight_decay=self.weight_decay)
             self.reduce_lr_on_plateau = torch.optim.lr_scheduler.MultiStepLR(self.optimizer,
                                                       milestones=self.milestones_first_task,
                                                       gamma=0.1, verbose=True
                                                          )
       else:            
 
-            self.optimizer, self.reduce_lr_on_plateau = self.optimizer_manager.get_optimizer(task_id, self.model, self.auxiliary_classifier)
+            self.optimizer, self.reduce_lr_on_plateau = self.optimizer_manager.get_optimizer(task_id, self.model, self.auxiliary_classifier, self.weight_decay)
 
  
              

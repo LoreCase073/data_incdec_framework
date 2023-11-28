@@ -17,10 +17,12 @@ from sklearn.metrics import PrecisionRecallDisplay
 class DataIncrementalDecrementalMethod(IncrementalApproach):
     #TODO: modificare init, non necessito di class_per_task probabilmente, non so di task_dict
     
-    def __init__(self, args, device, out_path, task_dict, total_classes, behaviors_per_task, behavior_dicts, imbalanced=True):
+    def __init__(self, args, device, out_path, task_dict, total_classes, behaviors_per_task, behavior_dicts):
         #TODO: class_per_task, come passarlo
         self.total_classes = total_classes
-        self.imbalanced = imbalanced
+        self.imbalanced = args.imbalanced
+        self.loss_accumulation = args.accumulation
+        self.n_accumulation = args.n_accumulation
         super().__init__(args, device, out_path, total_classes, task_dict)
         #TODO: vedere se da BaseModel necessito di modificare qualcosa in caso
         self.class_names = list(behavior_dicts[0].keys())
@@ -64,20 +66,35 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         
        
         train_loss, n_samples = 0, 0
-        for images, targets, _ in  tqdm(train_loader):
-            images = images.to(self.device)
-            targets = targets.to(self.device)
-            current_batch_size = images.shape[0]
-            n_samples += current_batch_size
- 
-
-            outputs, _ = self.model(images)
-            loss = self.criterion(outputs, targets, class_weights=class_weights)
-
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
-            train_loss += loss * current_batch_size
+        self.optimizer.zero_grad()
+        #if to work with loss accumulation, when batch size is too small
+        if self.loss_accumulation:
+            count_accumulation = 0
+            for batch_idx, (images, targets, _) in enumerate(tqdm(train_loader)):
+                images = images.to(self.device)
+                targets = targets.to(self.device)
+                current_batch_size = images.shape[0]
+                n_samples += current_batch_size
+                outputs, _ = self.model(images)
+                loss = self.criterion(outputs, targets, class_weights=class_weights)             
+                loss.backward()
+                train_loss += loss * current_batch_size
+                count_accumulation += 1
+                if ((batch_idx + 1) % self.n_accumulation == 0) or (batch_idx + 1 == len(train_loader)):
+                    self.optimizer.step()
+                    self.optimizer.zero_grad()
+        else:
+            for images, targets, _ in  tqdm(train_loader):
+                images = images.to(self.device)
+                targets = targets.to(self.device)
+                current_batch_size = images.shape[0]
+                n_samples += current_batch_size
+                outputs, _ = self.model(images)
+                loss = self.criterion(outputs, targets, class_weights=class_weights)             
+                loss.backward()
+                self.optimizer.step()
+                self.optimizer.zero_grad()
+                train_loss += loss * current_batch_size
         
         self.train_log(task_id, epoch, train_loss/n_samples)  
 
