@@ -10,7 +10,7 @@ class OptimizerManager:
         self.scheduler_type = scheduler_type
         self.approach = approach
     
-    def get_optimizer(self, task_id, model, auxiliary_classifier, weight_decay):
+    def get_optimizer(self, task_id, model, auxiliary_classifier, weight_decay, patience):
         if task_id > 0:
             model.freeze_bn() 
 
@@ -42,7 +42,8 @@ class OptimizerManager:
                                                             gamma=0.1, verbose=True
                                                                )
         elif self.scheduler_type == "reduce_plateau":
-            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=10)
+            print("Scheduling on plateau with patience {patience}")
+            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=patience, verbose=True)
         else:
             print("Fixed Learning Rate")
             scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,

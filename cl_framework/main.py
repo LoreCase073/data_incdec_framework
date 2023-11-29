@@ -42,6 +42,8 @@ if __name__ == "__main__":
     # if True create folder exp_folder, else create folder with the name of the approach
     dev_mode = False
 
+    stop_first_task = args.stop_first_task
+
     # generate output folder and result folders
     out_path, exp_name = experiment_folder(args.outpath, dev_mode, args.approach)
  
@@ -187,13 +189,12 @@ if __name__ == "__main__":
                     total_classes=total_classes,
                     behaviors_per_task=behaviors_per_task,
                     behavior_dicts = behavior_dicts,
-        )
-  
-    
-     
-  
+                    )
     else:
         sys.exit("Approach not Implemented")
+
+    summary_logger = SummaryLogger(all_args, all_default_args, args.outpath, args.approach)
+    summary_logger.summary_parameters(exp_name)
  
     for task_id, train_loader in enumerate(train_loaders):
 
@@ -221,7 +222,8 @@ if __name__ == "__main__":
             approach.pre_train(task_id, train_loader,  valid_loaders[task_id])
 
             
-            best_taw_accuracy,  best_tag_accuracy, best_accuracy = 0, 0, 0
+            best_taw_accuracy,  best_tag_accuracy, best_accuracy, best_mAP = 0, 0, 0, 0
+            best_epoch = 0
             best_loss = math.inf 
             
             if task_id == 0 and args.dataset == "imagenet-subset":
@@ -250,22 +252,27 @@ if __name__ == "__main__":
                 approach.train(task_id, train_loader, epoch, n_epochs)
                 
                 if args.approach == 'incdec':
-                    acc, _ , test_loss, _, _,_ = approach.eval(task_id, task_id, valid_loaders[task_id], epoch, verbose=True, testing=False)
+                    acc, _ , test_loss, _, mean_ap_eval,_ = approach.eval(task_id, task_id, valid_loaders[task_id], epoch, verbose=True, testing=False)
                 else:
                     taw_acc, tag_acc, test_loss  = approach.eval(task_id, task_id, valid_loaders[task_id], epoch,  verbose=True)
                 
                 previous_lr = approach.optimizer.param_groups[0]["lr"]
                 
-                approach.reduce_lr_on_plateau.step()
+                if args.scheduler_type == 'reduce_plateau':
+                    approach.reduce_lr_on_plateau.step(mean_ap_eval)
+                else:
+                    approach.reduce_lr_on_plateau.step()
                     
                 current_lr = approach.optimizer.param_groups[0]["lr"]
                 
                 if args.approach == 'incdec':
-                    if acc > best_accuracy:
-                        old_accuracy = best_accuracy
-                        best_accuracy = acc
-                        store_model(approach, out_path)
-                        print(f"  --> from acc {old_accuracy:.3f} to {acc:.3f}")
+                    if mean_ap_eval > best_mAP:
+                        old_mAP = best_mAP
+                        best_mAP = mean_ap_eval
+                        name_model = "best_mAP_task_" + str(task_id)
+                        store_model(approach, out_path,name=name_model)
+                        print(f"  --> from mAP {old_mAP:.3f} to {best_mAP:.3f}")
+                        best_epoch = epoch
                 else:
                     if taw_acc > best_taw_accuracy:
                         old_accuracy = best_taw_accuracy
@@ -273,21 +280,35 @@ if __name__ == "__main__":
                         store_model(approach, out_path)
                         print(f"  --> from acc {old_accuracy:.3f} to {taw_acc:.3f}")
 
-                #checks if the validation loss has decreased or not
-                if test_loss < best_loss:
-                    no_decrement_count = 0
-                    best_loss = test_loss
-                else:
-                    no_decrement_count += 1
+                
+                
 
                 avg_time_train.update(time.time() - end_time)
 
                 print(f"Last time {avg_time_train.val:.3f} - Average time ({avg_time_train.avg:.3f})\t")
 
+                if current_lr != previous_lr:
+                    rollback_model(approach, os.path.join(out_path,"best_mAP_task_{}_model.pth").format(task_id), device, name=str(task_id))
+
+                #Commented because for now i'll do a early stopping when the lr becomes lower than a threshold
+                """ 
+                #checks if the mAP has decreased or not
+                if mean_ap_eval < best_mAP:
+                    no_decrement_count = 0
+                    best_mAP = mean_ap_eval
+                else:
+                    no_decrement_count += 1
                 #early stops if too many epochs without improving
                 if no_decrement_count == args.early_stopping_val:
                     print(f"Early stopping because classification loss didn't improve for{args.early_stopping_val} epochs\t")
+                    break """
+                #Stops if the learning rate is lower than a threshold
+                print(f"Current learning rate for the next epoch is: {current_lr}")
+                if current_lr <= float(1e-6):
+                    print(f"Early stopping because learning rate threshold is reached \t")
                     break
+
+            logger.print_best_epoch(best_epoch, task_id)
             
             
         """
@@ -322,6 +343,10 @@ if __name__ == "__main__":
         logger.print_file()
   
         approach.post_train(task_id=task_id, trn_loader=train_loader)
+
+        #If i want to stop at the first task
+        if stop_first_task:
+            break
 
     
     summary_logger = SummaryLogger(all_args, all_default_args, args.outpath, args.approach)

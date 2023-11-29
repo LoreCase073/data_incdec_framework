@@ -18,7 +18,7 @@ def get_args():
     parser.add_argument("--nw", type=int, default=2, help="num workers for data loader")
     parser.add_argument("--freeze_bn", type=str, default="no")
     parser.add_argument("--early_stopping_val", type=int, default=10)
-    parser.add_argument("--weight_decay", default=0, type=float)
+    parser.add_argument("--weight_decay", default=5e-4, type=float)
 
     
     """
@@ -35,12 +35,15 @@ def get_args():
     """
     Training hyperparams 
     """
+    parser.add_argument("--stop_first_task", action='store_true') 
     parser.add_argument("--epochs", "-e", type=int, default=100)
     parser.add_argument("--batch_size", type=int, default=2)
     parser.add_argument("--lr_first_task", type=float, default=1e-3, help="for tiny-imagenet and cifar100, for imagenet-subet default  are in IncrementalApproach.py")
     parser.add_argument("--backbone_lr", type=float, default=1e-5)
     parser.add_argument("--head_lr", type=float, default=1e-5)
     parser.add_argument("--scheduler_type", type=str, default="fixd", choices=["fixd", "multi_step","reduce_plateau"])
+    parser.add_argument("--plateau_check", type=str, default="map", choices=["map", "class_loss"])
+    parser.add_argument("--patience", type=int, default=5)
     parser.add_argument("--device", type=int, default=0)
     
     "Dataset Settings"
@@ -56,7 +59,7 @@ def get_args():
     """
     Network Params
     """
-    parser.add_argument("--backbone", type=str, default="resnet18", choices=["resnet18","3dresnet18","3dresnet10","movinet"])
+    parser.add_argument("--backbone", type=str, default="resnet18", choices=["resnet18","3dresnet18","3dresnet10","movinetA0","movinetA1","movinetA2"])
     parser.add_argument("--firsttask_modelpath", type=str, default="None", help="specify model path if start from a pre-trained model after first task")
 
     

@@ -21,6 +21,8 @@ class IncrementalApproach(metaclass=abc.ABCMeta):
       # Optimizer args
       self.lr_first_task = args.lr_first_task
       self.scheduler_type  = args.scheduler_type
+      self.plateau_check = args.plateau_check
+      self.patience = args.patience
       self.backbone_lr = args.backbone_lr
       self.head_lr = args.head_lr
 
@@ -47,8 +49,10 @@ class IncrementalApproach(metaclass=abc.ABCMeta):
       
       if self.dataset == "imagenet-subset":
          self.milestones_first_task = [80, 120, 150]
-      else:
+      elif self.scheduler_type == "multi_step":
          self.milestones_first_task = [20, 40]
+      else:
+         self.milestones_first_task = [1000, 2000]
 
       
       
@@ -77,13 +81,20 @@ class IncrementalApproach(metaclass=abc.ABCMeta):
          else:
     
             self.optimizer = torch.optim.Adam(params_to_optimize, lr=self.lr_first_task, weight_decay=self.weight_decay)
-            self.reduce_lr_on_plateau = torch.optim.lr_scheduler.MultiStepLR(self.optimizer,
-                                                      milestones=self.milestones_first_task,
-                                                      gamma=0.1, verbose=True
-                                                         )
+            if self.scheduler_type == 'multi_step':
+               self.reduce_lr_on_plateau = torch.optim.lr_scheduler.MultiStepLR(self.optimizer,
+                                                         milestones=self.milestones_first_task,
+                                                         gamma=0.1, verbose=True
+                                                            )
+            elif self.scheduler_type == 'reduce_plateau':
+               #with this we decide if looking at mAP or Validation Loss
+               if self.plateau_check == "map":
+                  self.reduce_lr_on_plateau = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, 'max', patience=self.patience, verbose=True)
+               elif self.plateau_check == "class_loss":
+                  self.reduce_lr_on_plateau = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, 'min', patience=self.patience, verbose=True)
       else:            
 
-            self.optimizer, self.reduce_lr_on_plateau = self.optimizer_manager.get_optimizer(task_id, self.model, self.auxiliary_classifier, self.weight_decay)
+            self.optimizer, self.reduce_lr_on_plateau = self.optimizer_manager.get_optimizer(task_id, self.model, self.auxiliary_classifier, self.weight_decay, self.patience)
 
  
              
@@ -116,7 +127,7 @@ class IncrementalApproach(metaclass=abc.ABCMeta):
       print("- approach: {}".format(self.approach))
       print("- backbone: {}".format(self.backbone))
       print("- batch size : {}".format(self.batch_size))
-      print("- lr first task: {} with decay multi-step {}".format(self.lr_first_task, self.milestones_first_task))
+      print("- lr first task: {} with {} scheduler".format(self.lr_first_task, self.scheduler_type))
       print("- incremental phases: backbone lr : {}".format(self.backbone_lr))
       print("- incremental phases: head lr : {}".format(self.head_lr))
       print("- incremental phases: scheduler type  {}".format(self.scheduler_type))

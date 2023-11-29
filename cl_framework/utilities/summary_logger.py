@@ -25,6 +25,7 @@ class SummaryLogger():
                                                                      'Avg_forg_acc',
                                                                      'Last_avg_acc',
                                                                      ]
+        self.parameters_columns = ['Model_name'] + self.list_parameter_names
       
 
    
@@ -69,6 +70,15 @@ class SummaryLogger():
                                 [list_avg_perstep_acc_tag[-1]]], columns=self.columns)
         
         df.to_csv(os.path.join(self.out_path, exp_name,  "summary.csv"), index=False)
+    
+
+   
+
+    def summary_parameters(self, exp_name):
+
+        df = pd.DataFrame([[exp_name]+ 
+                                self.list_parameter_values], columns=self.parameters_columns)      
+        df.to_csv(os.path.join(self.out_path, exp_name,  "parameters.csv"), index=False)
     
 
    

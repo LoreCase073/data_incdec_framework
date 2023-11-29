@@ -215,4 +215,8 @@ class IncDecLogger():
         np.savetxt(os.path.join(self.out_path, 'forg_acc.out'), self.forg_acc, delimiter=',', fmt='%.3f')       
 
         np.savetxt(os.path.join(self.out_path, 'avg_forg_acc.out'), self.avg_forg_acc, delimiter=',', fmt='%.3f')
+
+
+    def print_best_epoch(self, best_epoch, task_id):
+        np.savetxt(os.path.join(self.out_path, 'best_epoch_task_{}.out'.format(task_id)), best_epoch, delimiter=',')
  

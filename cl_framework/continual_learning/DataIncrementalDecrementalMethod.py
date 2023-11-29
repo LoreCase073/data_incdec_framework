@@ -240,10 +240,6 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         return figure
     
 
-
-    
-
-
     def plot_pr_curve(self, precision, recall):
         """
         Returns a matplotlib figure containing the plotted confusion matrix.
