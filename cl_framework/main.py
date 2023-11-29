@@ -288,7 +288,9 @@ if __name__ == "__main__":
                 print(f"Last time {avg_time_train.val:.3f} - Average time ({avg_time_train.avg:.3f})\t")
 
                 if current_lr != previous_lr:
-                    rollback_model(approach, os.path.join(out_path,"best_mAP_task_{}_model.pth").format(task_id), device, name=str(task_id))
+                    model_name = os.path.join(out_path,"best_mAP_task_{}_model.pth").format(task_id)
+                    print("Loading model from path: {}".format(model_name))
+                    rollback_model(approach, model_name, device, name=str(model_name))
 
                 #Commented because for now i'll do a early stopping when the lr becomes lower than a threshold
                 """ 
