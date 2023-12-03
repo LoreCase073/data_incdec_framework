@@ -8,7 +8,7 @@ def get_args():
     """
     Structural hyperparams 
     """
-    parser.add_argument("--approach", type=str,default="lwf", choices=["finetuning", "ewc","lwf","incdec"])
+    parser.add_argument("--approach", type=str,default="incdec", choices=["finetuning", "ewc","lwf","incdec"])
     parser.add_argument("--baseline", action='store_true') 
     parser.add_argument("--imbalanced", action='store_true') 
     parser.add_argument("--accumulation", action='store_true') 
@@ -47,7 +47,7 @@ def get_args():
     parser.add_argument("--device", type=int, default=0)
     
     "Dataset Settings"
-    parser.add_argument("--dataset", type=str, default="cifar100", choices=["cifar100","tiny-imagenet","imagenet-subset", "kinetics"], help="dataset to use") 
+    parser.add_argument("--dataset", type=str, default="kinetics", choices=["cifar100","tiny-imagenet","imagenet-subset", "kinetics"], help="dataset to use") 
     #parser.add_argument("--data_path",type=str, default="/Kinetics",help="path where imagenet subset and tiny-imagenet are saved")
     parser.add_argument("--data_path",type=str, default="/cl_data",help="path where imagenet subset and tiny-imagenet are saved")
     parser.add_argument("--n_class_first_task", type=int, default=50, help="if greater than -1 use a larger number of classes for the first class, n_task include this one")
@@ -59,7 +59,7 @@ def get_args():
     """
     Network Params
     """
-    parser.add_argument("--backbone", type=str, default="resnet18", choices=["resnet18","3dresnet18","3dresnet10","movinetA0","movinetA1","movinetA2"])
+    parser.add_argument("--backbone", type=str, default="movinetA0", choices=["resnet18","3dresnet18","3dresnet10","movinetA0","movinetA1","movinetA2"])
     parser.add_argument("--firsttask_modelpath", type=str, default="None", help="specify model path if start from a pre-trained model after first task")
 
     

@@ -135,7 +135,7 @@ class KineticsDataset(Dataset):
                 video.append(img)      
         
         video = torch.stack(video,0).permute(1, 0, 2, 3)
-        return video, target, behavior
+        return video, target, behavior, images_path
 
 
 def get_train_val_images_tiny(data_path):

@@ -128,7 +128,7 @@ class FileOutputDuplicator(object):
 
 
 class IncDecLogger():
-    def __init__(self, out_path, n_task, task_dict, test_sizes, num_classes, begin_time=None) -> None:
+    def __init__(self, out_path, n_task, task_dict, test_sizes, num_classes, begin_time=None, validation_mode=False) -> None:
         self.acc = np.zeros((n_task, n_task))
         self.mean_ap = np.zeros((n_task, n_task))
         self.map_weighted = np.zeros((n_task, n_task))
@@ -142,8 +142,11 @@ class IncDecLogger():
         #TODO: vedere se con nuovo task_dict, da modificare cosa restituire
         self.task_len  =  [item for item in task_dict.values()]
         self.test_sizes = test_sizes
-
-        self.out_path = os.path.join(out_path, "logger")
+        self.best_epoch = np.full(n_task,-1)
+        if validation_mode:
+            self.out_path = os.path.join(out_path, "validation_logger")
+        else:
+            self.out_path = os.path.join(out_path, "logger")
         
         if begin_time is None:
             self.begin_time = datetime.now()
@@ -218,5 +221,6 @@ class IncDecLogger():
 
 
     def print_best_epoch(self, best_epoch, task_id):
-        np.savetxt(os.path.join(self.out_path, 'best_epoch_task_{}.out'.format(task_id)), best_epoch, delimiter=',')
+        self.best_epoch[task_id] = best_epoch
+        np.savetxt(os.path.join(self.out_path, 'best_epoch_tasks.out'), self.best_epoch, delimiter=',', fmt='%d')
  

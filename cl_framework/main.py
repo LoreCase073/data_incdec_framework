@@ -128,7 +128,6 @@ if __name__ == "__main__":
                                         train=False)
 
     test_dataset_list, test_sizes, _, _  = cl_test.collect()
-    #test_loaders = [DataLoader(test, batch_size=args.batch_size*4, shuffle=False, num_workers=args.nw) for test in test_dataset_list]
     test_loaders = [DataLoader(test, batch_size=args.batch_size, shuffle=False, num_workers=args.nw) for test in test_dataset_list]
 
 
@@ -142,7 +141,6 @@ if __name__ == "__main__":
             train_loaders = [DataLoader(train, batch_size=args.batch_size, shuffle=True, num_workers=args.nw) for train in train_dataset_list]
         print("Creating Validation Set")
         
-        #valid_loaders = [DataLoader(valid, batch_size=args.batch_size*4, shuffle=False, num_workers=args.nw) for valid in val_dataset_list]
         valid_loaders = [DataLoader(valid, batch_size=args.batch_size, shuffle=False, num_workers=args.nw) for valid in val_dataset_list]
     
     else:
@@ -162,10 +160,12 @@ if __name__ == "__main__":
     """
     if args.approach == 'incdec':
         logger = IncDecLogger(out_path=out_path, n_task=args.n_task, task_dict=task_dict, test_sizes=test_sizes, num_classes=total_classes)
+        val_logger = IncDecLogger(out_path=out_path, n_task=args.n_task, task_dict=task_dict, test_sizes=test_sizes, num_classes=total_classes, validation_mode=True)
     else:
         logger = Logger(out_path=out_path, n_task=args.n_task, task_dict=task_dict, test_sizes=test_sizes)
     result_folder(out_path, "tensorboard")
     result_folder(out_path, "logger")
+    result_folder(out_path, "validation_logger")
 
     #Average time keeper for training
     avg_time_train = AverageMeter()
@@ -202,13 +202,13 @@ if __name__ == "__main__":
         if  task_id == 0 and args.firsttask_modelpath != "None":
  
             approach.pre_train(task_id, train_loader,  valid_loaders[task_id])
- 
-            print("Loading model from path {}".format(os.path.join(args.firsttask_modelpath, "{}_seed_{}".format(args.dataset, args.seed), "0_model.pth")))
-
-            rollback_model(approach, os.path.join(args.firsttask_modelpath, "{}_seed_{}".format(args.dataset, args.seed),"0_model.pth"), device, name=str(task_id))
-  
-            
-            epoch = 100
+            if args.approach == 'incdec':
+                print("Loading model from path {}".format(args.firsttask_modelpath))
+                rollback_model(approach, args.firsttask_modelpath, device, name='best_mAP_task_0_model.pth')
+            else:
+                print("Loading model from path {}".format(os.path.join(args.firsttask_modelpath, "{}_seed_{}".format(args.dataset, args.seed), "0_model.pth")))
+                rollback_model(approach, os.path.join(args.firsttask_modelpath, "{}_seed_{}".format(args.dataset, args.seed),"0_model.pth"), device, name=str(task_id))
+                epoch = 100
         else:
  
             
@@ -221,6 +221,11 @@ if __name__ == "__main__":
 
             approach.pre_train(task_id, train_loader,  valid_loaders[task_id])
 
+            #rolling back to the best model of the past task
+            if task_id != 0:
+                model_name = os.path.join(out_path,"best_mAP_task_{}_model.pth").format((task_id-1))
+                print("Loading model from path: {}".format(model_name))
+                rollback_model(approach, model_name, device, name=str(model_name))
             
             best_taw_accuracy,  best_tag_accuracy, best_accuracy, best_mAP = 0, 0, 0, 0
             best_epoch = 0
@@ -252,7 +257,7 @@ if __name__ == "__main__":
                 approach.train(task_id, train_loader, epoch, n_epochs)
                 
                 if args.approach == 'incdec':
-                    acc, _ , test_loss, _, mean_ap_eval,_ = approach.eval(task_id, task_id, valid_loaders[task_id], epoch, verbose=True, testing=False)
+                    acc, _ , test_loss, _, mean_ap_eval,_ = approach.eval(task_id, task_id, valid_loaders[task_id], epoch, verbose=True, testing=None)
                 else:
                     taw_acc, tag_acc, test_loss  = approach.eval(task_id, task_id, valid_loaders[task_id], epoch,  verbose=True)
                 
@@ -306,7 +311,7 @@ if __name__ == "__main__":
                     break """
                 #Stops if the learning rate is lower than a threshold
                 print(f"Current learning rate for the next epoch is: {current_lr}")
-                if current_lr <= float(1e-6):
+                if current_lr < float(1e-5):
                     print(f"Early stopping because learning rate threshold is reached \t")
                     break
 
@@ -316,21 +321,31 @@ if __name__ == "__main__":
         """
         Test Final Model
         """
-    
-        store_model(approach, out_path, name=str(task_id))
- 
+        model_name = os.path.join(out_path,"best_mAP_task_{}_model.pth").format(task_id)
+        print("Loading model from path: {}".format(model_name))
+        rollback_model(approach, model_name, device, name=str(model_name))
+        #TODO: forse non necessario perchè salvo comunque quello migliore prima...
+        #store_model(approach, out_path, name=str(task_id))
+
+
+        #Here do a validation eval for the best epoch model
+        #this is redundant, but here i print also more metrics...
+        vacc_value, vap_value, _, vacc_per_class, vmean_ap, vmap_weighted  = approach.eval(task_id, task_id, valid_loaders[task_id], epoch,  verbose=False, testing='val')
+        val_logger.update_accuracy(current_training_task_id=task_id, test_id=task_id, acc_value=vacc_value, ap_value=vap_value, acc_per_class=vacc_per_class, mean_ap=vmean_ap, map_weighted=vmap_weighted)
         
 
-        for test_id in range(task_id + 1):
-            
-            if args.approach == 'incdec':
-                acc_value, ap_value, _, acc_per_class, mean_ap, map_weighted  = approach.eval(task_id, test_id, test_loaders[test_id], epoch,  verbose=False, testing=True)
-                logger.update_accuracy(current_training_task_id=task_id, test_id=test_id, acc_value=acc_value, ap_value=ap_value, acc_per_class=acc_per_class, mean_ap=mean_ap, map_weighted=map_weighted)
-                #TODO: questo è forse per misurare quando si dimentica dei vecchi task, introdurre qualche metrica del genere
-                if test_id < task_id:
-                    logger.update_forgetting(current_training_task_id=task_id, test_id=test_id)
-                logger.print_latest(current_training_task_id=task_id, test_id=test_id)
-            else:
+ 
+        #For incdec approach for now there is a single test set to be evaluated
+        if args.approach == 'incdec':
+            acc_value, ap_value, _, acc_per_class, mean_ap, map_weighted  = approach.eval(task_id, task_id, test_loaders[task_id], epoch,  verbose=False, testing='test')
+            logger.update_accuracy(current_training_task_id=task_id, test_id=task_id, acc_value=acc_value, ap_value=ap_value, acc_per_class=acc_per_class, mean_ap=mean_ap, map_weighted=map_weighted)
+            #TODO: questo è forse per misurare quando si dimentica dei vecchi task, introdurre qualche metrica del genere
+            #Per ora commento perchè non utile allo scopo per come è fatto
+            """ if test_id < task_id:
+                logger.update_forgetting(current_training_task_id=task_id, test_id=test_id) """
+            logger.print_latest(current_training_task_id=task_id, test_id=task_id)
+        else:
+            for test_id in range(task_id + 1):
                 acc_taw_value, acc_tag_value, _,  = approach.eval(task_id, test_id, test_loaders[test_id], epoch,  verbose=False)                                                                                                            
                 logger.update_accuracy(current_training_task_id=task_id, test_id=test_id, acc_taw_value=acc_taw_value, acc_tag_value=acc_tag_value)
                 if test_id < task_id:
@@ -343,6 +358,8 @@ if __name__ == "__main__":
         """
         logger.compute_average()
         logger.print_file()
+        val_logger.compute_average()
+        val_logger.print_file()
   
         approach.post_train(task_id=task_id, trn_loader=train_loader)
 

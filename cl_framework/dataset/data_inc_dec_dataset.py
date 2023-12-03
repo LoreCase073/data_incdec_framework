@@ -22,7 +22,7 @@ class DataIncDecBaselineDataset():
         self.total_classes = total_classes
 
         self.validation = validation
-
+        #compute class sample count for the sample weights to be used in weighted random sample
         self.class_sample_count = np.array([len(np.where(self.dataset.targets == t)[0]) for t in np.unique(self.dataset.targets)])
         self.sample_weight = 1. / self.class_sample_count
 

@@ -42,7 +42,7 @@ class OptimizerManager:
                                                             gamma=0.1, verbose=True
                                                                )
         elif self.scheduler_type == "reduce_plateau":
-            print("Scheduling on plateau with patience {patience}")
+            print("Scheduling on plateau with patience {}".format(patience))
             scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=patience, verbose=True)
         else:
             print("Fixed Learning Rate")
