@@ -48,8 +48,7 @@ def get_args():
     
     "Dataset Settings"
     parser.add_argument("--dataset", type=str, default="kinetics", choices=["cifar100","tiny-imagenet","imagenet-subset", "kinetics"], help="dataset to use") 
-    #parser.add_argument("--data_path",type=str, default="/Kinetics",help="path where imagenet subset and tiny-imagenet are saved")
-    parser.add_argument("--data_path",type=str, default="/cl_data",help="path where imagenet subset and tiny-imagenet are saved")
+    parser.add_argument("--data_path",type=str, default="/Kinetics",help="path where imagenet subset and tiny-imagenet are saved")
     parser.add_argument("--n_class_first_task", type=int, default=50, help="if greater than -1 use a larger number of classes for the first class, n_task include this one")
     parser.add_argument("--n_task", type=int, default=6, help="number of task")
     parser.add_argument("--initial_split", type=int, default=2, help="how to divide in the initial split the dataset. 2 will divide in 50%/50%")

@@ -346,9 +346,7 @@ def get_dataset(dataset_type, data_path):
 
         #TODO: per ora fps passati sempre a 5, aggiungere logica esterna per modificarlo
         train_set = KineticsDataset(data_path, train_transform, dataset_type='train', fps=5)
-        #Here validation is passed outside, separately from the train
-        #TODO: implementare logica per validation set, forse in futuro implementare scelta se farlo
-        #da training
+        # Here validation is passed outside, separately from the train. In the future could be a subset of training
         valid_set = KineticsDataset(data_path, test_transform, dataset_type='validation', fps=5)
         test_set = KineticsDataset(data_path, test_transform, dataset_type='test', fps=5)
 

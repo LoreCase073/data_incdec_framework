@@ -73,12 +73,10 @@ class DataIncDecBaselineDataset():
 
             
             for idx_class in range(self.total_classes):
-                    
+                #takes indices of the class
+                current_class_indices = np.where(np.array(self.dataset.targets) == idx_class)[0]
+                np.random.shuffle(current_class_indices)
                 for i in range(self.n_task):     
-
-                    #takes indices of the class
-                    current_class_indices = np.where(np.array(self.dataset.targets) == idx_class)[0]
-                    np.random.shuffle(current_class_indices)
 
                     #takes indices of the class from the first split
                     f_class_indices = [idx for idx in current_class_indices if idx in first_split]
@@ -99,12 +97,7 @@ class DataIncDecBaselineDataset():
 
                     #add and remove data and make the list of indices for the task
                     train_indices_list[i].extend(list(f_idx + s_idx))
-
-            #TODO: controllare funzioni questa logica per creare liste di indici
-
-            
-
-                         
+                      
             
             cl_train_dataset = [Subset(self.dataset, ids)  for ids in train_indices_list]
             cl_train_sizes = [len(ids) for ids in train_indices_list]

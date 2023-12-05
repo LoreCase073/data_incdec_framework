@@ -83,7 +83,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                     self.optimizer.step()
                     self.optimizer.zero_grad()
         else:
-            for images, targets, _ in  tqdm(train_loader):
+            for images, targets, _, _ in  tqdm(train_loader):
                 images = images.to(self.device)
                 targets = targets.to(self.device)
                 current_batch_size = images.shape[0]
@@ -110,14 +110,9 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
     def post_train(self, task_id, trn_loader=None):
         pass 
 
-    #TODO: definire evaluation step
-    #TODO: definire quindi accuracy e AP
-    #TODO: accuracy e AP vanno probabilmente generate per ogni classe e per ogni sub-behavior, 
-    # per identificare comportamenti anomali al variare dei dati e dei training
-    #TODO: controllare https://torchmetrics.readthedocs.io/en/stable/classification/average_precision.html
+    
     #magari ci sono già implementati metodi interessanti
     def eval(self, current_training_task, test_id, loader, epoch, verbose, testing=None):
-        #TODO: modificare anche metric evaluator per gestire anche AP e differenziazione tra classi...
         metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.task_dict, self.total_classes)
 
         if self.imbalanced:
@@ -176,7 +171,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
 
             return acc, ap, cls_loss/n_samples, acc_per_class, mean_ap, map_weighted
         
-    #TODO: definire log da fare...
+
     def log(self, current_training_task, test_id, epoch, cls_loss , acc, mean_ap, map_weighted, confusion_matrix, cm_figure, pr_figure, testing):
 
         if testing == None:
@@ -192,13 +187,6 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
             name_tb = "training_task_" + str(current_training_task) + "/dataset_" + str(test_id) + "_weighted_mAP"
             self.logger.add_scalar(name_tb, map_weighted, epoch)
 
-            #Rimosso logging per testing
-            #TODO: rimuovere da qui
-            """ name_tb = "training_task_" + str(current_training_task) + "/dataset_" + str(test_id) + "_confusion_matrix"
-            self.logger.add_figure(name_tb,cm_figure,epoch)
-
-            name_tb = "training_task_" + str(current_training_task) + "/dataset_" + str(test_id) + "_pr_curve"
-            self.logger.add_figure(name_tb,pr_figure,epoch) """
         elif testing == 'val':
             name_tb = "validation_dataset_"+ str(current_training_task) + "/task_" + str(test_id) + "_accuracy"
             self.logger.add_scalar(name_tb, acc, epoch)

@@ -42,6 +42,7 @@ if __name__ == "__main__":
     # if True create folder exp_folder, else create folder with the name of the approach
     dev_mode = False
 
+    # if we want to stop at the first task to benchmark the first training
     stop_first_task = args.stop_first_task
 
     # generate output folder and result folders
