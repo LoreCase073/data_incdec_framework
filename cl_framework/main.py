@@ -299,7 +299,7 @@ if __name__ == "__main__":
                     print("Loading model from path: {}".format(model_name))
                     rollback_model(approach, model_name, device, name=str(model_name))
 
-                #Commented because for now i'll do a early stopping when the lr becomes lower than a threshold
+                # Commented because for now i'll do a early stopping when the lr becomes lower than a threshold
                 """ 
                 #checks if the mAP has decreased or not
                 if mean_ap_eval < best_mAP:
@@ -311,7 +311,7 @@ if __name__ == "__main__":
                 if no_decrement_count == args.early_stopping_val:
                     print(f"Early stopping because classification loss didn't improve for{args.early_stopping_val} epochs\t")
                     break """
-                #Stops if the learning rate is lower than a threshold
+                # Stops if the learning rate is lower than a threshold
                 print(f"Current learning rate for the next epoch is: {current_lr}")
                 if current_lr < float(1e-5):
                     print(f"Early stopping because learning rate threshold is reached \t")
@@ -326,12 +326,14 @@ if __name__ == "__main__":
         model_name = os.path.join(out_path,"best_mAP_task_{}_model.pth").format(task_id)
         print("Loading model from path: {}".format(model_name))
         rollback_model(approach, model_name, device, name=str(model_name))
+
         #TODO: forse non necessario perchè salvo comunque quello migliore prima...
+        #TODO: controllare se rimuovere
         #store_model(approach, out_path, name=str(task_id))
 
 
-        #Here do a validation eval for the best epoch model
-        #this is redundant, but here i print also more metrics...
+        # Here do a validation eval for the best epoch model
+        # this is redundant, but here i print metrics of the best model on the validation set...
         vacc_value, vap_value, _, vacc_per_class, vmean_ap, vmap_weighted  = approach.eval(task_id, task_id, valid_loaders[task_id], epoch,  verbose=False, testing='val')
         val_logger.update_accuracy(current_training_task_id=task_id, test_id=task_id, acc_value=vacc_value, ap_value=vap_value, acc_per_class=vacc_per_class, mean_ap=vmean_ap, map_weighted=vmap_weighted)
         
@@ -341,8 +343,8 @@ if __name__ == "__main__":
         if args.approach == 'incdec':
             acc_value, ap_value, _, acc_per_class, mean_ap, map_weighted  = approach.eval(task_id, task_id, test_loaders[task_id], epoch,  verbose=False, testing='test')
             logger.update_accuracy(current_training_task_id=task_id, test_id=task_id, acc_value=acc_value, ap_value=ap_value, acc_per_class=acc_per_class, mean_ap=mean_ap, map_weighted=map_weighted)
-            #TODO: questo è forse per misurare quando si dimentica dei vecchi task, introdurre qualche metrica del genere
-            #Per ora commento perchè non utile allo scopo per come è fatto
+            #TODO: questo è forse per misurare quando si dimentica dei vecchi task, in futuro introdurre qualche metrica del genere
+            #Per ora commento perchè non utile allo scopo per come è fatto, anche perchè eliminato update_forgetting da LoggerIncDec
             """ if test_id < task_id:
                 logger.update_forgetting(current_training_task_id=task_id, test_id=test_id) """
             logger.print_latest(current_training_task_id=task_id, test_id=task_id)
