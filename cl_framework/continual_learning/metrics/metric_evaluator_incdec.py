@@ -35,7 +35,6 @@ class MetricEvaluatorIncDec():
     def get(self, verbose):
         self.probabilities = torch.cat(self.probabilities)
         self.labels = torch.cat(self.labels).cpu().numpy()
-        #TODO: check if it is axis = 1, but should be
         
         ap_metric = MulticlassAveragePrecision(num_classes=self.num_classes, average=None)
         map_metric = MulticlassAveragePrecision(num_classes=self.num_classes, average='macro')

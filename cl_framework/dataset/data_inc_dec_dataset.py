@@ -1,7 +1,10 @@
 from torch.utils.data import Subset, WeightedRandomSampler
 import numpy as np
 import torch
-
+""" TODO: modificare come spiegato su notion, in Refactoring e pulizia codice.
+    TLDR: fare che elementi interni a dataset sono passati dall'esterno (per pulizia e chiarezza codice)
+    e implementare collect anche senza behaviors per uso di Verizon.
+ """
 class DataIncDecBaselineDataset():
     def __init__(self, dataset, task_dictionary,  
                     n_task, initial_split,
@@ -63,13 +66,6 @@ class DataIncDecBaselineDataset():
                     #add these indices for the first task
                     first_split.extend(list(first_split_indices))
                     second_split.extend(list(second_split_indices))
-
-            
-            #number of video to substitute from the first split and to add from the second split
-            #TODO: forse da rimuovere questi due 
-            """ n_first_split = int((len(first_split)/self.initial_split))
-            n_second_split = int((len(second_split)/self.initial_split)) """
-
 
             
             for idx_class in range(self.total_classes):

@@ -58,19 +58,21 @@ if __name__ == "__main__":
     Dataset Preparation
     """
 
-    #TODO: completare e controllare funzioni tutto come desiderato
+    #TODO: TB changed to extract data from other sources...
     train_set, test_set, validation_set, total_classes = get_dataset(args.dataset, args.data_path)
     
     
     # mapping between classes and shuffled classes and re-map dataset classes for different order of classes
-    #TODO: non so se utile shuffle le label... per ora eliminato
+    # for the incdec approach is not useful, for now at least
     if not (args.approach == 'incdec'): 
         train_set, test_set, label_mapping = remap_targets(train_set, test_set, total_classes)
     
      
     # class_per_task: number of classes not in the first task, if the first is larger, otherwise it is equal to total_classes/n_task
     if args.approach == 'incdec':
-        #TODO: to implement oltre la baseline...
+        '''TODO: this should return how many behaviors should be changed from task to task. For now, since only the baseline
+            is implemented, return 0
+        '''
         behaviors_per_task = get_behaviors_per_task(total_classes, args.n_task, args.baseline)
     else:
         class_per_task = get_class_per_task(args.n_class_first_task, total_classes, args.n_task)
@@ -78,7 +80,6 @@ if __name__ == "__main__":
     
     # task_dict = {task_id: list_of_class_ids}
     if args.approach == 'incdec':
-        #TODO: aggiungere logica oltre la baseline
         task_dict, behavior_dicts = get_task_dict_incdec(args.n_task, total_classes, behaviors_per_task, args.baseline)
     else:
         task_dict = get_task_dict(args.n_task, total_classes, class_per_task, args.n_class_first_task)   
@@ -101,7 +102,7 @@ if __name__ == "__main__":
                                                     train=True, validation=validation_set,
                                                     valid_size=args.valid_size)
         else:
-            #TODO: to be implemented the logic over the baseline
+            #TODO: implement logic other than the baseline one
             print('Still not implemented...')
     else:
         cl_train_val = ContinualLearningDataset(train_set, task_dict,  
@@ -120,7 +121,7 @@ if __name__ == "__main__":
                                                     train=False, validation=None,
                                                     valid_size=None,)
         else:
-            #TODO: to be implemented the logic over the baseline
+            #TODO: implement logic other than the baseline one
             print('Still not implemented...')
     else:
         cl_test = ContinualLearningDataset(test_set, task_dict,  
@@ -222,7 +223,7 @@ if __name__ == "__main__":
 
             approach.pre_train(task_id, train_loader,  valid_loaders[task_id])
 
-            #rolling back to the best model of the past task
+            # rolling back to the best model of the past task
             if task_id != 0:
                 model_name = os.path.join(out_path,"best_mAP_task_{}_model.pth").format((task_id-1))
                 print("Loading model from path: {}".format(model_name))
@@ -241,7 +242,7 @@ if __name__ == "__main__":
             """
             Main train Loop
             """
-            #for early stopping when the validation loss doesn't improve
+            # for early stopping when the validation loss doesn't improve
             no_decrement_count = 0
             best_loss = float(math.inf)
                     
