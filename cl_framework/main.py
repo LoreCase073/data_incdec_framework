@@ -369,7 +369,7 @@ if __name__ == "__main__":
   
         approach.post_train(task_id=task_id, trn_loader=train_loader)
 
-        #If i want to stop at the first task
+        # Check if i want to stop at the first task
         if stop_first_task:
             break
 
