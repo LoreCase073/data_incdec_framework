@@ -8,14 +8,14 @@ from torch.utils.data.dataloader import DataLoader
 
 # approaches 
 from continual_learning.FinetuningMethod import FineTuningMethod
-from continual_learning.DataIncrementalDecrementalMethod import DataIncrementalDecrementalMethod
+from continual_learning.BCEDataIncrementalDecrementalMethod import BCEDataIncrementalDecrementalMethod
  
 from continual_learning.LearningWithoutForgetting import LWF
 
 
 # dataset 
 from dataset.continual_learning_dataset import ContinualLearningDataset
-from dataset.data_inc_dec_dataset import DataIncDecBaselineDataset
+from dataset.data_inc_dec_dataset import BCEDataIncDecBaselineDataset
 from dataset.dataset_utils import get_dataset 
 import sys 
 
@@ -58,21 +58,19 @@ if __name__ == "__main__":
     Dataset Preparation
     """
 
-    #TODO: TB changed to extract data from other sources...
+    #TODO: completare e controllare funzioni tutto come desiderato
     train_set, test_set, validation_set, total_classes = get_dataset(args.dataset, args.data_path)
     
     
     # mapping between classes and shuffled classes and re-map dataset classes for different order of classes
-    # for the incdec approach is not useful, for now at least
+    #TODO: non so se utile shuffle le label... per ora eliminato
     if not (args.approach == 'incdec'): 
         train_set, test_set, label_mapping = remap_targets(train_set, test_set, total_classes)
     
      
     # class_per_task: number of classes not in the first task, if the first is larger, otherwise it is equal to total_classes/n_task
     if args.approach == 'incdec':
-        '''TODO: this should return how many behaviors should be changed from task to task. For now, since only the baseline
-            is implemented, return 0
-        '''
+        #TODO: to implement oltre la baseline...
         behaviors_per_task = get_behaviors_per_task(total_classes, args.n_task, args.baseline)
     else:
         class_per_task = get_class_per_task(args.n_class_first_task, total_classes, args.n_task)
@@ -80,6 +78,7 @@ if __name__ == "__main__":
     
     # task_dict = {task_id: list_of_class_ids}
     if args.approach == 'incdec':
+        #TODO: aggiungere logica oltre la baseline
         task_dict, behavior_dicts = get_task_dict_incdec(args.n_task, total_classes, behaviors_per_task, args.baseline)
     else:
         task_dict = get_task_dict(args.n_task, total_classes, class_per_task, args.n_class_first_task)   
@@ -96,14 +95,13 @@ if __name__ == "__main__":
 
     if args.approach == 'incdec':
         if args.baseline:
-            cl_train_val = DataIncDecBaselineDataset(train_set, task_dict,  
+            cl_train_val = BCEDataIncDecBaselineDataset(train_set, task_dict,  
                                                     args.n_task, args.initial_split, 
                                                     total_classes,
-                                                    behaviors_check=args.behaviors_check,
                                                     train=True, validation=validation_set,
                                                     valid_size=args.valid_size)
         else:
-            #TODO: implement logic other than the baseline one
+            #TODO: to be implemented the logic over the baseline
             print('Still not implemented...')
     else:
         cl_train_val = ContinualLearningDataset(train_set, task_dict,  
@@ -116,14 +114,13 @@ if __name__ == "__main__":
 
     if args.approach == 'incdec':
         if args.baseline:
-            cl_test = DataIncDecBaselineDataset(test_set, task_dict,  
+            cl_test = BCEDataIncDecBaselineDataset(test_set, task_dict,  
                                                     args.n_task, args.initial_split, 
                                                     total_classes,
-                                                    behaviors_check=args.behaviors_check,
                                                     train=False, validation=None,
                                                     valid_size=None,)
         else:
-            #TODO: implement logic other than the baseline one
+            #TODO: to be implemented the logic over the baseline
             print('Still not implemented...')
     else:
         cl_test = ContinualLearningDataset(test_set, task_dict,  
@@ -187,7 +184,7 @@ if __name__ == "__main__":
                        task_dict=task_dict )
         
     elif args.approach == 'incdec':
-        approach = DataIncrementalDecrementalMethod(args=args, device = device,
+        approach = BCEDataIncrementalDecrementalMethod(args=args, device = device,
                     out_path=out_path,
                     task_dict=task_dict,
                     total_classes=total_classes,
@@ -225,7 +222,7 @@ if __name__ == "__main__":
 
             approach.pre_train(task_id, train_loader,  valid_loaders[task_id])
 
-            # rolling back to the best model of the past task
+            #rolling back to the best model of the past task
             if task_id != 0:
                 model_name = os.path.join(out_path,"best_mAP_task_{}_model.pth").format((task_id-1))
                 print("Loading model from path: {}".format(model_name))
@@ -244,7 +241,7 @@ if __name__ == "__main__":
             """
             Main train Loop
             """
-            # for early stopping when the validation loss doesn't improve
+            #for early stopping when the validation loss doesn't improve
             no_decrement_count = 0
             best_loss = float(math.inf)
                     
@@ -301,7 +298,7 @@ if __name__ == "__main__":
                     print("Loading model from path: {}".format(model_name))
                     rollback_model(approach, model_name, device, name=str(model_name))
 
-                # Commented because for now i'll do a early stopping when the lr becomes lower than a threshold
+                #Commented because for now i'll do a early stopping when the lr becomes lower than a threshold
                 """ 
                 #checks if the mAP has decreased or not
                 if mean_ap_eval < best_mAP:
@@ -313,7 +310,7 @@ if __name__ == "__main__":
                 if no_decrement_count == args.early_stopping_val:
                     print(f"Early stopping because classification loss didn't improve for{args.early_stopping_val} epochs\t")
                     break """
-                # Stops if the learning rate is lower than a threshold
+                #Stops if the learning rate is lower than a threshold
                 print(f"Current learning rate for the next epoch is: {current_lr}")
                 if current_lr < float(1e-5):
                     print(f"Early stopping because learning rate threshold is reached \t")
@@ -328,14 +325,12 @@ if __name__ == "__main__":
         model_name = os.path.join(out_path,"best_mAP_task_{}_model.pth").format(task_id)
         print("Loading model from path: {}".format(model_name))
         rollback_model(approach, model_name, device, name=str(model_name))
-
         #TODO: forse non necessario perchè salvo comunque quello migliore prima...
-        #TODO: controllare se rimuovere
         #store_model(approach, out_path, name=str(task_id))
 
 
-        # Here do a validation eval for the best epoch model
-        # this is redundant, but here i print metrics of the best model on the validation set...
+        #Here do a validation eval for the best epoch model
+        #this is redundant, but here i print also more metrics...
         vacc_value, vap_value, _, vacc_per_class, vmean_ap, vmap_weighted  = approach.eval(task_id, task_id, valid_loaders[task_id], epoch,  verbose=False, testing='val')
         val_logger.update_accuracy(current_training_task_id=task_id, test_id=task_id, acc_value=vacc_value, ap_value=vap_value, acc_per_class=vacc_per_class, mean_ap=vmean_ap, map_weighted=vmap_weighted)
         
@@ -345,8 +340,8 @@ if __name__ == "__main__":
         if args.approach == 'incdec':
             acc_value, ap_value, _, acc_per_class, mean_ap, map_weighted  = approach.eval(task_id, task_id, test_loaders[task_id], epoch,  verbose=False, testing='test')
             logger.update_accuracy(current_training_task_id=task_id, test_id=task_id, acc_value=acc_value, ap_value=ap_value, acc_per_class=acc_per_class, mean_ap=mean_ap, map_weighted=map_weighted)
-            #TODO: questo è forse per misurare quando si dimentica dei vecchi task, in futuro introdurre qualche metrica del genere
-            #Per ora commento perchè non utile allo scopo per come è fatto, anche perchè eliminato update_forgetting da LoggerIncDec
+            #TODO: questo è forse per misurare quando si dimentica dei vecchi task, introdurre qualche metrica del genere
+            #Per ora commento perchè non utile allo scopo per come è fatto
             """ if test_id < task_id:
                 logger.update_forgetting(current_training_task_id=task_id, test_id=test_id) """
             logger.print_latest(current_training_task_id=task_id, test_id=task_id)

@@ -157,6 +157,16 @@ def get_behaviors_per_task(total_classes, n_task=6, baseline=True):
 
 def get_task_dict_incdec(n_task, total_classes, behaviors_per_task, baseline):
     #TODO: per ora implemento così, per renderlo migliore da passare con altra funzione o file esterno
+    """ TODO: this should return a list of dict (behavior_dicts), one for each task. Each one should determine how many behaviors should be
+         removed and used in each task. Since for now the baseline is the only one implemented, it returns a list of dicts in which
+          keys are classes and the values are lists of behaviors of that class.
+
+          task_dict just returns a list with the number of classes per task... should be less useful than behaviors dicts.
+
+          behavior_dicts := {class:[behavior1, behavior2, ...]}
+          task_dict := [len(classes), len(classes),...]
+    """
+    
     data_dict = {
     'food': [
         'eating burger', 'eating cake', 'eating carrots', 'eating chips', 'eating doughnuts',

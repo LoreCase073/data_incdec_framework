@@ -6,7 +6,7 @@ from sklearn.utils import compute_class_weight
 
 from continual_learning.IncrementalApproach import IncrementalApproach
 from continual_learning.models.BaseModel import BaseModel
-from continual_learning.metrics.metric_evaluator_incdec import MetricEvaluatorIncDec
+from continual_learning.metrics.metric_evaluator_incdec import BCEMetricEvaluatorIncDec
 import numpy as np
 import matplotlib.pyplot as plt
 import itertools
@@ -15,46 +15,52 @@ import os
 import pandas as pd
  
 
-class DataIncrementalDecrementalMethod(IncrementalApproach):
+#TODO: vedere se ereditare da IncrementalApproach ha senso e se modificare qualcosa
+class BCEDataIncrementalDecrementalMethod(IncrementalApproach):
+    #TODO: modificare init, non necessito di class_per_task probabilmente, non so di task_dict
     
     def __init__(self, args, device, out_path, task_dict, total_classes, behaviors_per_task, behavior_dicts):
+        #TODO: class_per_task, come passarlo
         self.total_classes = total_classes
         self.imbalanced = args.imbalanced
         self.loss_accumulation = args.accumulation
         self.n_accumulation = args.n_accumulation
         super().__init__(args, device, out_path, total_classes, task_dict)
+        #TODO: vedere se da BaseModel necessito di modificare qualcosa in caso
         self.class_names = list(behavior_dicts[0].keys())
+
         self.model = BaseModel(backbone=self.backbone, dataset=args.dataset)
+        #TODO: forse modificare come aggiungere head, tanto la si crea una sola volta
         self.model.add_classification_head(self.total_classes)
         self.print_running_approach()
 
 
     def print_running_approach(self):
-        super(DataIncrementalDecrementalMethod, self).print_running_approach()
+        super(BCEDataIncrementalDecrementalMethod, self).print_running_approach()
         
-
+    #TODO: modifica info necessarie per impostare parametri per il pretraining
     def pre_train(self,  task_id, trn_loader, test_loader):
         self.model.to(self.device)
-        super(DataIncrementalDecrementalMethod, self).pre_train(task_id)
+        # necessary only for tsne 
+        self.old_model = deepcopy(self.model)
+        self.old_model.eval()
+        self.old_model.to(self.device)
+        
+        #TODO: modificare, forse non prendere quello precedente e cambiare direttamente la logica
+        #perchè 2 tipi di approcci diversi
+        #TODO: forse da non modificare nulla, ma non so per la logica delle teste multiple...
+        super(BCEDataIncrementalDecrementalMethod, self).pre_train(task_id)
 
-
+    #TODO: forse non necessario da cambiare, controllare...
     def train(self, task_id, train_loader, epoch, epochs):
         print(torch.cuda.current_device())
         self.model.to(self.device)
         self.model.train()
-
-        #TODO: not used, to be removed
-        """ if self.imbalanced:
-            class_weights = torch.Tensor(compute_class_weight('balanced', classes=np.unique(train_loader.dataset.dataset.targets), 
-                                                              y=train_loader.dataset.dataset.targets)).to(self.device)
-        else:
-            class_weights=None """
-        class_weights = None
         
        
         train_loss, n_samples = 0, 0
         self.optimizer.zero_grad()
-        # if to work with loss accumulation, when batch size is too small
+        #if to work with loss accumulation, when batch size is too small
         if self.loss_accumulation:
             count_accumulation = 0
             for batch_idx, (images, targets, _, _) in enumerate(tqdm(train_loader)):
@@ -63,7 +69,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
                 outputs, _ = self.model(images)
-                loss = self.criterion(outputs, targets, class_weights=class_weights)             
+                loss = self.criterion(outputs, targets)             
                 loss.backward()
                 train_loss += loss * current_batch_size
                 count_accumulation += 1
@@ -77,7 +83,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
                 outputs, _ = self.model(images)
-                loss = self.criterion(outputs, targets, class_weights=class_weights)             
+                loss = self.criterion(outputs, targets)             
                 loss.backward()
                 self.optimizer.step()
                 self.optimizer.zero_grad()
@@ -85,27 +91,23 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         
         self.train_log(task_id, epoch, train_loss/n_samples)  
 
-
-    # cross entropy correct for our task of video classification
-    def criterion(self, outputs, targets, class_weights=None):
-        # here is 0 cause we only have one head
-        return torch.nn.functional.cross_entropy(outputs[0], targets, class_weights)
+    # for multilabel i'll have to use BCE loss
+    def criterion(self, outputs, targets):
+        #TODO: rescale targets non dovrebbe servire...
+        #targets = self.rescale_targets(targets, t)
+        #here is 0 cause we only have a head
+        return torch.nn.functional.binary_cross_entropy_with_logits(outputs[0], targets)
+        
         
         
     def post_train(self, task_id, trn_loader=None):
         pass 
 
     
+    #magari ci sono già implementati metodi interessanti
     def eval(self, current_training_task, test_id, loader, epoch, verbose, testing=None):
-        metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.task_dict, self.total_classes)
+        metric_evaluator = BCEMetricEvaluatorIncDec(self.out_path, self.task_dict, self.total_classes)
 
-        #TODO: not used, to be removed
-        """ if self.imbalanced:
-            class_weights = torch.Tensor(compute_class_weight('balanced', classes=np.unique(loader.dataset.dataset.targets), 
-                                                              y=loader.dataset.dataset.targets)).to(self.device)
-        else:
-            class_weights=None """
-        class_weights = None
         
         cls_loss, n_samples = 0, 0 
         with torch.no_grad():
@@ -117,8 +119,9 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                 n_samples += current_batch_size
  
                 outputs, features = self.model(images)
+                #_, old_features = self.old_model(images)
                 
-                cls_loss += self.criterion(outputs, targets, class_weights=class_weights) * current_batch_size
+                cls_loss += self.criterion(outputs, targets) * current_batch_size
                  
 
                 metric_evaluator.update(targets, 
@@ -147,7 +150,6 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                                         metric_evaluator.get_subcategories(),
                                         testing
                                         )
-                #TODO: in caso rimuovere, già salvare in altra maniera.
                 """ self.save_ap_classes(current_training_task,
                                       self.class_names,
                                       ap,
@@ -189,6 +191,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
             name_tb = "validation_dataset_"+ str(current_training_task) + "/task_" + str(test_id) + "_pr_curve"
             self.logger.add_figure(name_tb,pr_figure,epoch)
 
+
             #saving confusion matrices
             cm_path = os.path.join(self.out_path,'confusion_matrices')
             if not os.path.exists(cm_path):
@@ -229,10 +232,10 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         name_tb = "training_task_" + str(current_training_task) + "/training_classification_loss"
         self.logger.add_scalar(name_tb, cls_loss, epoch)
 
-
+    # for multilabel, we use Sigmoid instead of Softmax
     def compute_probabilities(self, outputs, head_id):
-        probabilities = torch.nn.Softmax(dim=1)(outputs[head_id])
-        return probabilities
+      probabilities = torch.nn.Sigmoid(dim=1)(outputs[head_id])
+      return probabilities
     
 
     def plot_confusion_matrix(self, cm, class_names):
