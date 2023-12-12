@@ -6,7 +6,7 @@ from sklearn.utils import compute_class_weight
 
 from continual_learning.IncrementalApproach import IncrementalApproach
 from continual_learning.models.BaseModel import BaseModel
-from continual_learning.metrics.metric_evaluator_incdec import MetricEvaluatorIncDec
+from continual_learning.metrics.metric_evaluator_incdec import BCEMetricEvaluatorIncDec
 import numpy as np
 import matplotlib.pyplot as plt
 import itertools
@@ -16,7 +16,7 @@ import pandas as pd
  
 
 #TODO: vedere se ereditare da IncrementalApproach ha senso e se modificare qualcosa
-class DataIncrementalDecrementalMethod(IncrementalApproach):
+class BCEDataIncrementalDecrementalMethod(IncrementalApproach):
     #TODO: modificare init, non necessito di class_per_task probabilmente, non so di task_dict
     
     def __init__(self, args, device, out_path, task_dict, total_classes, behaviors_per_task, behavior_dicts):
@@ -36,7 +36,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
 
 
     def print_running_approach(self):
-        super(DataIncrementalDecrementalMethod, self).print_running_approach()
+        super(BCEDataIncrementalDecrementalMethod, self).print_running_approach()
         
     #TODO: modifica info necessarie per impostare parametri per il pretraining
     def pre_train(self,  task_id, trn_loader, test_loader):
@@ -49,21 +49,13 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         #TODO: modificare, forse non prendere quello precedente e cambiare direttamente la logica
         #perchè 2 tipi di approcci diversi
         #TODO: forse da non modificare nulla, ma non so per la logica delle teste multiple...
-        super(DataIncrementalDecrementalMethod, self).pre_train(task_id)
+        super(BCEDataIncrementalDecrementalMethod, self).pre_train(task_id)
 
     #TODO: forse non necessario da cambiare, controllare...
     def train(self, task_id, train_loader, epoch, epochs):
         print(torch.cuda.current_device())
         self.model.to(self.device)
         self.model.train()
-
-        #TODO: not used, to be removed
-        """ if self.imbalanced:
-            class_weights = torch.Tensor(compute_class_weight('balanced', classes=np.unique(train_loader.dataset.dataset.targets), 
-                                                              y=train_loader.dataset.dataset.targets)).to(self.device)
-        else:
-            class_weights=None """
-        class_weights = None
         
        
         train_loss, n_samples = 0, 0
@@ -77,7 +69,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
                 outputs, _ = self.model(images)
-                loss = self.criterion(outputs, targets, class_weights=class_weights)             
+                loss = self.criterion(outputs, targets)             
                 loss.backward()
                 train_loss += loss * current_batch_size
                 count_accumulation += 1
@@ -91,7 +83,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
                 outputs, _ = self.model(images)
-                loss = self.criterion(outputs, targets, class_weights=class_weights)             
+                loss = self.criterion(outputs, targets)             
                 loss.backward()
                 self.optimizer.step()
                 self.optimizer.zero_grad()
@@ -99,13 +91,12 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         
         self.train_log(task_id, epoch, train_loss/n_samples)  
 
-    #TODO: t è il task_id, immagino di doverlo usare poi per salvare data del task
-    #cross entropy correct for our task of video classification
-    def criterion(self, outputs, targets, class_weights=None):
+    # for multilabel i'll have to use BCE loss
+    def criterion(self, outputs, targets):
         #TODO: rescale targets non dovrebbe servire...
         #targets = self.rescale_targets(targets, t)
         #here is 0 cause we only have a head
-        return torch.nn.functional.cross_entropy(outputs[0], targets, class_weights)
+        return torch.nn.functional.binary_cross_entropy_with_logits(outputs[0], targets)
         
         
         
@@ -115,15 +106,8 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
     
     #magari ci sono già implementati metodi interessanti
     def eval(self, current_training_task, test_id, loader, epoch, verbose, testing=None):
-        metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.task_dict, self.total_classes)
+        metric_evaluator = BCEMetricEvaluatorIncDec(self.out_path, self.task_dict, self.total_classes)
 
-        #TODO: not used, to be removed
-        """ if self.imbalanced:
-            class_weights = torch.Tensor(compute_class_weight('balanced', classes=np.unique(loader.dataset.dataset.targets), 
-                                                              y=loader.dataset.dataset.targets)).to(self.device)
-        else:
-            class_weights=None """
-        class_weights = None
         
         cls_loss, n_samples = 0, 0 
         with torch.no_grad():
@@ -137,7 +121,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                 outputs, features = self.model(images)
                 #_, old_features = self.old_model(images)
                 
-                cls_loss += self.criterion(outputs, targets, class_weights=class_weights) * current_batch_size
+                cls_loss += self.criterion(outputs, targets) * current_batch_size
                  
 
                 metric_evaluator.update(targets, 
@@ -248,9 +232,9 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         name_tb = "training_task_" + str(current_training_task) + "/training_classification_loss"
         self.logger.add_scalar(name_tb, cls_loss, epoch)
 
-
+    # for multilabel, we use Sigmoid instead of Softmax
     def compute_probabilities(self, outputs, head_id):
-      probabilities = torch.nn.Softmax(dim=1)(outputs[head_id])
+      probabilities = torch.nn.Sigmoid(dim=1)(outputs[head_id])
       return probabilities
     
 

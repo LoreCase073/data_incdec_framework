@@ -54,6 +54,7 @@ def get_args():
     parser.add_argument("--initial_split", type=int, default=2, help="how to divide in the initial split the dataset. 2 will divide in 50%/50%")
     parser.add_argument("--valid_size", type=float, default=0.0, help="percentage of train for validation set, default not use validation set")
     parser.add_argument("--sampler", type=str, default="imbalance_sampler", choices=["imbalance_sampler","balanced"])
+    parser.add_argument("--behaviors_check", action='store_true', help="Use it if we want to work with behaviors (subcategories), do not include it if not") 
 
     """
     Network Params

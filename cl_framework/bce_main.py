@@ -8,14 +8,14 @@ from torch.utils.data.dataloader import DataLoader
 
 # approaches 
 from continual_learning.FinetuningMethod import FineTuningMethod
-from continual_learning.DataIncrementalDecrementalMethod import DataIncrementalDecrementalMethod
+from continual_learning.BCEDataIncrementalDecrementalMethod import BCEDataIncrementalDecrementalMethod
  
 from continual_learning.LearningWithoutForgetting import LWF
 
 
 # dataset 
 from dataset.continual_learning_dataset import ContinualLearningDataset
-from dataset.data_inc_dec_dataset import DataIncDecBaselineDataset
+from dataset.data_inc_dec_dataset import BCEDataIncDecBaselineDataset
 from dataset.dataset_utils import get_dataset 
 import sys 
 
@@ -95,10 +95,9 @@ if __name__ == "__main__":
 
     if args.approach == 'incdec':
         if args.baseline:
-            cl_train_val = DataIncDecBaselineDataset(train_set, task_dict,  
+            cl_train_val = BCEDataIncDecBaselineDataset(train_set, task_dict,  
                                                     args.n_task, args.initial_split, 
                                                     total_classes,
-                                                    behaviors_check=args.behaviors_check,
                                                     train=True, validation=validation_set,
                                                     valid_size=args.valid_size)
         else:
@@ -115,10 +114,9 @@ if __name__ == "__main__":
 
     if args.approach == 'incdec':
         if args.baseline:
-            cl_test = DataIncDecBaselineDataset(test_set, task_dict,  
+            cl_test = BCEDataIncDecBaselineDataset(test_set, task_dict,  
                                                     args.n_task, args.initial_split, 
                                                     total_classes,
-                                                    behaviors_check=args.behaviors_check,
                                                     train=False, validation=None,
                                                     valid_size=None,)
         else:
@@ -186,7 +184,7 @@ if __name__ == "__main__":
                        task_dict=task_dict )
         
     elif args.approach == 'incdec':
-        approach = DataIncrementalDecrementalMethod(args=args, device = device,
+        approach = BCEDataIncrementalDecrementalMethod(args=args, device = device,
                     out_path=out_path,
                     task_dict=task_dict,
                     total_classes=total_classes,
