@@ -127,6 +127,9 @@ class FileOutputDuplicator(object):
         self.file.flush()
 
 
+""" TODO: da modificare in maniera tale da gestire solo un validation e un test set, non multipli, perchè per ora
+    solo uno è presente.
+"""
 class IncDecLogger():
     def __init__(self, out_path, n_task, task_dict, test_sizes, num_classes, begin_time=None, validation_mode=False) -> None:
         self.acc = np.zeros((n_task, n_task))
@@ -134,9 +137,7 @@ class IncDecLogger():
         self.map_weighted = np.zeros((n_task, n_task))
         self.ap = np.zeros((n_task, n_task, num_classes))
         #TODO: vedere se necessaria
-        self.forg_acc = np.zeros((n_task, n_task))
         self.acc_per_class = np.zeros((n_task, n_task, num_classes))
-        #self.perstep_acc = np.zeros((n_task, n_task))
 
         self.pred_acc = np.zeros((n_task, n_task))
         #TODO: vedere se con nuovo task_dict, da modificare cosa restituire
@@ -167,39 +168,17 @@ class IncDecLogger():
         self.map_weighted[current_training_task_id, test_id] = map_weighted * 100
         self.ap[current_training_task_id, test_id] = ap_value
         self.acc_per_class[current_training_task_id, test_id] = acc_per_class
-
-
-        self.pred_acc[current_training_task_id, test_id] =  acc_value * self.test_sizes[test_id]
-        
-
-        #self.perstep_acc[current_training_task_id, test_id] =  (acc_value*100) *  self.task_len[test_id]
          
-
-
-    def update_forgetting(self, current_training_task_id, test_id):
-        #TODO: da implementare logica per tenere di conto del Forgetting dei dati precedenti, per ora non lo fa...
-        self.forg_acc[current_training_task_id, test_id] = self.acc[:current_training_task_id, test_id].max(0) - self.acc[current_training_task_id, test_id]
-        
   
 
     def print_latest(self, current_training_task_id, test_id):
-        print('\n >>> Test on task {:2d} : acc={:5.1f}%, forg={:5.1f}%'
+        print('\n >>> Test on task {:2d} : acc={:5.1f}%, '
               ' |  <<<'.format(test_id, 
-                                        self.acc[current_training_task_id, test_id],  self.forg_acc[current_training_task_id, test_id]))
+                                        self.acc[current_training_task_id, test_id]))
 
 
     def compute_average(self):
-
         self.avg_acc = self.acc.sum(1) / np.tril(np.ones(self.acc.shape[0])).sum(1)
-        #self.avg_perstep_acc = self.perstep_acc.sum(1) / (np.tril(np.array(self.task_len))).sum(1)
-    
-     
-        if  np.array_equal(self.forg_acc, np.zeros((self.forg_acc.shape[0],self.forg_acc.shape[0]))):
-            self.avg_forg_acc = np.zeros(self.forg_acc.shape[0])
-
-        else:
-            np.seterr(invalid='ignore')
-            self.avg_forg_acc = self.forg_acc.sum(1) / np.tril(np.ones(self.forg_acc.shape[0]) - np.eye(self.forg_acc.shape[0])).sum(1)
             
            
           
@@ -209,15 +188,7 @@ class IncDecLogger():
         np.savetxt(os.path.join(self.out_path, 'map_weighted.out'), self.map_weighted, delimiter=',', fmt='%.3f')
         np.savetxt(os.path.join(self.out_path, 'ap.out'), np.reshape(self.ap,(self.ap.shape[0]*self.ap.shape[1],-1)), delimiter=',', fmt='%.3f')
         np.savetxt(os.path.join(self.out_path, 'acc_per_class.out'), np.reshape(self.acc_per_class,(self.acc_per_class.shape[0]*self.acc_per_class.shape[1],-1)), delimiter=',', fmt='%.3f')
-        #np.savetxt(os.path.join(self.out_path, "perstep_acc_taw.out"), self.perstep_acc_taw, delimiter=',', fmt='%.3f')
-
-
         np.savetxt(os.path.join(self.out_path, 'avg_acc.out'), self.avg_acc, delimiter=',', fmt='%.3f')
-        #np.savetxt(os.path.join(self.out_path, 'avg_perstep_acc.out'), self.avg_perstep_acc, delimiter=',', fmt='%.3f')     
-        
-        np.savetxt(os.path.join(self.out_path, 'forg_acc.out'), self.forg_acc, delimiter=',', fmt='%.3f')       
-
-        np.savetxt(os.path.join(self.out_path, 'avg_forg_acc.out'), self.avg_forg_acc, delimiter=',', fmt='%.3f')
 
 
     def print_best_epoch(self, best_epoch, task_id):
