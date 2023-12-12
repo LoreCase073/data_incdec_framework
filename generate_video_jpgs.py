@@ -1,4 +1,4 @@
-#file imported from: https://github.com/kenshohara/3D-ResNets-PyTorch/blob/master/util_scripts/generate_video_jpgs.py
+#file modified from: https://github.com/kenshohara/3D-ResNets-PyTorch/blob/master/util_scripts/generate_video_jpgs.py
 
 import subprocess
 import argparse
@@ -108,17 +108,10 @@ if __name__ == '__main__':
                 video_file_path, args.dst_path, ext, args.fps, args.size)
                                  for video_file_path in video_file_paths)
     else:
-        #TODO: interessati a questa parte, modificare per agire sulla nuova organizzazione
-        #Kinetics/Videos/videoid/videoid.mp4
-        #Kinetics/Videos/videoid/jpgs/...
         
         video_file_path = [x for x in sorted(args.dir_path.iterdir())]
         
-        #TODO: maybe da rimuovere
-        """ 
-        test_set_video_path = args.dir_path / 'test'
-        if test_set_video_path.exists():
-            video_file_path.append(test_set_video_path) """
+
 
         print(f"Videos from directory: {args.dir_path}")
 
