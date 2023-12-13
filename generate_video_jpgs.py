@@ -1,4 +1,4 @@
-#file modified from: https://github.com/kenshohara/3D-ResNets-PyTorch/blob/master/util_scripts/generate_video_jpgs.py
+#file modified  from: https://github.com/kenshohara/3D-ResNets-PyTorch/blob/master/util_scripts/generate_video_jpgs.py
 
 import subprocess
 import argparse
