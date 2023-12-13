@@ -337,19 +337,19 @@ if __name__ == "__main__":
         # Here do a validation eval for the best epoch model
         # this is redundant, but here i print metrics of the best model on the validation set...
         vacc_value, vap_value, _, vacc_per_class, vmean_ap, vmap_weighted  = approach.eval(task_id, task_id, valid_loaders[task_id], epoch,  verbose=False, testing='val')
-        val_logger.update_accuracy(current_training_task_id=task_id, test_id=task_id, acc_value=vacc_value, ap_value=vap_value, acc_per_class=vacc_per_class, mean_ap=vmean_ap, map_weighted=vmap_weighted)
+        val_logger.update_accuracy(current_training_task_id=task_id, acc_value=vacc_value, ap_value=vap_value, acc_per_class=vacc_per_class, mean_ap=vmean_ap, map_weighted=vmap_weighted)
         
 
  
         #For incdec approach for now there is a single test set to be evaluated
         if args.approach == 'incdec':
             acc_value, ap_value, _, acc_per_class, mean_ap, map_weighted  = approach.eval(task_id, task_id, test_loaders[task_id], epoch,  verbose=False, testing='test')
-            logger.update_accuracy(current_training_task_id=task_id, test_id=task_id, acc_value=acc_value, ap_value=ap_value, acc_per_class=acc_per_class, mean_ap=mean_ap, map_weighted=map_weighted)
+            logger.update_accuracy(current_training_task_id=task_id, acc_value=acc_value, ap_value=ap_value, acc_per_class=acc_per_class, mean_ap=mean_ap, map_weighted=map_weighted)
             #TODO: questo è forse per misurare quando si dimentica dei vecchi task, in futuro introdurre qualche metrica del genere
             #Per ora commento perchè non utile allo scopo per come è fatto, anche perchè eliminato update_forgetting da LoggerIncDec
             """ if test_id < task_id:
                 logger.update_forgetting(current_training_task_id=task_id, test_id=test_id) """
-            logger.print_latest(current_training_task_id=task_id, test_id=task_id)
+            logger.print_latest(current_training_task_id=task_id)
         else:
             for test_id in range(task_id + 1):
                 acc_taw_value, acc_tag_value, _,  = approach.eval(task_id, test_id, test_loaders[test_id], epoch,  verbose=False)                                                                                                            

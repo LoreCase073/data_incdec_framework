@@ -127,19 +127,17 @@ class FileOutputDuplicator(object):
         self.file.flush()
 
 
-""" TODO: da modificare in maniera tale da gestire solo un validation e un test set, non multipli, perchè per ora
-    solo uno è presente.
-"""
+
 class IncDecLogger():
     def __init__(self, out_path, n_task, task_dict, test_sizes, num_classes, begin_time=None, validation_mode=False) -> None:
-        self.acc = np.zeros((n_task, n_task))
-        self.mean_ap = np.zeros((n_task, n_task))
-        self.map_weighted = np.zeros((n_task, n_task))
-        self.ap = np.zeros((n_task, n_task, num_classes))
+        self.acc = np.zeros((n_task))
+        self.mean_ap = np.zeros((n_task))
+        self.map_weighted = np.zeros((n_task))
+        self.ap = np.zeros((n_task, num_classes))
         #TODO: vedere se necessaria
-        self.acc_per_class = np.zeros((n_task, n_task, num_classes))
+        self.acc_per_class = np.zeros((n_task, num_classes))
 
-        self.pred_acc = np.zeros((n_task, n_task))
+        self.pred_acc = np.zeros((n_task))
         #TODO: vedere se con nuovo task_dict, da modificare cosa restituire
         self.task_len  =  [item for item in task_dict.values()]
         self.test_sizes = test_sizes
@@ -162,23 +160,24 @@ class IncDecLogger():
         
 
 
-    def update_accuracy(self, current_training_task_id, test_id, acc_value, ap_value, acc_per_class, mean_ap, map_weighted):
-        self.acc[current_training_task_id, test_id] = acc_value * 100
-        self.mean_ap[current_training_task_id, test_id] = mean_ap * 100
-        self.map_weighted[current_training_task_id, test_id] = map_weighted * 100
-        self.ap[current_training_task_id, test_id] = ap_value
-        self.acc_per_class[current_training_task_id, test_id] = acc_per_class
+    def update_accuracy(self, current_training_task_id, acc_value, ap_value, acc_per_class, mean_ap, map_weighted):
+        self.acc[current_training_task_id] = acc_value * 100
+        self.mean_ap[current_training_task_id] = mean_ap * 100
+        self.map_weighted[current_training_task_id] = map_weighted * 100
+        self.ap[current_training_task_id] = ap_value
+        self.acc_per_class[current_training_task_id] = acc_per_class
          
   
 
-    def print_latest(self, current_training_task_id, test_id):
+    def print_latest(self, current_training_task_id):
         print('\n >>> Test on task {:2d} : acc={:5.1f}%, '
-              ' |  <<<'.format(test_id, 
-                                        self.acc[current_training_task_id, test_id]))
+              ' |  <<<'.format(current_training_task_id, 
+                                        self.acc[current_training_task_id]))
 
-
+    #TODO: per ora non necessaria, controllare se necessaria in futuro
     def compute_average(self):
-        self.avg_acc = self.acc.sum(1) / np.tril(np.ones(self.acc.shape[0])).sum(1)
+        #self.avg_acc = self.acc.sum(1) / np.tril(np.ones(self.acc.shape[0])).sum(1)
+        pass
             
            
           
@@ -186,9 +185,10 @@ class IncDecLogger():
         np.savetxt(os.path.join(self.out_path, 'acc.out'), self.acc, delimiter=',', fmt='%.3f')
         np.savetxt(os.path.join(self.out_path, 'mean_ap.out'), self.mean_ap, delimiter=',', fmt='%.3f')
         np.savetxt(os.path.join(self.out_path, 'map_weighted.out'), self.map_weighted, delimiter=',', fmt='%.3f')
-        np.savetxt(os.path.join(self.out_path, 'ap.out'), np.reshape(self.ap,(self.ap.shape[0]*self.ap.shape[1],-1)), delimiter=',', fmt='%.3f')
-        np.savetxt(os.path.join(self.out_path, 'acc_per_class.out'), np.reshape(self.acc_per_class,(self.acc_per_class.shape[0]*self.acc_per_class.shape[1],-1)), delimiter=',', fmt='%.3f')
-        np.savetxt(os.path.join(self.out_path, 'avg_acc.out'), self.avg_acc, delimiter=',', fmt='%.3f')
+        np.savetxt(os.path.join(self.out_path, 'ap.out'), self.ap, delimiter=',', fmt='%.3f')
+        np.savetxt(os.path.join(self.out_path, 'acc_per_class.out'), self.acc_per_class, delimiter=',', fmt='%.3f')
+        #TODO: per ora non utile perchè non usata, vedere in futuro se avremo differenti test e/o validation
+        #np.savetxt(os.path.join(self.out_path, 'avg_acc.out'), self.avg_acc, delimiter=',', fmt='%.3f')
 
 
     def print_best_epoch(self, best_epoch, task_id):
