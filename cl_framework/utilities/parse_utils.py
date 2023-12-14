@@ -45,6 +45,7 @@ def get_args():
     parser.add_argument("--plateau_check", type=str, default="map", choices=["map", "class_loss"])
     parser.add_argument("--patience", type=int, default=5)
     parser.add_argument("--device", type=int, default=0)
+    parser.add_argument("--criterion_type", type=str, default="multiclass", choices=["multiclass", "multilabel"])
     
     "Dataset Settings"
     parser.add_argument("--dataset", type=str, default="kinetics", choices=["cifar100","tiny-imagenet","imagenet-subset", "kinetics"], help="dataset to use") 
