@@ -1,6 +1,7 @@
 from torch.utils.data import Subset, WeightedRandomSampler
 import numpy as np
 import torch
+
 """ TODO: modificare come spiegato su notion, in Refactoring e pulizia codice.
     TLDR: fare che elementi interni a dataset sono passati dall'esterno (per pulizia e chiarezza codice)
     e implementare collect anche senza behaviors per uso di Verizon.
@@ -8,7 +9,7 @@ import torch
 class DataIncDecBaselineDataset():
     def __init__(self, dataset, task_dictionary,  
                     n_task, initial_split,
-                    total_classes, behaviors_check=True, train=True, validation=None, valid_size=None):
+                    total_classes, behaviors_check='yes', train=True, validation=None, valid_size=None):
         
         self.dataset = dataset
         self.train = train 
@@ -124,7 +125,7 @@ class DataIncDecBaselineDataset():
         first_split = []
         second_split = []
         # do the splits including behavior information in the splits, if not just work on the classes
-        if self.behaviors_check:
+        if self.behaviors_check == 'yes':
             #now divide the two first splits of the dataset
             for idx_class in range(self.total_classes):
                 #takes the class name from the idx
@@ -166,18 +167,17 @@ class DataIncDecBaselineDataset():
         
         return first_split, second_split
 
-   
 
-#TODO: controllare come modificare per fare gli split con le labels diverse per BCE
-class BCEDataIncDecBaselineDataset():
-    def __init__(self, dataset, task_dictionary,  
+
+class DataDecrementalPipeline():
+    def __init__(self, dataset, task_dictionary, behaviors_dictionary, 
                     n_task, initial_split,
-                    total_classes, behaviors_check=True, train=True, validation=None, valid_size=None):
+                    total_classes, behaviors_check='yes', train=True, validation=None, valid_size=None):
         
         self.dataset = dataset
         self.train = train 
-        #TODO: probabilmente non necessito nella baseline del dictionary, non usato. In caso, rimuovere
         self.task_dictionary = task_dictionary 
+        self.behaviors_dictionary = behaviors_dictionary
 
         #initial_split will explain how to split the data
         #will usually be 50-50
@@ -190,9 +190,11 @@ class BCEDataIncDecBaselineDataset():
 
         self.validation = validation
         #compute class sample count for the sample weights to be used in weighted random sample
+        #TODO: necessario anche nel caso di DataDecremental?
         self.class_sample_count = np.array([len(np.where(self.dataset.targets == t)[0]) for t in np.unique(self.dataset.targets)])
         self.sample_weight = 1. / self.class_sample_count
         self.behaviors_check = behaviors_check
+
 
     
 
@@ -205,32 +207,10 @@ class BCEDataIncDecBaselineDataset():
             
             first_split, second_split = self.get_initial_splits()
 
-            
-            for idx_class in range(self.total_classes):
-                #takes indices of the class
-                current_class_indices = np.where(np.array(self.dataset.targets) == idx_class)[0]
-                np.random.shuffle(current_class_indices)
-                for i in range(self.n_task):     
 
-                    #takes indices of the class from the first split
-                    f_class_indices = [idx for idx in current_class_indices if idx in first_split]
 
-                    sec_class_indices = [idx for idx in current_class_indices if idx in second_split]
+            #TODO: qui mettere il funzionamento per cui elimino un determinato numero di behaviors da ogni classe a determinati task
 
-                    #number of data from the first split to be removed
-                    f_data_task = int(len(f_class_indices)/(self.n_task-1))
-
-                    #number of data from the second split to be added
-                    sec_data_task = int(len(sec_class_indices)/(self.n_task-1))
-
-                    #indices from the first split 
-                    f_idx = f_class_indices[f_data_task*i:]
-
-                    #indices from the second split 
-                    s_idx = sec_class_indices[:sec_data_task*i]
-
-                    #add and remove data and make the list of indices for the task
-                    train_indices_list[i].extend(list(f_idx + s_idx))
                       
             
             cl_train_dataset = [Subset(self.dataset, ids)  for ids in train_indices_list]
@@ -239,11 +219,12 @@ class BCEDataIncDecBaselineDataset():
             #TODO: implementare validation set, sia per validation esterno sia da separarlo da train
             val_indices_list = [[] for _ in range(self.n_task)] 
             if self.validation != None:
+                
                 #Here validation passed from out of the train, same for all the tasks
-                for i in range(self.n_task):
-                    for idx_class in range(self.total_classes):
-                        current_class_indices = np.where(np.array(self.validation.targets) == idx_class)[0]
-                        val_indices_list[i].extend(list(current_class_indices))
+                
+                #TODO: qui mettere il funzionamento per cui elimino un determinato numero di behaviors da ogni classe a determinati task
+                pass    
+
             else:
                 #TODO: implement if validation is not passed from out of the train
                 pass
@@ -280,7 +261,7 @@ class BCEDataIncDecBaselineDataset():
         first_split = []
         second_split = []
         # do the splits including behavior information in the splits, if not just work on the classes
-        if self.behaviors_check:
+        if self.behaviors_check == 'yes':
             #now divide the two first splits of the dataset
             for idx_class in range(self.total_classes):
                 #takes the class name from the idx

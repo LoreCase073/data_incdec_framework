@@ -71,6 +71,12 @@ class MetricEvaluatorIncDec():
         if self.criterion_type == "multiclass":
             c_matrix = confusion_matrix(self.labels, torch.max(self.probabilities, axis = 1)[1].cpu().numpy())
         elif self.criterion_type == "multilabel":
+            # https://scikit-learn.org/stable/modules/generated/sklearn.metrics.multilabel_confusion_matrix.html
+            # matrix will have the form:
+            """ 
+            TN FP
+            FN TP
+              """
             c_matrix = multilabel_confusion_matrix(self.labels, (self.probabilities >= 0.5).cpu().numpy())
 
 
