@@ -19,8 +19,9 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
     
     def __init__(self, args, device, out_path, task_dict, total_classes, behaviors_per_task, behavior_dicts):
         self.total_classes = total_classes
-        self.imbalanced = args.imbalanced
-        self.loss_accumulation = args.accumulation
+        #TODO: to be removed
+        #self.imbalanced = args.imbalanced
+        
         self.n_accumulation = args.n_accumulation
         super().__init__(args, device, out_path, total_classes, task_dict)
         self.class_names = list(behavior_dicts[0].keys())
@@ -58,7 +59,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         train_loss, n_samples = 0, 0
         self.optimizer.zero_grad()
         # if to work with loss accumulation, when batch size is too small
-        if self.loss_accumulation:
+        if self.n_accumulation >= 0:
             count_accumulation = 0
             for batch_idx, (images, targets, binarized_targets, _, _) in enumerate(tqdm(train_loader)):
                 images = images.to(self.device)
@@ -219,6 +220,12 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                 np.save(cm_name_path,confusion_matrix)
                 np.savetxt(cm_name_path_txt,confusion_matrix, delimiter=',', fmt='%d')
             elif self.criterion_type == "multilabel":
+                # https://scikit-learn.org/stable/modules/generated/sklearn.metrics.multilabel_confusion_matrix.html
+                # matrix will have the form:
+                """ 
+                TN FP
+                FN TP
+                """
                 cm_path = os.path.join(self.out_path,'confusion_matrices')
                 if not os.path.exists(cm_path):
                     os.mkdir(cm_path)
@@ -256,6 +263,12 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                 np.save(cm_name_path,confusion_matrix)
                 np.savetxt(cm_name_path_txt,confusion_matrix, delimiter=',', fmt='%d')
             elif self.criterion_type == "multilabel":
+                # https://scikit-learn.org/stable/modules/generated/sklearn.metrics.multilabel_confusion_matrix.html
+                # matrix will have the form:
+                """ 
+                TN FP
+                FN TP
+                """
                 cm_path = os.path.join(self.out_path,'confusion_matrices')
                 if not os.path.exists(cm_path):
                     os.mkdir(cm_path)

@@ -9,10 +9,10 @@ def get_args():
     Structural hyperparams 
     """
     parser.add_argument("--approach", type=str,default="incdec", choices=["finetuning", "ewc","lwf","incdec"])
-    parser.add_argument("--baseline", action='store_true') 
-    parser.add_argument("--imbalanced", action='store_true') 
-    parser.add_argument("--accumulation", action='store_true') 
-    parser.add_argument("--n_accumulation", type=int, default=1)
+    parser.add_argument("--pipeline", type=str,default="baseline", choices=["baseline",]) 
+    #TODO: to be removed
+    #parser.add_argument("--imbalanced", action='store_true') 
+    parser.add_argument("--n_accumulation", type=int, default=0)
     parser.add_argument("--outpath", "-op",default="./", type=str) 
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--nw", type=int, default=2, help="num workers for data loader")
@@ -35,7 +35,7 @@ def get_args():
     """
     Training hyperparams 
     """
-    parser.add_argument("--stop_first_task", action='store_true') 
+    parser.add_argument("--stop_first_task", type=str, default="no", choices=["yes", "no"]) 
     parser.add_argument("--epochs", "-e", type=int, default=100)
     parser.add_argument("--batch_size", type=int, default=2)
     parser.add_argument("--lr_first_task", type=float, default=1e-3, help="for tiny-imagenet and cifar100, for imagenet-subet default  are in IncrementalApproach.py")
@@ -55,7 +55,7 @@ def get_args():
     parser.add_argument("--initial_split", type=int, default=2, help="how to divide in the initial split the dataset. 2 will divide in 50%/50%")
     parser.add_argument("--valid_size", type=float, default=0.0, help="percentage of train for validation set, default not use validation set")
     parser.add_argument("--sampler", type=str, default="imbalance_sampler", choices=["imbalance_sampler","balanced"])
-    parser.add_argument("--behaviors_check", action='store_true', help="Use it if we want to work with behaviors (subcategories), do not include it if not") 
+    parser.add_argument("--behaviors_check", type=str, default="yes", choices=["yes", "no"], help="Use it if we want to work with behaviors (subcategories), do not include it if not") 
 
     """
     Network Params

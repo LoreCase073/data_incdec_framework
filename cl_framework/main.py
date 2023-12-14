@@ -73,14 +73,14 @@ if __name__ == "__main__":
         '''TODO: this should return how many behaviors should be changed from task to task. For now, since only the baseline
             is implemented, return 0
         '''
-        behaviors_per_task = get_behaviors_per_task(total_classes, args.n_task, args.baseline)
+        behaviors_per_task = get_behaviors_per_task(total_classes, args.n_task, args.pipeline)
     else:
         class_per_task = get_class_per_task(args.n_class_first_task, total_classes, args.n_task)
     
     
     # task_dict = {task_id: list_of_class_ids}
     if args.approach == 'incdec':
-        task_dict, behavior_dicts = get_task_dict_incdec(args.n_task, total_classes, behaviors_per_task, args.baseline)
+        task_dict, behavior_dicts = get_task_dict_incdec(args.n_task, total_classes, behaviors_per_task, args.pipeline)
     else:
         task_dict = get_task_dict(args.n_task, total_classes, class_per_task, args.n_class_first_task)   
     
@@ -95,7 +95,7 @@ if __name__ == "__main__":
     """
 
     if args.approach == 'incdec':
-        if args.baseline:
+        if args.pipeline == 'baseline':
             cl_train_val = DataIncDecBaselineDataset(train_set, task_dict,  
                                                     args.n_task, args.initial_split, 
                                                     total_classes,
@@ -115,7 +115,7 @@ if __name__ == "__main__":
     train_dataset_list, train_sizes, val_dataset_list, val_sizes = cl_train_val.collect()
 
     if args.approach == 'incdec':
-        if args.baseline:
+        if args.pipeline == 'baseline':
             cl_test = DataIncDecBaselineDataset(test_set, task_dict,  
                                                     args.n_task, args.initial_split, 
                                                     total_classes,
@@ -371,7 +371,7 @@ if __name__ == "__main__":
         approach.post_train(task_id=task_id, trn_loader=train_loader)
 
         #If i want to stop at the first task
-        if stop_first_task:
+        if stop_first_task == 'yes':
             break
 
     

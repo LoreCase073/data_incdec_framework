@@ -143,9 +143,9 @@ def store_valid_loader(out_path, valid_loaders, store):
 
 
 
-def get_behaviors_per_task(total_classes, n_task=6, baseline=True):
+def get_behaviors_per_task(total_classes, n_task=6, pipeline='baseline'):
 
-    if baseline == True:
+    if pipeline == 'baseline':
         behaviors_to_change = 0
     else:
         #TODO: aggiungere logica oltre la baseline
@@ -155,7 +155,7 @@ def get_behaviors_per_task(total_classes, n_task=6, baseline=True):
     return behaviors_to_change
 
 
-def get_task_dict_incdec(n_task, total_classes, behaviors_per_task, baseline):
+def get_task_dict_incdec(n_task, total_classes, behaviors_per_task, pipeline):
     #TODO: per ora implemento così, per renderlo migliore da passare con altra funzione o file esterno
     """ TODO: this should return a list of dict (behavior_dicts), one for each task. Each one should determine how many behaviors should be
          removed and used in each task. Since for now the baseline is the only one implemented, it returns a list of dicts in which
@@ -193,7 +193,7 @@ def get_task_dict_incdec(n_task, total_classes, behaviors_per_task, baseline):
 
     behavior_dicts = []
        
-    if baseline == True:
+    if pipeline == 'baseline':
         for i in range(n_task):
             d[i] = (len(data_dict.keys()))
             behavior_dicts.append(data_dict)
