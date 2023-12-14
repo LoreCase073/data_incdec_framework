@@ -78,7 +78,7 @@ class KineticsDataset(Dataset):
         self.classes_behaviors = kinetics_classes(class_csv)
 
         #create a index for each class -- {class: idx}
-        self.class_to_idx = {key: i for i, key in enumerate(self.classes_behaviors.keys())} 
+        self.class_to_idx = {key: i for i, key in enumerate(self.classes_behaviors.keys())}
 
         for _, row in df.iterrows():
             #replace to match how the data was called in the folder
@@ -135,7 +135,8 @@ class KineticsDataset(Dataset):
                 video.append(img)      
         
         video = torch.stack(video,0).permute(1, 0, 2, 3)
-        return video, target, behavior, images_path
+        binarized_target = preprocessing.label_binarize([target], classes=[i for i in range(len(self.class_to_idx.keys()))])
+        return video, target, binarized_target, behavior, images_path
 
 
 def get_train_val_images_tiny(data_path):

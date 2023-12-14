@@ -320,6 +320,7 @@ if __name__ == "__main__":
                     break
 
             logger.print_best_epoch(best_epoch, task_id)
+            val_logger.print_best_epoch(best_epoch, task_id)
             
             
         """

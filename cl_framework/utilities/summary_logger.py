@@ -21,9 +21,8 @@ class SummaryLogger():
                                                                      'Last_avg_taw_acc', 'Last_avg_tag_acc','Last_avg_perstep_tag_acc'
                                                                      ]
         
-        self.incdec_columns = ['Model_name'] + self.list_parameter_names + ['Avg_acc', 
-                                                                     'Avg_forg_acc',
-                                                                     'Last_avg_acc',
+        self.incdec_columns = ['Model_name'] + self.list_parameter_names + ['mAP', 
+                                                                     'weighted_mAP',
                                                                      ]
         self.parameters_columns = ['Model_name'] + self.list_parameter_names
       
@@ -34,16 +33,15 @@ class SummaryLogger():
 
     def update_summary(self, exp_name, logger, avg_time):
         if self.approach == 'incdec':
-            list_avg_acc = list(np.around(logger.avg_acc, decimals=3))
-            list_avg_forg_acc = list(np.around(logger.avg_forg_acc, decimals=3))
+            list_map = list(np.around(logger.mean_ap, decimals=3))
+            list_map_weighted = list(np.around(logger.map_weighted, decimals=3))
             
 
 
             df = pd.DataFrame([[exp_name]+ 
                                 self.list_parameter_values+ 
-                                ["#".join(str(item) for item in list_avg_acc)]+
-                                ["#".join(str(item) for item in list_avg_forg_acc)]+
-                                [list_avg_acc[-1]]], columns=self.incdec_columns)
+                                ["#".join(str(item) for item in list_map)]+
+                                ["#".join(str(item) for item in list_map_weighted)]], columns=self.incdec_columns)
             
             df_time = pd.DataFrame([avg_time],columns=['Avg_Time_per_ep'])
             df_time.to_csv(os.path.join(self.out_path, exp_name,  "avg_time.csv"), index=False)

@@ -27,6 +27,9 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         self.model = BaseModel(backbone=self.backbone, dataset=args.dataset)
         self.model.add_classification_head(self.total_classes)
         self.print_running_approach()
+        self.criterion_type = args.criterion_type
+        #TODO: aggiungere criterion_type
+        self.criterion = self.select_criterion(args.criterion_type)
 
 
     def print_running_approach(self):
@@ -57,13 +60,14 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         # if to work with loss accumulation, when batch size is too small
         if self.loss_accumulation:
             count_accumulation = 0
-            for batch_idx, (images, targets, _, _) in enumerate(tqdm(train_loader)):
+            for batch_idx, (images, targets, binarized_targets, _, _) in enumerate(tqdm(train_loader)):
                 images = images.to(self.device)
-                targets = targets.to(self.device)
+                #TODO: aggiungere binarizzazione dei targets nel caso in cui il criterion_type sia multilabel
+                targets = self.select_proper_targets(targets, binarized_targets).to(self.device)
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
                 outputs, _ = self.model(images)
-                loss = self.criterion(outputs, targets, class_weights=class_weights)             
+                loss = self.criterion(outputs[0], targets)             
                 loss.backward()
                 train_loss += loss * current_batch_size
                 count_accumulation += 1
@@ -71,13 +75,13 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                     self.optimizer.step()
                     self.optimizer.zero_grad()
         else:
-            for images, targets, _, _ in  tqdm(train_loader):
+            for images, targets, binarized_targets, _, _ in  tqdm(train_loader):
                 images = images.to(self.device)
-                targets = targets.to(self.device)
+                targets = self.select_proper_targets(targets, binarized_targets).to(self.device)
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
                 outputs, _ = self.model(images)
-                loss = self.criterion(outputs, targets, class_weights=class_weights)             
+                loss = self.criterion(outputs[0], targets)             
                 loss.backward()
                 self.optimizer.step()
                 self.optimizer.zero_grad()
@@ -87,9 +91,12 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
 
 
     # cross entropy correct for our task of video classification
-    def criterion(self, outputs, targets, class_weights=None):
+    def select_criterion(self, criterion_type):
         # here is 0 cause we only have one head
-        return torch.nn.functional.cross_entropy(outputs[0], targets, class_weights)
+        if criterion_type == "multiclass":
+            return torch.nn.CrossEntropyLoss()
+        elif criterion_type == "multilabel":
+            return torch.nn.BCEWithLogitsLoss()
         
         
     def post_train(self, task_id, trn_loader=None):
@@ -97,7 +104,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
 
     
     def eval(self, current_training_task, test_id, loader, epoch, verbose, testing=None):
-        metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.task_dict, self.total_classes)
+        metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.task_dict, self.total_classes, self.criterion_type)
 
         #TODO: not used, to be removed
         """ if self.imbalanced:
@@ -110,15 +117,16 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         cls_loss, n_samples = 0, 0 
         with torch.no_grad():
             self.model.eval()
-            for images, targets, behavior, data_path in tqdm(loader):
+            for images, targets, binarized_targets, behavior, data_path in tqdm(loader):
                 images = images.to(self.device)
-                targets = targets.type(dtype=torch.int64).to(self.device)
+                #TODO: aggiungere la binarizzazione dei targets
+                targets = self.select_proper_targets(targets, binarized_targets).to(self.device)
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
  
                 outputs, features = self.model(images)
                 
-                cls_loss += self.criterion(outputs, targets, class_weights=class_weights) * current_batch_size
+                cls_loss += self.criterion(outputs[0], targets) * current_batch_size
                  
 
                 metric_evaluator.update(targets, 
@@ -130,12 +138,9 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
             confusion_matrix, precision, recall = metric_evaluator.get_precision_recall_cm()
             
             
-
-            cm_figure = self.plot_confusion_matrix(confusion_matrix, self.class_names)
-
-            pr_figure = self.plot_pr_curve(precision, recall)
+            
               
-            self.log(current_training_task, test_id, epoch, cls_loss/n_samples, acc, mean_ap, map_weighted, confusion_matrix, cm_figure, pr_figure, testing)
+            
 
             if testing != None:
                 self.save_error_analysis(current_training_task,
@@ -152,6 +157,20 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                                       self.class_names,
                                       ap,
                                       testing) """
+                if self.criterion_type == "multiclass":
+                    cm_figure = self.plot_confusion_matrix(confusion_matrix, self.class_names)
+                elif self.criterion_type == "multilabel":
+                    cm_figure = None
+
+                pr_figure = self.plot_pr_curve(precision, recall)
+            else:
+                cm_figure = None
+                pr_figure = None
+
+
+            self.log(current_training_task, test_id, epoch, cls_loss/n_samples, acc, mean_ap, map_weighted, confusion_matrix, cm_figure, pr_figure, testing)
+
+
             if verbose:
                 print(" - classification loss: {}".format(cls_loss/n_samples))
 
@@ -183,20 +202,32 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
             name_tb = "validation_dataset_"+ str(current_training_task) + "/task_" + str(test_id) + "_weighted_mAP"
             self.logger.add_scalar(name_tb, map_weighted, epoch)
 
-            name_tb = "validation_dataset_"+ str(current_training_task) + "/task_" + str(test_id) + "_confusion_matrix"
-            self.logger.add_figure(name_tb,cm_figure,epoch)
+            if cm_figure is not None:
+                name_tb = "validation_dataset_"+ str(current_training_task) + "/task_" + str(test_id) + "_confusion_matrix"
+                self.logger.add_figure(name_tb,cm_figure,epoch)
 
             name_tb = "validation_dataset_"+ str(current_training_task) + "/task_" + str(test_id) + "_pr_curve"
             self.logger.add_figure(name_tb,pr_figure,epoch)
 
             #saving confusion matrices
-            cm_path = os.path.join(self.out_path,'confusion_matrices')
-            if not os.path.exists(cm_path):
-                os.mkdir(cm_path)
-            cm_name_path = os.path.join(cm_path,"task_{}_validation_cm.npy".format(test_id))
-            cm_name_path_txt = os.path.join(cm_path,"task_{}_validation_cm.out".format(test_id))
-            np.save(cm_name_path,confusion_matrix)
-            np.savetxt(cm_name_path_txt,confusion_matrix)
+            if self.criterion_type == "multiclass":
+                cm_path = os.path.join(self.out_path,'confusion_matrices')
+                if not os.path.exists(cm_path):
+                    os.mkdir(cm_path)
+                cm_name_path = os.path.join(cm_path,"task_{}_validation_cm.npy".format(test_id))
+                cm_name_path_txt = os.path.join(cm_path,"task_{}_validation_cm.out".format(test_id))
+                np.save(cm_name_path,confusion_matrix)
+                np.savetxt(cm_name_path_txt,confusion_matrix, delimiter=',', fmt='%d')
+            elif self.criterion_type == "multilabel":
+                cm_path = os.path.join(self.out_path,'confusion_matrices')
+                if not os.path.exists(cm_path):
+                    os.mkdir(cm_path)
+                for i in range(self.total_classes):
+                    cm_name_path = os.path.join(cm_path,"task_{}_class_{}_validation_cm.npy".format(test_id,i))
+                    cm_name_path_txt = os.path.join(cm_path,"task_{}_class_{}_validation_cm.out".format(test_id,i))
+                    np.save(cm_name_path,confusion_matrix[i])
+                    np.savetxt(cm_name_path_txt,confusion_matrix[i], delimiter=',', fmt='%d')
+
             
         elif testing == 'test':
             name_tb = "test_dataset_"+ str(current_training_task)+ "/task_" + str(test_id) + "_accuracy"
@@ -208,21 +239,31 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
             name_tb = "test_dataset_"+ str(current_training_task) + "/task_" + str(test_id) + "_weighted_mAP"
             self.logger.add_scalar(name_tb, map_weighted, epoch)
 
-            name_tb = "test_dataset_"+ str(current_training_task) + "/task_" + str(test_id) + "_confusion_matrix"
-            self.logger.add_figure(name_tb,cm_figure,epoch)
+            if cm_figure is not None:
+                name_tb = "test_dataset_"+ str(current_training_task) + "/task_" + str(test_id) + "_confusion_matrix"
+                self.logger.add_figure(name_tb,cm_figure,epoch)
 
             name_tb = "test_dataset_"+ str(current_training_task) + "/task_" + str(test_id) + "_pr_curve"
             self.logger.add_figure(name_tb,pr_figure,epoch)
 
             #saving confusion matrices
-            cm_path = os.path.join(self.out_path,'confusion_matrices')
-            if not os.path.exists(cm_path):
-                os.mkdir(cm_path)
-            cm_name_path = os.path.join(cm_path,"task_{}_test_cm.npy".format(test_id))
-            cm_name_path_txt = os.path.join(cm_path,"task_{}_test_cm.out".format(test_id))
-            np.save(cm_name_path,confusion_matrix)
-            np.savetxt(cm_name_path_txt,confusion_matrix)
-        
+            if self.criterion_type == "multiclass":
+                cm_path = os.path.join(self.out_path,'confusion_matrices')
+                if not os.path.exists(cm_path):
+                    os.mkdir(cm_path)
+                cm_name_path = os.path.join(cm_path,"task_{}_test_cm.npy".format(test_id))
+                cm_name_path_txt = os.path.join(cm_path,"task_{}_test_cm.out".format(test_id))
+                np.save(cm_name_path,confusion_matrix)
+                np.savetxt(cm_name_path_txt,confusion_matrix, delimiter=',', fmt='%d')
+            elif self.criterion_type == "multilabel":
+                cm_path = os.path.join(self.out_path,'confusion_matrices')
+                if not os.path.exists(cm_path):
+                    os.mkdir(cm_path)
+                for i in range(self.total_classes):
+                    cm_name_path = os.path.join(cm_path,"task_{}_class_{}_test_cm.npy".format(test_id,i))
+                    cm_name_path_txt = os.path.join(cm_path,"task_{}_class_{}_test_cm.out".format(test_id,i))
+                    np.save(cm_name_path,confusion_matrix[i])
+                    np.savetxt(cm_name_path_txt,confusion_matrix[i], delimiter=',', fmt='%d')
         
 
     def train_log(self, current_training_task, epoch, cls_loss):
@@ -230,10 +271,19 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         self.logger.add_scalar(name_tb, cls_loss, epoch)
 
 
+
     def compute_probabilities(self, outputs, head_id):
-        probabilities = torch.nn.Softmax(dim=1)(outputs[head_id])
+        if self.criterion_type == "multiclass":
+            probabilities = torch.nn.Softmax(dim=1)(outputs[head_id])
+        else:
+            probabilities = torch.nn.Sigmoid()(outputs[head_id])
         return probabilities
     
+    def select_proper_targets(self, targets, binarized_targets):
+        if self.criterion_type == "multiclass":
+            return targets
+        elif self.criterion_type == "multilabel":
+            return binarized_targets.float().squeeze()
 
     def plot_confusion_matrix(self, cm, class_names):
         """
@@ -297,9 +347,17 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         probs = {}
         for i in range(len(class_names)):
             probs[class_names[i]] = probabilities[:,i]
-
-        d = {'video_path':data_paths, 'prediction':predictions, 'target':targets, 'subcategory': subcategory}
-        unified_dict = d | probs
+        
+        if self.criterion_type == "multilabel":
+            binary_targets = {}
+            for i in range(len(class_names)):
+                binary_targets["target_" + class_names[i]] = targets[:,i]
+            
+            d = {'video_path':data_paths, 'prediction':predictions, 'subcategory': subcategory}
+            unified_dict = d | probs | binary_targets
+        elif self.criterion_type == "multiclass":
+            d = {'video_path':data_paths, 'prediction':predictions, 'target':targets, 'subcategory': subcategory}
+            unified_dict = d | probs
         df = pd.DataFrame(unified_dict)
         df.to_csv(name_file, index=False)
 
