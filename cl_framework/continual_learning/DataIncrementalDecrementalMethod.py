@@ -17,14 +17,12 @@ import pandas as pd
 
 class DataIncrementalDecrementalMethod(IncrementalApproach):
     
-    def __init__(self, args, device, out_path, task_dict, total_classes, behaviors_per_task, behavior_dicts):
+    def __init__(self, args, device, out_path, task_dict, total_classes, behaviors_per_task, class_to_idx, behavior_dicts):
         self.total_classes = total_classes
-        #TODO: to be removed
-        #self.imbalanced = args.imbalanced
         
         self.n_accumulation = args.n_accumulation
         super().__init__(args, device, out_path, total_classes, task_dict)
-        self.class_names = list(behavior_dicts[0].keys())
+        self.class_names = list(class_to_idx.keys())
         self.model = BaseModel(backbone=self.backbone, dataset=args.dataset)
         self.model.add_classification_head(self.total_classes)
         self.print_running_approach()
@@ -105,7 +103,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
 
     
     def eval(self, current_training_task, test_id, loader, epoch, verbose, testing=None):
-        metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.task_dict, self.total_classes, self.criterion_type)
+        metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.total_classes, self.criterion_type)
 
         #TODO: not used, to be removed
         """ if self.imbalanced:

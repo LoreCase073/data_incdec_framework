@@ -100,7 +100,8 @@ class KineticsDataset(Dataset):
 
         self.fps = fps
 
-        
+    def get_class_to_idx(self):
+        return self.class_to_idx
     
     def __len__(self) -> int:
         return len(self.data)
@@ -161,9 +162,14 @@ class VZCDataset(Dataset):
         #TODO: i guess not used for VZC case
         #self.behaviors = []
 
-        #TODO: implement a class_to_idx dict
+        #TODO: implement a class_to_idx dict, here i did an example
         #create a index for each class -- {class: idx}
-        self.class_to_idx = ...
+        self.class_to_idx = {
+            'food':0,
+            'phone':1,
+            'smoking':2,
+        }
+        
 
         for _, row in df.iterrows():
             #TODO: replace to match how the data was called in the folder of vzc
@@ -182,7 +188,9 @@ class VZCDataset(Dataset):
         self.transform = transform
         self.fps = fps
 
-        
+    def get_class_to_idx(self):
+        return self.class_to_idx
+    
     
     def __len__(self) -> int:
         return len(self.data)
