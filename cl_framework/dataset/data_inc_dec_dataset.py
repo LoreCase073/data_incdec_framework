@@ -102,7 +102,7 @@ class DataIncDecBaselineDataset():
         else:
             #TEST
             
-            #TODO: controllare logica per test, dovrebbe essere sempre uguale per ogni task
+            # test indices should be equal for each task
             test_indices_list = [[] for _ in range(self.n_task)] 
             for i in range(self.n_task):
                     for idx_class in range(self.total_classes):

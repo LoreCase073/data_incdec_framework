@@ -24,6 +24,84 @@ import os
 from copy import deepcopy
 import math
 import time
+
+
+def get_training_validation_subset_for_tasks(approach, pipeline, train_set, task_dict,  
+                                                    n_task, initial_split, 
+                                                    total_classes,
+                                                    behaviors_check,validation_set,
+                                                    valid_size, n_class_first_task):
+    if approach == 'incdec':
+        if pipeline == 'baseline':
+            cl_train_val = DataIncDecBaselineDataset(train_set, task_dict,  
+                                                    n_task, initial_split, 
+                                                    total_classes,
+                                                    behaviors_check=behaviors_check,
+                                                    train=True, validation=validation_set,
+                                                    valid_size=valid_size)
+        else:
+            #TODO: implement logic other than the baseline one
+            print('Still not implemented...')
+    else:
+        cl_train_val = ContinualLearningDataset(train_set, task_dict,  
+                                                n_task, n_class_first_task, 
+                                                class_per_task,total_classes,
+                                                valid_size=valid_size, train=True)
+        
+    return cl_train_val
+
+
+def get_test_subset_for_tasks(approach, pipeline, test_set, task_dict,  
+                                                    n_task, initial_split, 
+                                                    total_classes,
+                                                    behaviors_check):
+    
+    if approach == 'incdec':
+        if pipeline == 'baseline':
+            cl_test = DataIncDecBaselineDataset(test_set, task_dict,  
+                                                    n_task, initial_split, 
+                                                    total_classes,
+                                                    behaviors_check=behaviors_check,
+                                                    train=False, validation=None,
+                                                    valid_size=None,)
+        else:
+            #TODO: implement logic other than the baseline one
+            print('Still not implemented...')
+    else:
+        cl_test = ContinualLearningDataset(test_set, task_dict,  
+                                        args.n_task, args.n_class_first_task, 
+                                        class_per_task,total_classes,
+                                        train=False)
+        
+    return cl_test
+
+def get_data_loaders(valid_size, validation_set, sampler, batch_size, nw, train_dataset_list, val_dataset_list, test_dataset_list):
+    train_loaders = []
+    valid_loaders = []
+    test_loaders = [DataLoader(test, batch_size=batch_size, shuffle=False, num_workers=nw) for test in test_dataset_list]
+
+    if valid_size > 0 or validation_set != None:
+        if sampler == 'imbalance_sampler':
+            for train in train_dataset_list:
+                sampler = cl_train_val.get_weighted_random_sampler(train.indices)
+                train_loaders.append(DataLoader(train, batch_size=batch_size, shuffle=False, num_workers=nw, sampler=sampler))
+        else:
+            train_loaders = [DataLoader(train, batch_size=batch_size, shuffle=True, num_workers=nw) for train in train_dataset_list]
+        print("Creating Validation Set")
+        
+        valid_loaders = [DataLoader(valid, batch_size=batch_size, shuffle=False, num_workers=nw) for valid in val_dataset_list]
+    
+    else:
+        print("Not using Validation")
+        if sampler == 'imbalance_sampler':
+            for train in train_dataset_list:
+                sampler = cl_train_val.get_weighted_random_sampler(train.indices)
+                train_loaders.append(DataLoader(train, batch_size=batch_size, shuffle=False, num_workers=nw, sampler=sampler))
+        else:
+            train_loaders = [DataLoader(train, batch_size=batch_size, shuffle=True, num_workers=nw) for train in train_dataset_list]
+        valid_loaders = test_loaders
+
+    return train_loaders, valid_loaders, test_loaders
  
 
 if __name__ == "__main__":
@@ -84,79 +162,40 @@ if __name__ == "__main__":
     else:
         task_dict = get_task_dict(args.n_task, total_classes, class_per_task, args.n_class_first_task)   
     
-    #TODO: fare print diverso per diverso tipo di task del DataIncDec... per ora commento
-    """ print("Dataset: {}, N task: {}, Large First Task Classes: {}, Classes Per Task : {}".format(args.dataset,
-                                                                                                  args.n_task,
-                                                                                                  args.n_class_first_task,
-                                                                                                  class_per_task)) """
         
     """
     Generate Subset For Each Task
     """
 
-    if args.approach == 'incdec':
-        if args.pipeline == 'baseline':
-            cl_train_val = DataIncDecBaselineDataset(train_set, task_dict,  
-                                                    args.n_task, args.initial_split, 
-                                                    total_classes,
-                                                    behaviors_check=args.behaviors_check,
-                                                    train=True, validation=validation_set,
-                                                    valid_size=args.valid_size)
-        else:
-            #TODO: implement logic other than the baseline one
-            print('Still not implemented...')
-    else:
-        cl_train_val = ContinualLearningDataset(train_set, task_dict,  
-                                                args.n_task, args.n_class_first_task, 
-                                                class_per_task,total_classes,
-                                                valid_size=args.valid_size, train=True)
+    
+    
+    cl_train_val = get_training_validation_subset_for_tasks(args.approach, args.pipeline, train_set, task_dict,  
+                                                            args.n_task, args.initial_split, 
+                                                            total_classes,
+                                                            args.behaviors_check,
+                                                            validation_set,
+                                                            args.valid_size,args.n_class_first_task)
 
     
     train_dataset_list, train_sizes, val_dataset_list, val_sizes = cl_train_val.collect()
 
-    if args.approach == 'incdec':
-        if args.pipeline == 'baseline':
-            cl_test = DataIncDecBaselineDataset(test_set, task_dict,  
-                                                    args.n_task, args.initial_split, 
-                                                    total_classes,
-                                                    behaviors_check=args.behaviors_check,
-                                                    train=False, validation=None,
-                                                    valid_size=None,)
-        else:
-            #TODO: implement logic other than the baseline one
-            print('Still not implemented...')
-    else:
-        cl_test = ContinualLearningDataset(test_set, task_dict,  
-                                        args.n_task, args.n_class_first_task, 
-                                        class_per_task,total_classes,
-                                        train=False)
+    
+    cl_test = get_test_subset_for_tasks(args.approach, args.pipeline, train_set, task_dict,  
+                                                            args.n_task, args.initial_split, 
+                                                            total_classes,
+                                                            args.behaviors_check)
+
 
     test_dataset_list, test_sizes, _, _  = cl_test.collect()
-    test_loaders = [DataLoader(test, batch_size=args.batch_size, shuffle=False, num_workers=args.nw) for test in test_dataset_list]
+    
 
 
     train_loaders = []
-    if args.valid_size > 0 or validation_set != None:
-        if args.sampler == 'imbalance_sampler':
-            for train in train_dataset_list:
-                sampler = cl_train_val.get_weighted_random_sampler(train.indices)
-                train_loaders.append(DataLoader(train, batch_size=args.batch_size, shuffle=False, num_workers=args.nw, sampler=sampler))
-        else:
-            train_loaders = [DataLoader(train, batch_size=args.batch_size, shuffle=True, num_workers=args.nw) for train in train_dataset_list]
-        print("Creating Validation Set")
-        
-        valid_loaders = [DataLoader(valid, batch_size=args.batch_size, shuffle=False, num_workers=args.nw) for valid in val_dataset_list]
+    valid_loaders = []
+    test_loaders = []
     
-    else:
-        print("Not using Validation")
-        if args.sampler == 'imbalance_sampler':
-            for train in train_dataset_list:
-                sampler = cl_train_val.get_weighted_random_sampler(train.indices)
-                train_loaders.append(DataLoader(train, batch_size=args.batch_size, shuffle=False, num_workers=args.nw, sampler=sampler))
-        else:
-            train_loaders = [DataLoader(train, batch_size=args.batch_size, shuffle=True, num_workers=args.nw) for train in train_dataset_list]
-        valid_loaders = test_loaders
- 
+    train_loaders, valid_loaders, test_loaders = get_data_loaders(args.valid_size, validation_set, args.sampler, args.batch_size, 
+                                                                  args.nw, train_dataset_list, val_dataset_list, test_dataset_list)
 
     
     """

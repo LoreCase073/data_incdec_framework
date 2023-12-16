@@ -48,6 +48,7 @@ def kinetics_classes(classes_csv):
 
     return classes_behaviors
 
+
 class KineticsDataset(Dataset):
     def __init__(self, data_path, transform, dataset_type, fps):
 
@@ -63,7 +64,6 @@ class KineticsDataset(Dataset):
             #This only to get all the data, used for mean and std
             self.data_csv = os.path.join(folder_csv, 'tbdownloaded.csv')
 
-        #TODO: fare caso per validation
 
         self.data_folder = os.path.join(data_path,'Videos')
 
@@ -108,8 +108,6 @@ class KineticsDataset(Dataset):
     
     def __getitem__(self, index: int) -> Tuple[Any, Any]:
 
-        #TODO: testare funzioni tale logica e che le trasformazioni possano essere applicate direttamente
-        #ai video e non alle singole immagini
         img_id, target, behavior = self.data[index], self.targets[index], self.behaviors[index]
 
         video_id_path = os.path.join(self.data_folder,img_id)
@@ -137,6 +135,90 @@ class KineticsDataset(Dataset):
         video = torch.stack(video,0).permute(1, 0, 2, 3)
         binarized_target = preprocessing.label_binarize([target], classes=[i for i in range(len(self.class_to_idx.keys()))])
         return video, target, binarized_target, behavior, images_path
+    
+
+
+class VZCDataset(Dataset):
+    def __init__(self, data_path, transform, dataset_type, fps):
+
+        #In folder_csv are place: train.csv, validation.csv, test.csv and classes.csv
+        folder_csv = os.path.join(data_path,'Info')
+        if dataset_type == 'train':
+            self.data_csv = os.path.join(folder_csv, 'train.csv')
+        elif dataset_type == 'validation':
+            self.data_csv = os.path.join(folder_csv, 'validation.csv')
+        elif dataset_type == 'test':
+            self.data_csv = os.path.join(folder_csv, 'test.csv')
+
+
+        self.data_folder = os.path.join(data_path,'Videos')
+
+        df = pd.read_csv(self.data_csv)
+
+        self.data = []
+        self.targets = []
+        
+        #TODO: i guess not used for VZC case
+        #self.behaviors = []
+
+        #TODO: implement a class_to_idx dict
+        #create a index for each class -- {class: idx}
+        self.class_to_idx = ...
+
+        for _, row in df.iterrows():
+            #TODO: replace to match how the data was called in the folder of vzc
+            id_data = 'id_' + str(row['youtube_id']) + '_' + '{:06d}'.format(row['time_start']) + '_' + '{:06d}'.format(row['time_end'])
+            self.data.append(id_data)
+
+            #retrieve the class - targets from category.csv
+            data_dir = os.path.join(self.data_folder, id_data)
+            cat_csv_path = os.path.join(data_dir,'category.csv')
+            cat_csv = pd.read_csv(cat_csv_path)
+            cat_row = next(cat_csv.iterrows())[1]
+            matching_class = cat_row['Category']
+            #retrieve the behavior from category.csv
+            self.targets.append(self.class_to_idx[matching_class])
+   
+        self.transform = transform
+        self.fps = fps
+
+        
+    
+    def __len__(self) -> int:
+        return len(self.data)
+
+    
+    def __getitem__(self, index: int) -> Tuple[Any, Any]:
+
+        img_id, target = self.data[index], self.targets[index]
+
+        video_id_path = os.path.join(self.data_folder,img_id)
+        #TODO: to be modified, maybe will only be necessary a single directory control
+        if self.fps == 5:
+            images_path = os.path.join(video_id_path,'5fps_jpgs')
+        else:
+            images_path = os.path.join(video_id_path,'jpgs')
+
+        video = []
+        std_video_len = self.fps*10
+
+        tmp_len = len(os.listdir(images_path))
+
+        
+        for i in range(std_video_len):
+            #TODO: to modify with jpgs names in VZC
+            image_name = 'image_{:05d}.jpg'.format((i%tmp_len)+1)
+            im_path = os.path.join(images_path,image_name)
+            with open(im_path, 'rb') as f:
+                img = Image.open(f)
+                img = img.convert('RGB')
+                if self.transform is not None:
+                        img = self.transform(img)
+                video.append(img)      
+        
+        video = torch.stack(video,0).permute(1, 0, 2, 3)
+        binarized_target = preprocessing.label_binarize([target], classes=[i for i in range(len(self.class_to_idx.keys()))])
+        return video, target, binarized_target, images_path
 
 
 def get_train_val_images_tiny(data_path):
@@ -353,6 +435,38 @@ def get_dataset(dataset_type, data_path):
 
         #TODO: per ora aggiungo a mano, modificare da prendere dall'esterno
         n_classes = 5
+    elif dataset_type == "vzc":
+        
+        print("Loading vzc Dataset")
+        
+        train_transform = [transforms.Resize(size=(200,200)),
+                           transforms.RandomCrop(172),
+                           transforms.RandomHorizontalFlip(),
+                            transforms.ToTensor(),
+                            #TODO: normalize is at the moment with the data from Kinetics used by us, to be modified with your data
+                            transforms.Normalize(mean=[0.4516, 0.3883, 0.3569],std=[0.2925, 0.2791, 0.2746])
+                ]
+        train_transform = transforms.Compose(train_transform)
+
+        test_transform = [transforms.Resize(size=(172,172)),
+                            transforms.CenterCrop(172),
+                            transforms.ToTensor(),
+                            #TODO: normalize is at the moment with the data from Kinetics used by us, to be modified with your data
+                            transforms.Normalize(mean=[0.4516, 0.3883, 0.3569],std=[0.2925, 0.2791, 0.2746])
+                          ]  
+        test_transform = transforms.Compose(test_transform)
+
+
+ 
+
+        #TODO: for now fps are set here, to be passed from outside later in implementation
+        train_set = VZCDataset(data_path, train_transform, dataset_type='train', fps=5)
+        # Here validation is passed outside, separately from the train. In the future could be a subset of training
+        valid_set = VZCDataset(data_path, test_transform, dataset_type='validation', fps=5)
+        test_set = VZCDataset(data_path, test_transform, dataset_type='test', fps=5)
+
+        #TODO: for now set here, to be passed from outside later in implementation
+        n_classes = 3
         
     
     return train_set, test_set, valid_set, n_classes
