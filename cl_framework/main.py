@@ -180,7 +180,7 @@ if __name__ == "__main__":
     train_dataset_list, train_sizes, val_dataset_list, val_sizes = cl_train_val.collect()
 
     
-    cl_test = get_test_subset_for_tasks(args.approach, args.pipeline, train_set, task_dict,  
+    cl_test = get_test_subset_for_tasks(args.approach, args.pipeline, test_set, task_dict,  
                                                             args.n_task, args.initial_split, 
                                                             total_classes,
                                                             args.behaviors_check)
@@ -233,7 +233,7 @@ if __name__ == "__main__":
                     behaviors_per_task=behaviors_per_task,
                     # class_names used to print the confusion matrices and pr_curves
                     # will work only with Kinetics and vzc dataset
-                    class_names= train_set.get_class_to_idx(),
+                    class_to_idx= train_set.get_class_to_idx(),
                     behavior_dicts = behavior_dicts,
                     )
     else:
