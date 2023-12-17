@@ -8,7 +8,7 @@ from sklearn.preprocessing import label_binarize
 
 
 class MetricEvaluatorIncDec():
-    def __init__(self, out_path, task_dict, num_classes, criterion_type):
+    def __init__(self, out_path, num_classes, criterion_type):
         self.out_path = out_path
         self.num_classes = num_classes
 
@@ -17,7 +17,6 @@ class MetricEvaluatorIncDec():
         self.subcategory = []
         self.data_paths = []
 
-        self.task_dict = task_dict
         self.criterion_type = criterion_type
 
 

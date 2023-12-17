@@ -7,14 +7,12 @@ import torch
     e implementare collect anche senza behaviors per uso di Verizon.
  """
 class DataIncDecBaselineDataset():
-    def __init__(self, dataset, task_dictionary,  
+    def __init__(self, dataset,  
                     n_task, initial_split,
                     total_classes, behaviors_check='yes', train=True, validation=None, valid_size=None):
         
         self.dataset = dataset
         self.train = train 
-        #TODO: probabilmente non necessito nella baseline del dictionary, non usato. In caso, rimuovere
-        self.task_dictionary = task_dictionary 
 
         #initial_split will explain how to split the data
         #will usually be 50-50
@@ -43,12 +41,6 @@ class DataIncDecBaselineDataset():
             
             first_split, second_split = self.get_initial_splits()
 
-            
-            #number of video to substitute from the first split and to add from the second split
-            #TODO: forse da rimuovere questi due 
-            """ n_first_split = int((len(first_split)/self.initial_split))
-            n_second_split = int((len(second_split)/self.initial_split)) """
-
 
             
             for idx_class in range(self.total_classes):
@@ -63,10 +55,15 @@ class DataIncDecBaselineDataset():
                     sec_class_indices = [idx for idx in current_class_indices if idx in second_split]
 
                     #number of data from the first split to be removed
-                    f_data_task = int(len(f_class_indices)/(self.n_task-1))
-
+                    if self.n_task > 1:
+                        f_data_task = int(len(f_class_indices)/(self.n_task-1))
+                    else:
+                        f_data_task = int(len(f_class_indices))
                     #number of data from the second split to be added
-                    sec_data_task = int(len(sec_class_indices)/(self.n_task-1))
+                    if self.n_task > 1:
+                        sec_data_task = int(len(sec_class_indices)/(self.n_task-1))
+                    else:
+                        sec_data_task = int(len(sec_class_indices))
 
                     #indices from the first split 
                     f_idx = f_class_indices[f_data_task*i:]
@@ -102,7 +99,7 @@ class DataIncDecBaselineDataset():
         else:
             #TEST
             
-            #TODO: controllare logica per test, dovrebbe essere sempre uguale per ogni task
+            # test indices should be equal for each task
             test_indices_list = [[] for _ in range(self.n_task)] 
             for i in range(self.n_task):
                     for idx_class in range(self.total_classes):
