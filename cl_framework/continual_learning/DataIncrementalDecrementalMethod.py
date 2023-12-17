@@ -57,7 +57,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         train_loss, n_samples = 0, 0
         self.optimizer.zero_grad()
         # if to work with loss accumulation, when batch size is too small
-        if self.n_accumulation >= 0:
+        if self.n_accumulation > 0:
             count_accumulation = 0
             for batch_idx, (images, targets, binarized_targets, _, _) in enumerate(tqdm(train_loader)):
                 images = images.to(self.device)
