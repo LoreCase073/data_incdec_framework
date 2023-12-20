@@ -165,15 +165,17 @@ class VZCDataset(Dataset):
         #TODO: implement a class_to_idx dict, here i did an example
         #create a index for each class -- {class: idx}
         self.class_to_idx = {
-            'food':0,
-            'phone':1,
-            'smoking':2,
+            'nothing':0,
+            'food':1,
+            'phone':2,
+            'cigarette':3,
         }
         
 
         for _, row in df.iterrows():
             #TODO: replace to match how the data was called in the folder of vzc
-            id_data = 'id_' + str(row['youtube_id']) + '_' + '{:06d}'.format(row['time_start']) + '_' + '{:06d}'.format(row['time_end'])
+            # id_data = 'id_' + str(row['youtube_id']) + '_' + '{:06d}'.format(row['time_start']) + '_' + '{:06d}'.format(row['time_end'])
+            id_data = str(row['id'])
             self.data.append(id_data)
 
             #retrieve the class - targets from category.csv
@@ -202,13 +204,15 @@ class VZCDataset(Dataset):
 
         video_id_path = os.path.join(self.data_folder,img_id)
         #TODO: to be modified, maybe will only be necessary a single directory control
+        """
         if self.fps == 5:
             images_path = os.path.join(video_id_path,'5fps_jpgs')
         else:
-            images_path = os.path.join(video_id_path,'jpgs')
+        """
+        images_path = os.path.join(video_id_path,'jpgs')
 
         video = []
-        std_video_len = self.fps*10
+        std_video_len = self.fps*16  # VZC videos are at most 16s (when everything is correct)
 
         tmp_len = len(os.listdir(images_path))
 
@@ -226,7 +230,7 @@ class VZCDataset(Dataset):
         
         video = torch.stack(video,0).permute(1, 0, 2, 3)
         binarized_target = preprocessing.label_binarize([target], classes=[i for i in range(len(self.class_to_idx.keys()))])
-        return video, target, binarized_target, images_path
+        return video, target, binarized_target, 0, images_path
 
 
 def get_train_val_images_tiny(data_path):
@@ -474,7 +478,7 @@ def get_dataset(dataset_type, data_path):
         test_set = VZCDataset(data_path, test_transform, dataset_type='test', fps=5)
 
         #TODO: for now set here, to be passed from outside later in implementation
-        n_classes = 3
+        n_classes = 4
         
     
     return train_set, test_set, valid_set, n_classes

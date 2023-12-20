@@ -294,7 +294,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         if self.criterion_type == "multiclass":
             return targets
         elif self.criterion_type == "multilabel":
-            return binarized_targets.float().squeeze()
+            return binarized_targets.float().squeeze(dim=1)
 
     def plot_confusion_matrix(self, cm, class_names):
         """
