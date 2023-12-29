@@ -9,7 +9,7 @@ def get_args():
     Structural hyperparams 
     """
     parser.add_argument("--approach", type=str,default="incdec", choices=["finetuning", "ewc","lwf","incdec"], help="Type of machine learning approach to be followed.")
-    parser.add_argument("--pipeline", type=str,default="baseline", choices=["baseline",], help="Type of pipeline to be follower in the incdec case.") 
+    parser.add_argument("--pipeline", type=str,default="baseline", choices=["baseline","decremental"], help="Type of pipeline to be follower in the incdec case.") 
     parser.add_argument("--n_accumulation", type=int, default=0, help="To be used in case batch size is low and you want to do gradient accumulation.")
     parser.add_argument("--outpath", "-op",default="./", type=str, help="Output directory where to save results.") 
     parser.add_argument("--seed", type=int, default=0, help="Seed to be initialized to.")
@@ -47,7 +47,8 @@ def get_args():
     
     "Dataset Settings"
     parser.add_argument("--dataset", type=str, default="kinetics", choices=["cifar100","tiny-imagenet","imagenet-subset", "kinetics", "vzc"], help="dataset to use") 
-    parser.add_argument("--data_path",type=str, default="/Kinetics",help="path where dataset is saved")
+    parser.add_argument("--data_path",type=str, default="./Kinetics",help="path where dataset is saved")
+    parser.add_argument("--behaviors_to_remove_csv_path",type=str, default="./Kinetics/Info/behaviors_to_remove.csv",help="path where the csv with the specification of the behaviors to be removed is stored, for the pipeline decremental. Maybe to be modified later.")
     parser.add_argument("--n_class_first_task", type=int, default=5, help="if greater than -1 use a larger number of classes for the first class, n_task include this one. If incdec approach set it to the number of classes of all tasks.")
     parser.add_argument("--n_task", type=int, default=6, help="number of tasks")
     parser.add_argument("--initial_split", type=int, default=2, choices=[2], help="how to divide in the initial split the dataset. 2 will divide in 50%/50%")

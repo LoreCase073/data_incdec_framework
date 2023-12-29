@@ -147,18 +147,13 @@ if __name__ == "__main__":
     
      
     # class_per_task: number of classes not in the first task, if the first is larger, otherwise it is equal to total_classes/n_task
-    if args.approach == 'incdec':
-        '''TODO: this should return how many behaviors should be changed from task to task. For now, since only the baseline
-            is implemented, return 0
-        '''
-        behaviors_per_task = get_behaviors_per_task(total_classes, args.n_task, args.pipeline)
-    else:
+    if args.approach != 'incdec':
         class_per_task = get_class_per_task(args.n_class_first_task, total_classes, args.n_task)
     
     
     # task_dict = {task_id: list_of_class_ids}
     if args.approach == 'incdec':
-        task_dict, behavior_dicts = get_task_dict_incdec(args.n_task, total_classes, behaviors_per_task, args.pipeline)
+        task_dict, behavior_dicts = get_task_dict_incdec(args.n_task, total_classes, args.behaviors_to_remove_csv_path, args.pipeline)
     else:
         task_dict = get_task_dict(args.n_task, total_classes, class_per_task, args.n_class_first_task)   
     

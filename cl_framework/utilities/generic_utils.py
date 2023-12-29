@@ -142,32 +142,21 @@ def store_valid_loader(out_path, valid_loaders, store):
 
 
 
-
-def get_behaviors_per_task(total_classes, n_task=6, pipeline='baseline'):
+#TODO to remove, right now everything i need to use is in get_task_dict_incdec
+""" def get_behaviors_per_task(total_classes, n_task=6, pipeline='baseline', behaviors_to_be_removed_csv_path = None):
 
     if pipeline == 'baseline':
         behaviors_to_change = 0
-    else:
-        #TODO: aggiungere logica oltre la baseline
+    elif pipeline == 'decremental':
         pass
 
 
-    return behaviors_to_change
+    return behaviors_to_change """
 
 
-def get_task_dict_incdec(n_task, total_classes, behaviors_per_task, pipeline):
-    #TODO: per ora implemento così, per renderlo migliore da passare con altra funzione o file esterno
-    """ TODO: this should return a list of dict (behavior_dicts), one for each task. Each one should determine how many behaviors should be
-         removed and used in each task. Since for now the baseline is the only one implemented, it returns a list of dicts in which
-          keys are classes and the values are lists of behaviors of that class.
-
-          task_dict just returns a list with the number of classes per task... should be less useful than behaviors dicts.
-
-          behavior_dicts := {class:[behavior1, behavior2, ...]}
-          task_dict := [len(classes), len(classes),...]
-    """
-    
-    data_dict = {
+def get_task_dict_incdec(n_task, total_classes, behaviors_to_remove_csv_path, pipeline):
+    #TODO: this starting_data_dict should be returned from an external file maybe
+    starting_data_dict = {
     'food': [
         'eating burger', 'eating cake', 'eating carrots', 'eating chips', 'eating doughnuts',
         'eating hotdog', 'eating ice cream', 'eating spaghetti', 'eating watermelon',
@@ -191,17 +180,37 @@ def get_task_dict_incdec(n_task, total_classes, behaviors_per_task, pipeline):
 
     d = {}
 
-    behavior_dicts = []
+    behaviors_dicts = []
        
     if pipeline == 'baseline':
         for i in range(n_task):
-            d[i] = (len(data_dict.keys()))
-            behavior_dicts.append(data_dict)
-    else:
-        #TODO: aggiungere logica oltre la baseline
-        pass
+            d[i] = (len(starting_data_dict.keys()))
+            behaviors_dicts.append(starting_data_dict)
+    elif pipeline == 'decremental':
+        d[i] = (len(starting_data_dict.keys()))
+
+        behaviors_to_remove = pd.read_csv(behaviors_to_remove_csv_path)
+        # i deepcopy just to be sure that i do not change the starting data dict if i need to reuse it
+        current_behaviors_dict = deepcopy(starting_data_dict)
+
+        for i, row in behaviors_to_remove.iterrows():
+            # iterate the classes to remove them
+            for idx_class in current_behaviors_dict.keys():
+                # get how many behaviors to remove
+                count_to_remove = row[idx_class]
+                # remove the behaviors if != 0
+                if count_to_remove != 0:
+                    for count_idx in range(count_to_remove):
+                        # get current behaviors of that class from the current dict of behaviors
+                        behaviors_count = len(current_behaviors_dict[idx_class])
+                        # now select randomly the index of the behavior to be removed
+                        idx_to_remove = random.randint(0,behaviors_count-1)
+                        # remove the item from the list
+                        del current_behaviors_dict[idx_class][idx_to_remove]
+            # add the new dict to the behaviors dicts
+            behaviors_dicts.append(deepcopy(current_behaviors_dict))
                
-    return d, behavior_dicts
+    return d, behaviors_dicts
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
