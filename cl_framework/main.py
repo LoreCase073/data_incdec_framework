@@ -225,7 +225,6 @@ if __name__ == "__main__":
                     out_path=out_path,
                     task_dict=task_dict,
                     total_classes=total_classes,
-                    behaviors_per_task=behaviors_per_task,
                     # class_names used to print the confusion matrices and pr_curves
                     # will work only with Kinetics and vzc dataset
                     class_to_idx= train_set.get_class_to_idx(),

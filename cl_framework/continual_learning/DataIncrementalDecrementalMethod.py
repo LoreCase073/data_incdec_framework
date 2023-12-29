@@ -17,7 +17,7 @@ import pandas as pd
 
 class DataIncrementalDecrementalMethod(IncrementalApproach):
     
-    def __init__(self, args, device, out_path, task_dict, total_classes, behaviors_per_task, class_to_idx, behavior_dicts):
+    def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, behavior_dicts):
         self.total_classes = total_classes
         
         self.n_accumulation = args.n_accumulation
