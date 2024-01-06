@@ -154,7 +154,7 @@ def store_valid_loader(out_path, valid_loaders, store):
     return behaviors_to_change """
 
 
-def get_task_dict_incdec(n_task, total_classes, behaviors_to_remove_csv_path, pipeline):
+def get_task_dict_incdec(n_task, total_classes, behaviors_csv_path, pipeline, behaviors_randomize, out_path):
     #TODO: this starting_data_dict should be returned from an external file maybe
     starting_data_dict = {
     'food': [
@@ -187,13 +187,24 @@ def get_task_dict_incdec(n_task, total_classes, behaviors_to_remove_csv_path, pi
             d[i] = (len(starting_data_dict.keys()))
             behaviors_dicts.append(starting_data_dict)
     elif pipeline == 'decremental':
-        d[i] = (len(starting_data_dict.keys()))
+        
+        result_folder(out_path, 'behaviors_task')
 
-        behaviors_to_remove = pd.read_csv(behaviors_to_remove_csv_path)
+        save_path = os.path.join(out_path, 'behaviors_task')
+
+        behaviors_to_remove = pd.read_csv(behaviors_csv_path)
         # i deepcopy just to be sure that i do not change the starting data dict if i need to reuse it
         current_behaviors_dict = deepcopy(starting_data_dict)
 
+        # shuffling columns to do a randomized order of decremental behaviors
+        # randomize all but the first row, which should not have any behaviors removed
+        if behaviors_randomize == 'yes':
+            for column in current_behaviors_dict:
+                behaviors_to_remove[column][1:] = np.random.permutation(behaviors_to_remove[column].values[1:])
+
         for i, row in behaviors_to_remove.iterrows():
+            d[i] = (len(starting_data_dict.keys()))
+
             # iterate the classes to remove them
             for idx_class in current_behaviors_dict.keys():
                 # get how many behaviors to remove
@@ -209,7 +220,69 @@ def get_task_dict_incdec(n_task, total_classes, behaviors_to_remove_csv_path, pi
                         del current_behaviors_dict[idx_class][idx_to_remove]
             # add the new dict to the behaviors dicts
             behaviors_dicts.append(deepcopy(current_behaviors_dict))
-               
+            csv_behavior = pd.DataFrame.from_dict(current_behaviors_dict, orient='index')
+            csv_behavior.to_csv(os.path.join(save_path,'task_{}'.format(i)),header=False,index=False)
+    elif pipeline == 'incremental_decremental':
+        result_folder(out_path, 'behaviors_task')
+
+        save_path = os.path.join(out_path, 'behaviors_task')
+
+        behaviors_to_substitute = pd.read_csv(behaviors_csv_path)
+        # get a subset of behaviors to start with, as described in the first row of the csv
+        tmp_behaviors_dict = deepcopy(starting_data_dict)
+
+        if behaviors_randomize == 'yes':
+            for column in tmp_behaviors_dict:
+                behaviors_to_substitute[column][1:] = np.random.permutation(behaviors_to_substitute[column].values[1:])
+
+        first_task_behaviors = behaviors_to_substitute.iloc[0]
+
+        current_behaviors_dict = {}
+
+        # get the behaviors for the first task
+        for idx_class in tmp_behaviors_dict.keys():
+                # get how many behaviors to remove
+                count_to_get = first_task_behaviors[idx_class]
+                current_behaviors_dict[idx_class] = []
+                if count_to_get != 0:
+                    for count_idx in range(count_to_get):
+                        # get current behaviors of that class from the current dict of behaviors
+                        behaviors_count = len(tmp_behaviors_dict[idx_class])
+                        # now select randomly the index of the behavior to be added to the first task
+                        idx_to_add = random.randint(0,behaviors_count-1)
+                        current_behaviors_dict[idx_class].append(tmp_behaviors_dict[idx_class][idx_to_add])
+                        del tmp_behaviors_dict[idx_class][idx_to_add]
+        d[0] = (len(starting_data_dict.keys()))
+        # add the first dict to the behaviors dictionaries
+        behaviors_dicts.append(deepcopy(current_behaviors_dict))
+        # dict with all the behaviors from the first task to be removed
+        behaviors_to_remove = deepcopy(current_behaviors_dict)
+
+        for i, row in behaviors_to_substitute.iterrows():
+            # skip the first task
+            if i != 0:
+                d[i] = (len(starting_data_dict.keys()))
+
+                # iterate the classes to remove them
+                for idx_class in tmp_behaviors_dict.keys():
+                    count_to_get = row[idx_class]
+                    if count_to_get != 0:
+                        for count_idx in range(count_to_get):
+                            behaviors_count_remaining_to_add = len(tmp_behaviors_dict[idx_class])
+                            # now select randomly the index of the behavior to be added to the task
+                            idx_to_add = random.randint(0,behaviors_count_remaining_to_add-1)
+
+                            behaviors_count_remaining_to_remove = len(behaviors_to_remove[idx_class])
+                            # now select randomly the index of the behavior to be removed to the task
+                            idx_to_remove = random.randint(0,behaviors_count_remaining_to_remove-1)
+                            current_behaviors_dict[idx_class].append(tmp_behaviors_dict[idx_class][idx_to_add])
+                            del tmp_behaviors_dict[idx_class][idx_to_add]
+                            current_behaviors_dict[idx_class].remove(behaviors_to_remove[idx_class][idx_to_remove])
+                            del behaviors_to_remove[idx_class][idx_to_remove]
+                behaviors_dicts.append(deepcopy(current_behaviors_dict))
+                csv_behavior = pd.DataFrame.from_dict(current_behaviors_dict, orient='index')
+                csv_behavior.to_csv(os.path.join(save_path,'task_{}'.format(i)),header=False,index=False)
+
     return d, behaviors_dicts
 
 class AverageMeter(object):

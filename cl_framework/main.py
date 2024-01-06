@@ -1,6 +1,6 @@
 from utilities.generic_utils import experiment_folder, result_folder, \
                             get_task_dict, seed_everything, rollback_model, \
-                            store_model, store_valid_loader, get_class_per_task, remap_targets, get_behaviors_per_task, \
+                            store_model, store_valid_loader, get_class_per_task, remap_targets, \
                             get_task_dict_incdec, AverageMeter
 from utilities.parse_utils import get_args
 from utilities.matrix_logger import Logger, IncDecLogger
@@ -15,7 +15,7 @@ from continual_learning.LearningWithoutForgetting import LWF
 
 # dataset 
 from dataset.continual_learning_dataset import ContinualLearningDataset
-from dataset.data_inc_dec_dataset import DataIncDecBaselineDataset
+from dataset.data_inc_dec_dataset import DataIncDecBaselineDataset, DataIncrementalDecrementalPipelineDataset
 from dataset.dataset_utils import get_dataset 
 import sys 
 
@@ -26,11 +26,11 @@ import math
 import time
 
 
-def get_training_validation_subset_for_tasks(approach, pipeline, train_set, task_dict,  
+def get_training_validation_subset_for_tasks(approach, pipeline, train_set, task_dict, 
                                                     n_task, initial_split, 
                                                     total_classes,
                                                     behaviors_check,validation_set,
-                                                    valid_size, n_class_first_task):
+                                                    valid_size, n_class_first_task,behavior_dicts = None):
     if approach == 'incdec':
         if pipeline == 'baseline':
             cl_train_val = DataIncDecBaselineDataset(train_set,
@@ -39,9 +39,10 @@ def get_training_validation_subset_for_tasks(approach, pipeline, train_set, task
                                                     behaviors_check=behaviors_check,
                                                     train=True, validation=validation_set,
                                                     valid_size=valid_size)
-        else:
-            #TODO: implement logic other than the baseline one
-            print('Still not implemented...')
+        elif pipeline == 'decremental' or pipeline == 'incremental_decremental':
+            cl_train_val = DataIncrementalDecrementalPipelineDataset(train_set, behavior_dicts, 
+                    n_task, initial_split,
+                    total_classes, behaviors_check='yes', train=True, validation=validation_set, valid_size=valid_size)
     else:
         cl_train_val = ContinualLearningDataset(train_set, task_dict,  
                                                 n_task, n_class_first_task, 
@@ -54,7 +55,7 @@ def get_training_validation_subset_for_tasks(approach, pipeline, train_set, task
 def get_test_subset_for_tasks(approach, pipeline, test_set, task_dict,  
                                                     n_task, initial_split, 
                                                     total_classes,
-                                                    behaviors_check):
+                                                    behaviors_check, behavior_dicts = None):
     
     if approach == 'incdec':
         if pipeline == 'baseline':
@@ -64,9 +65,10 @@ def get_test_subset_for_tasks(approach, pipeline, test_set, task_dict,
                                                     behaviors_check=behaviors_check,
                                                     train=False, validation=None,
                                                     valid_size=None,)
-        else:
-            #TODO: implement logic other than the baseline one
-            print('Still not implemented...')
+        elif pipeline == 'decremental' or pipeline == 'incremental_decremental':
+            cl_test = DataIncrementalDecrementalPipelineDataset(test_set, behavior_dicts, 
+                    n_task, initial_split,
+                    total_classes, behaviors_check='yes', train=False, validation=None, valid_size=None)
     else:
         cl_test = ContinualLearningDataset(test_set, task_dict,  
                                         args.n_task, args.n_class_first_task, 
@@ -153,7 +155,7 @@ if __name__ == "__main__":
     
     # task_dict = {task_id: list_of_class_ids}
     if args.approach == 'incdec':
-        task_dict, behavior_dicts = get_task_dict_incdec(args.n_task, total_classes, args.behaviors_to_remove_csv_path, args.pipeline)
+        task_dict, behavior_dicts = get_task_dict_incdec(args.n_task, total_classes, args.behaviors_csv_path, args.pipeline, args.behaviors_randomize, out_path)
     else:
         task_dict = get_task_dict(args.n_task, total_classes, class_per_task, args.n_class_first_task)   
     
@@ -164,21 +166,21 @@ if __name__ == "__main__":
 
     
     
-    cl_train_val = get_training_validation_subset_for_tasks(args.approach, args.pipeline, train_set, task_dict,  
+    cl_train_val = get_training_validation_subset_for_tasks(args.approach, args.pipeline, train_set, task_dict,
                                                             args.n_task, args.initial_split, 
                                                             total_classes,
                                                             args.behaviors_check,
                                                             validation_set,
-                                                            args.valid_size,args.n_class_first_task)
+                                                            args.valid_size,args.n_class_first_task, behavior_dicts)
 
     
     train_dataset_list, train_sizes, val_dataset_list, val_sizes = cl_train_val.collect()
 
     
-    cl_test = get_test_subset_for_tasks(args.approach, args.pipeline, test_set, task_dict,  
+    cl_test = get_test_subset_for_tasks(args.approach, args.pipeline, test_set, task_dict,
                                                             args.n_task, args.initial_split, 
                                                             total_classes,
-                                                            args.behaviors_check)
+                                                            args.behaviors_check,behavior_dicts)
 
 
     test_dataset_list, test_sizes, _, _  = cl_test.collect()
