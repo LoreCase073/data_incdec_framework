@@ -9,7 +9,7 @@ def get_args():
     Structural hyperparams 
     """
     parser.add_argument("--approach", type=str,default="incdec", choices=["finetuning", "ewc","lwf","incdec"], help="Type of machine learning approach to be followed.")
-    parser.add_argument("--pipeline", type=str,default="baseline", choices=["baseline","decremental","incremental_decremental"], help="Type of pipeline to be follower in the incdec case.") 
+    parser.add_argument("--pipeline", type=str,default="baseline", choices=["baseline","decremental","incremental_decremental","joint_incremental"], help="Type of pipeline to be follower in the incdec case.") 
     parser.add_argument("--n_accumulation", type=int, default=0, help="To be used in case batch size is low and you want to do gradient accumulation.")
     parser.add_argument("--outpath", "-op",default="./", type=str, help="Output directory where to save results.") 
     parser.add_argument("--seed", type=int, default=0, help="Seed to be initialized to.")

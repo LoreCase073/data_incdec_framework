@@ -17,11 +17,12 @@ import pandas as pd
 
 class DataIncrementalDecrementalMethod(IncrementalApproach):
     
-    def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, behavior_dicts):
+    def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, behavior_dicts, all_behaviors_dict):
         self.total_classes = total_classes
         
         self.n_accumulation = args.n_accumulation
         super().__init__(args, device, out_path, total_classes, task_dict)
+        self.class_to_idx = class_to_idx
         self.class_names = list(class_to_idx.keys())
         self.model = BaseModel(backbone=self.backbone, dataset=args.dataset)
         self.model.add_classification_head(self.total_classes)
@@ -29,6 +30,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         self.criterion_type = args.criterion_type
         #TODO: aggiungere criterion_type
         self.criterion = self.select_criterion(args.criterion_type)
+        self.all_behaviors_dict = all_behaviors_dict
 
 
     def print_running_approach(self):
@@ -62,11 +64,11 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
             for batch_idx, (images, targets, binarized_targets, _, _) in enumerate(tqdm(train_loader)):
                 images = images.to(self.device)
                 #TODO: aggiungere binarizzazione dei targets nel caso in cui il criterion_type sia multilabel
-                targets = self.select_proper_targets(targets, binarized_targets).to(self.device)
+                labels = self.select_proper_targets(targets, binarized_targets).to(self.device)
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
                 outputs, _ = self.model(images)
-                loss = self.criterion(outputs[0], targets)             
+                loss = self.criterion(outputs[0], labels)             
                 loss.backward()
                 train_loss += loss * current_batch_size
                 count_accumulation += 1
@@ -76,11 +78,11 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         else:
             for images, targets, binarized_targets, _, _ in  tqdm(train_loader):
                 images = images.to(self.device)
-                targets = self.select_proper_targets(targets, binarized_targets).to(self.device)
+                labels = self.select_proper_targets(targets, binarized_targets).to(self.device)
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
                 outputs, _ = self.model(images)
-                loss = self.criterion(outputs[0], targets)             
+                loss = self.criterion(outputs[0], labels)             
                 loss.backward()
                 self.optimizer.step()
                 self.optimizer.zero_grad()
@@ -103,7 +105,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
 
     
     def eval(self, current_training_task, test_id, loader, epoch, verbose, testing=None):
-        metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.total_classes, self.criterion_type)
+        metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.total_classes, self.criterion_type, self.all_behaviors_dict, self.class_to_idx)
 
         #TODO: not used, to be removed
         """ if self.imbalanced:
@@ -119,20 +121,20 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
             for images, targets, binarized_targets, behavior, data_path in tqdm(loader):
                 images = images.to(self.device)
                 #TODO: aggiungere la binarizzazione dei targets
-                targets = self.select_proper_targets(targets, binarized_targets).to(self.device)
+                labels = self.select_proper_targets(targets, binarized_targets).to(self.device)
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
  
                 outputs, features = self.model(images)
                 
-                cls_loss += self.criterion(outputs[0], targets) * current_batch_size
+                cls_loss += self.criterion(outputs[0], labels) * current_batch_size
                  
 
-                metric_evaluator.update(targets, 
+                metric_evaluator.update(targets, binarized_targets.float().squeeze(dim=1),
                                         self.compute_probabilities(outputs, 0), behavior, data_path)
                 
 
-            acc, ap, acc_per_class, mean_ap, map_weighted = metric_evaluator.get(verbose=verbose)
+            acc, ap, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory = metric_evaluator.get(verbose=verbose)
 
             confusion_matrix, precision, recall = metric_evaluator.get_precision_recall_cm()
             
@@ -173,7 +175,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
             if verbose:
                 print(" - classification loss: {}".format(cls_loss/n_samples))
 
-            return acc, ap, cls_loss/n_samples, acc_per_class, mean_ap, map_weighted
+            return acc, ap, cls_loss/n_samples, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory
         
 
     def log(self, current_training_task, test_id, epoch, cls_loss , acc, mean_ap, map_weighted, confusion_matrix, cm_figure, pr_figure, testing):

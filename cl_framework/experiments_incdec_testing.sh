@@ -8,4 +8,4 @@ python -u ./data_incdec_framework/cl_framework/main.py -op random_tries/ \
     --criterion_type multilabel --dataset kinetics --data_path ./Kinetics \
     --behaviors_csv_path ./Kinetics/Info/behaviors_to_remove.csv --behaviors_randomize yes \
     --n_class_first_task 5 --n_task 6 --initial_split 2 --valid_size 0.0 --sampler balanced \
-    --behaviors_check no --backbone movinetA0
+    --behaviors_check yes --backbone movinetA0

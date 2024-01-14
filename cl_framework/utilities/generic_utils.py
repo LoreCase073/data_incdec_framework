@@ -182,7 +182,7 @@ def get_task_dict_incdec(n_task, total_classes, behaviors_csv_path, pipeline, be
 
     behaviors_dicts = []
        
-    if pipeline == 'baseline':
+    if pipeline == 'baseline' or pipeline == 'joint_incremental':
         for i in range(n_task):
             d[i] = (len(starting_data_dict.keys()))
             behaviors_dicts.append(starting_data_dict)
@@ -283,7 +283,7 @@ def get_task_dict_incdec(n_task, total_classes, behaviors_csv_path, pipeline, be
                 csv_behavior = pd.DataFrame.from_dict(current_behaviors_dict, orient='index')
                 csv_behavior.to_csv(os.path.join(save_path,'task_{}'.format(i)),header=False,index=False)
 
-    return d, behaviors_dicts
+    return d, behaviors_dicts, starting_data_dict
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""

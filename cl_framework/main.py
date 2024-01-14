@@ -15,7 +15,7 @@ from continual_learning.LearningWithoutForgetting import LWF
 
 # dataset 
 from dataset.continual_learning_dataset import ContinualLearningDataset
-from dataset.data_inc_dec_dataset import DataIncDecBaselineDataset, DataIncrementalDecrementalPipelineDataset
+from dataset.data_inc_dec_dataset import DataIncDecBaselineDataset, DataIncrementalDecrementalPipelineDataset, JointIncrementalBaselineDataset
 from dataset.dataset_utils import get_dataset 
 import sys 
 
@@ -43,6 +43,13 @@ def get_training_validation_subset_for_tasks(approach, pipeline, train_set, task
             cl_train_val = DataIncrementalDecrementalPipelineDataset(train_set, behavior_dicts, 
                     n_task, initial_split,
                     total_classes, behaviors_check='yes', train=True, validation=validation_set, valid_size=valid_size)
+        elif pipeline == 'joint_incremental':
+            cl_train_val = JointIncrementalBaselineDataset(train_set,
+                                                    n_task, initial_split, 
+                                                    total_classes,
+                                                    behaviors_check=behaviors_check,
+                                                    train=True, validation=validation_set,
+                                                    valid_size=valid_size)
     else:
         cl_train_val = ContinualLearningDataset(train_set, task_dict,  
                                                 n_task, n_class_first_task, 
@@ -69,6 +76,13 @@ def get_test_subset_for_tasks(approach, pipeline, test_set, task_dict,
             cl_test = DataIncrementalDecrementalPipelineDataset(test_set, behavior_dicts, 
                     n_task, initial_split,
                     total_classes, behaviors_check='yes', train=False, validation=None, valid_size=None)
+        elif pipeline == 'joint_incremental':
+            cl_test = JointIncrementalBaselineDataset(test_set,
+                                                    n_task, initial_split, 
+                                                    total_classes,
+                                                    behaviors_check=behaviors_check,
+                                                    train=False, validation=None,
+                                                    valid_size=None,)
     else:
         cl_test = ContinualLearningDataset(test_set, task_dict,  
                                         args.n_task, args.n_class_first_task, 
@@ -155,7 +169,7 @@ if __name__ == "__main__":
     
     # task_dict = {task_id: list_of_class_ids}
     if args.approach == 'incdec':
-        task_dict, behavior_dicts = get_task_dict_incdec(args.n_task, total_classes, args.behaviors_csv_path, args.pipeline, args.behaviors_randomize, out_path)
+        task_dict, behavior_dicts, all_behaviors_dict = get_task_dict_incdec(args.n_task, total_classes, args.behaviors_csv_path, args.pipeline, args.behaviors_randomize, out_path)
     else:
         task_dict = get_task_dict(args.n_task, total_classes, class_per_task, args.n_class_first_task)   
     
@@ -199,8 +213,8 @@ if __name__ == "__main__":
     Logger Init
     """
     if args.approach == 'incdec':
-        logger = IncDecLogger(out_path=out_path, n_task=args.n_task, task_dict=task_dict, test_sizes=test_sizes, num_classes=total_classes)
-        val_logger = IncDecLogger(out_path=out_path, n_task=args.n_task, task_dict=task_dict, test_sizes=test_sizes, num_classes=total_classes, validation_mode=True)
+        logger = IncDecLogger(out_path=out_path, n_task=args.n_task, task_dict=task_dict, all_behaviors_dict = all_behaviors_dict, class_to_idx= train_set.get_class_to_idx(), num_classes=total_classes, criterion_type=args.criterion_type)
+        val_logger = IncDecLogger(out_path=out_path, n_task=args.n_task, task_dict=task_dict, all_behaviors_dict = all_behaviors_dict, class_to_idx= train_set.get_class_to_idx(), num_classes=total_classes, criterion_type=args.criterion_type, validation_mode=True)
     else:
         logger = Logger(out_path=out_path, n_task=args.n_task, task_dict=task_dict, test_sizes=test_sizes)
     result_folder(out_path, "tensorboard")
@@ -231,6 +245,7 @@ if __name__ == "__main__":
                     # will work only with Kinetics and vzc dataset
                     class_to_idx= train_set.get_class_to_idx(),
                     behavior_dicts = behavior_dicts,
+                    all_behaviors_dict = all_behaviors_dict,
                     )
     else:
         sys.exit("Approach not Implemented")
@@ -299,7 +314,7 @@ if __name__ == "__main__":
                 approach.train(task_id, train_loader, epoch, n_epochs)
                 
                 if args.approach == 'incdec':
-                    acc, _ , test_loss, _, mean_ap_eval,_ = approach.eval(task_id, task_id, valid_loaders[task_id], epoch, verbose=True, testing=None)
+                    acc, _ , test_loss, _, mean_ap_eval, _, _, _, _,_,_ = approach.eval(task_id, task_id, valid_loaders[task_id], epoch, verbose=True, testing=None)
                 else:
                     taw_acc, tag_acc, test_loss  = approach.eval(task_id, task_id, valid_loaders[task_id], epoch,  verbose=True)
                 
@@ -375,19 +390,22 @@ if __name__ == "__main__":
 
         # Here do a validation eval for the best epoch model
         # this is redundant, but here i print metrics of the best model on the validation set...
-        vacc_value, vap_value, _, vacc_per_class, vmean_ap, vmap_weighted  = approach.eval(task_id, task_id, valid_loaders[task_id], epoch,  verbose=False, testing='val')
-        val_logger.update_accuracy(current_training_task_id=task_id, acc_value=vacc_value, ap_value=vap_value, acc_per_class=vacc_per_class, mean_ap=vmean_ap, map_weighted=vmap_weighted)
+        vacc_value, vap_value, _, vacc_per_class, vmean_ap, vmap_weighted, vprecision_per_class, vrecall_per_class, vexact_match, vap_per_subcategory, vrecall_per_subcategory  = approach.eval(task_id, task_id, valid_loaders[task_id], epoch,  verbose=False, testing='val')
+        val_logger.update_accuracy(current_training_task_id=task_id, acc_value=vacc_value, 
+                                   ap_value=vap_value, acc_per_class=vacc_per_class, mean_ap=vmean_ap, 
+                                   map_weighted=vmap_weighted, precision_per_class=vprecision_per_class, 
+                                   recall_per_class=vrecall_per_class, exact_match = vexact_match, 
+                                   ap_per_subcategory=vap_per_subcategory, recall_per_subcategory=vrecall_per_subcategory)
         
 
  
         #For incdec approach for now there is a single test set to be evaluated
         if args.approach == 'incdec':
-            acc_value, ap_value, _, acc_per_class, mean_ap, map_weighted  = approach.eval(task_id, task_id, test_loaders[task_id], epoch,  verbose=False, testing='test')
-            logger.update_accuracy(current_training_task_id=task_id, acc_value=acc_value, ap_value=ap_value, acc_per_class=acc_per_class, mean_ap=mean_ap, map_weighted=map_weighted)
+            acc_value, ap_value, _, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory = approach.eval(task_id, task_id, test_loaders[task_id], epoch,  verbose=False, testing='test')
+            logger.update_accuracy(current_training_task_id=task_id, acc_value=acc_value, ap_value=ap_value, acc_per_class=acc_per_class, mean_ap=mean_ap, map_weighted=map_weighted, precision_per_class=precision_per_class, recall_per_class=recall_per_class, exact_match=exact_match, ap_per_subcategory=ap_per_subcategory, recall_per_subcategory=recall_per_subcategory)
             #TODO: questo è forse per misurare quando si dimentica dei vecchi task, in futuro introdurre qualche metrica del genere
             #Per ora commento perchè non utile allo scopo per come è fatto, anche perchè eliminato update_forgetting da LoggerIncDec
-            """ if test_id < task_id:
-                logger.update_forgetting(current_training_task_id=task_id, test_id=test_id) """
+            logger.update_forgetting(current_training_task_id=task_id)
             logger.print_latest(current_training_task_id=task_id)
         else:
             for test_id in range(task_id + 1):
