@@ -152,15 +152,14 @@ class IncDecLogger():
                 self.names_subcategories.append(all_behaviors_dict[class_name][idx_subcat])
         self.ap_per_subcategory = np.zeros((n_task, self.num_subcategories))
         self.recall_per_subcategory = np.zeros((n_task, self.num_subcategories))
+        self.accuracy_per_subcategory = np.zeros((n_task, self.num_subcategories))
 
         self.forg_acc = np.zeros((n_task))
         self.forg_map = np.zeros((n_task))
         self.forg_ap_per_class = np.zeros((n_task, num_classes))
         self.forg_ap_per_subcategory = np.zeros((n_task, self.num_subcategories))
         self.forg_recall_per_subcategory = np.zeros((n_task, self.num_subcategories))
-
-        #TODO: vedere se con nuovo task_dict, da modificare cosa restituire
-        self.task_len  =  [item for item in task_dict.values()]
+        self.forg_accuracy_per_subcategory = np.zeros((n_task, self.num_subcategories))
 
         self.best_epoch = np.full(n_task,-1)
         if validation_mode:
@@ -181,7 +180,7 @@ class IncDecLogger():
         
 
 
-    def update_accuracy(self, current_training_task_id, acc_value, ap_value, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory):
+    def update_accuracy(self, current_training_task_id, acc_value, ap_value, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory, accuracy_per_subcategory):
         self.acc[current_training_task_id] = acc_value * 100
         self.mean_ap[current_training_task_id] = mean_ap * 100
         self.map_weighted[current_training_task_id] = map_weighted * 100
@@ -193,6 +192,7 @@ class IncDecLogger():
         for idx_subcat in range(len(self.names_subcategories)):
             self.ap_per_subcategory[current_training_task_id, idx_subcat] = ap_per_subcategory[self.names_subcategories[idx_subcat]]
             self.recall_per_subcategory[current_training_task_id, idx_subcat] = recall_per_subcategory[self.names_subcategories[idx_subcat]]
+            self.accuracy_per_subcategory[current_training_task_id, idx_subcat] = accuracy_per_subcategory[self.names_subcategories[idx_subcat]]
             
 
         if self.criterion_type == 'multilabel':
@@ -217,6 +217,7 @@ class IncDecLogger():
             for idx_subcat in range(len(self.names_subcategories)):
                 self.forg_ap_per_subcategory[current_training_task_id, idx_subcat] = self.ap_per_subcategory[:current_training_task_id, idx_subcat].max(0) - self.ap_per_subcategory[current_training_task_id, idx_subcat]
                 self.forg_recall_per_subcategory[current_training_task_id, idx_subcat] = self.recall_per_subcategory[:current_training_task_id, idx_subcat].max(0) - self.recall_per_subcategory[current_training_task_id, idx_subcat]
+                self.forg_accuracy_per_subcategory[current_training_task_id, idx_subcat] = self.recall_per_subcategory[:current_training_task_id, idx_subcat].max(0) - self.recall_per_subcategory[current_training_task_id, idx_subcat]
         
             
 
@@ -246,6 +247,7 @@ class IncDecLogger():
 
         np.savetxt(os.path.join(self.out_path, 'forg_ap_per_subcategory.out'), self.forg_ap_per_subcategory, header=','.join(self.names_subcategories), delimiter=',', fmt='%.3f')
         np.savetxt(os.path.join(self.out_path, 'forg_recall_per_subcategory.out'), self.forg_recall_per_subcategory, header=','.join(self.names_subcategories), delimiter=',', fmt='%.3f')
+        np.savetxt(os.path.join(self.out_path, 'forg_accuracy_per_subcategory.out'), self.forg_accuracy_per_subcategory, header=','.join(self.names_subcategories), delimiter=',', fmt='%.3f')
         #TODO: per ora non utile perchè non usata, vedere in futuro se avremo differenti test e/o validation
         #np.savetxt(os.path.join(self.out_path, 'avg_acc.out'), self.avg_acc, delimiter=',', fmt='%.3f')
         if self.criterion_type == 'multilabel':

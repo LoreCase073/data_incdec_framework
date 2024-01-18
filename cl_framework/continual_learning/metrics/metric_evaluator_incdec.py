@@ -65,9 +65,10 @@ class MetricEvaluatorIncDec():
             map_metric = MulticlassAveragePrecision(num_classes=self.num_classes, average='macro')
             map_weighted_metric = MulticlassAveragePrecision(num_classes=self.num_classes, average='weighted')
 
-            acc_per_class = self.compute_multilabel_class_accuracy(self.binarized_labels.numpy(), pos_max_prediction)
+            acc_per_class = self.compute_multiclass_class_accuracy(self.labels.numpy(), pos_max_prediction)
 
-            acc = self.compute_multilabel_accuracy(self.binarized_labels.numpy(), pos_max_prediction)
+            #acc = self.compute_multilabel_accuracy(self.binarized_labels.numpy(), pos_max_prediction)
+            acc = accuracy_score(self.labels.numpy(), pos_max_prediction.numpy())
             #TODO: verificare come calcolare queste precision e recall, attualmente le calcolo come se fosse un task multilabel
             # forse fare che prendo il massimo e calcolo come in multitask, almeno per il nostro caso, ignorando VZC?
             precision_per_class_metric = Precision(task='multiclass', average=None, num_classes=self.num_classes)
@@ -88,6 +89,7 @@ class MetricEvaluatorIncDec():
         # now get ap for each subcategory and recall for each subcategory
         ap_per_subcategory = self.get_ap_per_subcategory(self.probabilities, self.labels, self.subcategory)
         recall_per_subcategory = self.get_recall_per_subcategory(pos_max_prediction, self.labels, self.subcategory)
+        accuracy_per_subcategory = self.get_accuracy_per_subcategory(pos_max_prediction, self.labels, self.subcategory)
 
         if verbose:
             print(" - task accuracy: {}".format(acc))
@@ -98,7 +100,7 @@ class MetricEvaluatorIncDec():
             print(" - task mAP: {}".format(mean_ap))
             print(" - task weighted mAP: {}".format(map_weighted))
 
-        return acc, ap, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory
+        return acc, ap, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory, accuracy_per_subcategory
 
     def get_precision_recall_cm(self):
         if self.criterion_type == "multiclass":
@@ -170,7 +172,7 @@ class MetricEvaluatorIncDec():
     
     # https://stackoverflow.com/questions/39770376/scikit-learn-get-accuracy-scores-for-each-class/65673016#65673016 , Ophir response
     def compute_multiclass_class_accuracy(self, labels, predictions):
-        cm = confusion_matrix(labels, predictions)
+        cm = confusion_matrix(labels, predictions, labels=[0,1,2,3,4])
         per_class_accuracies = []
         # Calculate the accuracy for each one of our classes
         for idx in range(self.num_classes):
@@ -229,3 +231,26 @@ class MetricEvaluatorIncDec():
                 recall_per_subcategory[subcategory_name] = recall_metric(subset_predictions, subset_labels)[idx_class]
 
         return recall_per_subcategory
+    
+
+    def get_accuracy_per_subcategory(self, pos_max_prediction, labels, subcategories):
+        accuracy_per_subcategory = {}
+        
+        for class_name in self.all_behaviors_dict:
+            idx_class = self.class_to_idx[class_name]
+            class_subcategories = self.all_behaviors_dict[class_name]
+            for idx_subcat in range(len(class_subcategories)):
+                
+                subcategory_name = class_subcategories[idx_subcat]
+                current_subcategory_indices = np.where(np.array(subcategories) == subcategory_name)[0].tolist()
+
+                other_classes_indices = np.where(np.array(labels) != idx_class)[0].tolist()
+
+                subset_indices = torch.IntTensor(list(current_subcategory_indices + other_classes_indices))
+
+                subset_predictions = torch.index_select(pos_max_prediction, dim=0, index=subset_indices)
+                subset_labels = torch.index_select(labels, dim=0, index=subset_indices)
+                
+                accuracy_per_subcategory[subcategory_name] = self.compute_multiclass_class_accuracy(subset_labels.numpy(),subset_predictions.numpy())[idx_class]
+
+        return accuracy_per_subcategory

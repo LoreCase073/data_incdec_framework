@@ -31,6 +31,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         #TODO: aggiungere criterion_type
         self.criterion = self.select_criterion(args.criterion_type)
         self.all_behaviors_dict = all_behaviors_dict
+        self.freeze_backbone = args.freeze_backbone
 
 
     def print_running_approach(self):
@@ -39,6 +40,9 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
 
     def pre_train(self,  task_id, trn_loader, test_loader):
         self.model.to(self.device)
+        if task_id > 0 and self.freeze_backbone == 'yes':
+            self.model.freeze_backbone()
+            print('Backbone will be frozen for this task.')
         super(DataIncrementalDecrementalMethod, self).pre_train(task_id)
 
 
@@ -134,7 +138,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                                         self.compute_probabilities(outputs, 0), behavior, data_path)
                 
 
-            acc, ap, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory = metric_evaluator.get(verbose=verbose)
+            acc, ap, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory, accuracy_per_subcategory = metric_evaluator.get(verbose=verbose)
 
             confusion_matrix, precision, recall = metric_evaluator.get_precision_recall_cm()
             
@@ -175,7 +179,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
             if verbose:
                 print(" - classification loss: {}".format(cls_loss/n_samples))
 
-            return acc, ap, cls_loss/n_samples, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory
+            return acc, ap, cls_loss/n_samples, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory, accuracy_per_subcategory
         
 
     def log(self, current_training_task, test_id, epoch, cls_loss , acc, mean_ap, map_weighted, confusion_matrix, cm_figure, pr_figure, testing):

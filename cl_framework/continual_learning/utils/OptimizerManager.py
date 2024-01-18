@@ -10,8 +10,9 @@ class OptimizerManager:
         self.scheduler_type = scheduler_type
         self.approach = approach
     
-    def get_optimizer(self, task_id, model, auxiliary_classifier, weight_decay, patience):
-        if task_id > 0:
+    def get_optimizer(self, task_id, model, auxiliary_classifier, weight_decay, patience, freeze_bn):
+        #freeze batch normalization layers
+        if task_id > 0 and freeze_bn == 'yes':
             model.freeze_bn() 
 
         backbone_params = [p for p in  model.backbone.parameters() if p.requires_grad]

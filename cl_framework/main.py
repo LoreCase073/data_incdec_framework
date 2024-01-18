@@ -314,7 +314,7 @@ if __name__ == "__main__":
                 approach.train(task_id, train_loader, epoch, n_epochs)
                 
                 if args.approach == 'incdec':
-                    acc, _ , test_loss, _, mean_ap_eval, _, _, _, _,_,_ = approach.eval(task_id, task_id, valid_loaders[task_id], epoch, verbose=True, testing=None)
+                    acc, _ , test_loss, _, mean_ap_eval, _, _, _, _,_,_,_ = approach.eval(task_id, task_id, valid_loaders[task_id], epoch, verbose=True, testing=None)
                 else:
                     taw_acc, tag_acc, test_loss  = approach.eval(task_id, task_id, valid_loaders[task_id], epoch,  verbose=True)
                 
@@ -390,19 +390,19 @@ if __name__ == "__main__":
 
         # Here do a validation eval for the best epoch model
         # this is redundant, but here i print metrics of the best model on the validation set...
-        vacc_value, vap_value, _, vacc_per_class, vmean_ap, vmap_weighted, vprecision_per_class, vrecall_per_class, vexact_match, vap_per_subcategory, vrecall_per_subcategory  = approach.eval(task_id, task_id, valid_loaders[task_id], epoch,  verbose=False, testing='val')
+        vacc_value, vap_value, _, vacc_per_class, vmean_ap, vmap_weighted, vprecision_per_class, vrecall_per_class, vexact_match, vap_per_subcategory, vrecall_per_subcategory, vaccuracy_per_subcategory  = approach.eval(task_id, task_id, valid_loaders[task_id], epoch,  verbose=False, testing='val')
         val_logger.update_accuracy(current_training_task_id=task_id, acc_value=vacc_value, 
                                    ap_value=vap_value, acc_per_class=vacc_per_class, mean_ap=vmean_ap, 
                                    map_weighted=vmap_weighted, precision_per_class=vprecision_per_class, 
                                    recall_per_class=vrecall_per_class, exact_match = vexact_match, 
-                                   ap_per_subcategory=vap_per_subcategory, recall_per_subcategory=vrecall_per_subcategory)
+                                   ap_per_subcategory=vap_per_subcategory, recall_per_subcategory=vrecall_per_subcategory, accuracy_per_subcategory=vaccuracy_per_subcategory)
         
 
  
         #For incdec approach for now there is a single test set to be evaluated
         if args.approach == 'incdec':
-            acc_value, ap_value, _, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory = approach.eval(task_id, task_id, test_loaders[task_id], epoch,  verbose=False, testing='test')
-            logger.update_accuracy(current_training_task_id=task_id, acc_value=acc_value, ap_value=ap_value, acc_per_class=acc_per_class, mean_ap=mean_ap, map_weighted=map_weighted, precision_per_class=precision_per_class, recall_per_class=recall_per_class, exact_match=exact_match, ap_per_subcategory=ap_per_subcategory, recall_per_subcategory=recall_per_subcategory)
+            acc_value, ap_value, _, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory, accuracy_per_subcategory = approach.eval(task_id, task_id, test_loaders[task_id], epoch,  verbose=False, testing='test')
+            logger.update_accuracy(current_training_task_id=task_id, acc_value=acc_value, ap_value=ap_value, acc_per_class=acc_per_class, mean_ap=mean_ap, map_weighted=map_weighted, precision_per_class=precision_per_class, recall_per_class=recall_per_class, exact_match=exact_match, ap_per_subcategory=ap_per_subcategory, recall_per_subcategory=recall_per_subcategory, accuracy_per_subcategory=accuracy_per_subcategory)
             #TODO: questo è forse per misurare quando si dimentica dei vecchi task, in futuro introdurre qualche metrica del genere
             #Per ora commento perchè non utile allo scopo per come è fatto, anche perchè eliminato update_forgetting da LoggerIncDec
             logger.update_forgetting(current_training_task_id=task_id)

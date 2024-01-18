@@ -101,7 +101,7 @@ class BaseModel(nn.Module):
     def freeze_bn(self):
         """Freeze all Batch Normalization layers from the model and use them in eval() mode"""
         for m in self.backbone.modules():
-            if isinstance(m, nn.BatchNorm2d):
+            if isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm3d):
                 m.eval()
                 for param in m.parameters(): 
                     param.requires_grad=False

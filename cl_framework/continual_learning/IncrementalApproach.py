@@ -15,6 +15,7 @@ class IncrementalApproach(metaclass=abc.ABCMeta):
       self.class_per_task = class_per_task
       self.task_dict = task_dict 
       self.n_class_first_task = args.n_class_first_task
+      
       # Model args
       self.approach = args.approach
       self.backbone = args.backbone
@@ -25,6 +26,7 @@ class IncrementalApproach(metaclass=abc.ABCMeta):
       self.patience = args.patience
       self.backbone_lr = args.backbone_lr
       self.head_lr = args.head_lr
+      self.freeze_bn = args.freeze_bn
 
       self.batch_size = args.batch_size 
       self.total_epochs = args.epochs 
@@ -94,7 +96,7 @@ class IncrementalApproach(metaclass=abc.ABCMeta):
                   self.reduce_lr_on_plateau = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, 'min', patience=self.patience, verbose=True)
       else:            
 
-            self.optimizer, self.reduce_lr_on_plateau = self.optimizer_manager.get_optimizer(task_id, self.model, self.auxiliary_classifier, self.weight_decay, self.patience)
+            self.optimizer, self.reduce_lr_on_plateau = self.optimizer_manager.get_optimizer(task_id, self.model, self.auxiliary_classifier, self.weight_decay, self.patience, self.freeze_bn)
 
  
              

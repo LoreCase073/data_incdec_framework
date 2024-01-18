@@ -14,7 +14,8 @@ def get_args():
     parser.add_argument("--outpath", "-op",default="./", type=str, help="Output directory where to save results.") 
     parser.add_argument("--seed", type=int, default=0, help="Seed to be initialized to.")
     parser.add_argument("--nw", type=int, default=4, help="num workers for data loader")
-    parser.add_argument("--freeze_bn", type=str, default="no", choices=["yes", "no"], help="If training need to be done with the backbone frozen. Choices: ['yes','no']")
+    parser.add_argument("--freeze_bn", type=str, default="no", choices=["yes", "no"], help="If training need to be done with the batch normalization in the backbone frozen. Choices: ['yes','no']")
+    parser.add_argument("--freeze_backbone", type=str, default="no", choices=["yes", "no"], help="If training need to be done with the backbone frozen. Choices: ['yes','no']")
     parser.add_argument("--early_stopping_val", type=int, default=1000, help="If need to do early stopping, right now not implemented.")
     parser.add_argument("--weight_decay", default=5e-4, type=float)
 
