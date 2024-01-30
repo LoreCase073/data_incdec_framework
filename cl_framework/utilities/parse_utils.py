@@ -19,6 +19,8 @@ def get_args():
     parser.add_argument("--early_stopping_val", type=int, default=1000, help="If need to do early stopping, right now not implemented.")
     parser.add_argument("--weight_decay", default=5e-4, type=float)
 
+    parser.add_argument("--restore_initial_parameters", type=str, default="no", choices=["yes", "no"], help="If training need to be done restoring at each task the inizial, randoms weights. Choices: ['yes','no']")
+
     
     """
     EWC Hyperparams

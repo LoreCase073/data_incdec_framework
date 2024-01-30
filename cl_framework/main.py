@@ -266,6 +266,9 @@ if __name__ == "__main__":
                 print("Loading model from path {}".format(os.path.join(args.firsttask_modelpath, "{}_seed_{}".format(args.dataset, args.seed), "0_model.pth")))
                 rollback_model(approach, os.path.join(args.firsttask_modelpath, "{}_seed_{}".format(args.dataset, args.seed),"0_model.pth"), device, name=str(task_id))
                 epoch = 100
+
+        
+    
         else:
  
             
@@ -275,14 +278,22 @@ if __name__ == "__main__":
             Pre-train
             """
             
+            if task_id == 0 and args.restore_initial_parameters == 'yes':
+                print('Stored initial model to retrain on each subsequent task.')
+                store_model(approach, out_path, 'initial_model.pth')
 
             approach.pre_train(task_id, train_loader,  valid_loaders[task_id])
 
             # rolling back to the best model of the past task
             if task_id != 0:
-                model_name = os.path.join(out_path,"best_mAP_task_{}_model.pth").format((task_id-1))
-                print("Loading model from path: {}".format(model_name))
-                rollback_model(approach, model_name, device, name=str(model_name))
+                if args.restore_initial_parameters == 'no':
+                    model_name = os.path.join(out_path,"best_mAP_task_{}_model.pth").format((task_id-1))
+                    print("Loading model from path: {}".format(model_name))
+                    rollback_model(approach, model_name, device, name=str(model_name))
+                else:
+                    model_name = os.path.join(out_path,"initial_model.pth")
+                    print("Loading model from path: {}".format(model_name))
+                    rollback_model(approach, model_name, device, name=str(model_name))
             
             best_taw_accuracy,  best_tag_accuracy, best_accuracy, best_mAP = 0, 0, 0, 0
             best_epoch = 0
