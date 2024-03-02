@@ -208,9 +208,16 @@ def create_categ_csv(output_dir, behaviors, subcategory, filename, downloaded, l
             matching_data = [(category, subcategory, filename, downloaded, log) for category in matching_categ]
             df = pd.DataFrame(matching_data, columns=['Category', 'Sub-behavior', 'Filename', 'Downloaded', 'Log'])
 
-            # Write the DataFrame to a CSV file
-            output_filename = os.path.join(output_dir, 'category.csv')
-            df.to_csv(output_filename, index=False)
+            
+        else:
+            # Create a DataFrame with matching key-activity pairs
+            category = ''
+            matching_data = (category, subcategory, filename, downloaded, log)
+            df = pd.DataFrame(matching_data, columns=['Category', 'Sub-behavior', 'Filename', 'Downloaded', 'Log'])
+
+        # Write the DataFrame to a CSV file
+        output_filename = os.path.join(output_dir, 'category.csv')
+        df.to_csv(output_filename, index=False)
 
 
 
@@ -305,5 +312,4 @@ if __name__ == '__main__':
                    help='Unavailable at the moment')
     p.add_argument('--behaviors', type=bool, default=True,
                    help='Convert the standar classes of Kinetics in other classes to which we are interested')
-                   # help='CSV file of the previous version of Kinetics.')
     main(**vars(p.parse_args()))

@@ -90,6 +90,7 @@ class MetricEvaluatorIncDec():
         ap_per_subcategory = self.get_ap_per_subcategory(self.probabilities, self.labels, self.subcategory)
         recall_per_subcategory = self.get_recall_per_subcategory(pos_max_prediction, self.labels, self.subcategory)
         accuracy_per_subcategory = self.get_accuracy_per_subcategory(pos_max_prediction, self.labels, self.subcategory)
+        precision_per_subcategory = self.get_precision_per_subcategory(pos_max_prediction, self.labels, self.subcategory)
 
         if verbose:
             print(" - task accuracy: {}".format(acc))
@@ -100,7 +101,7 @@ class MetricEvaluatorIncDec():
             print(" - task mAP: {}".format(mean_ap))
             print(" - task weighted mAP: {}".format(map_weighted))
 
-        return acc, ap, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory, accuracy_per_subcategory
+        return acc, ap, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory, accuracy_per_subcategory, precision_per_subcategory
 
     def get_precision_recall_cm(self):
         if self.criterion_type == "multiclass":
@@ -231,6 +232,29 @@ class MetricEvaluatorIncDec():
                 recall_per_subcategory[subcategory_name] = recall_metric(subset_predictions, subset_labels)[idx_class]
 
         return recall_per_subcategory
+    
+
+    def get_precision_per_subcategory(self, pos_max_prediction, labels, subcategories):
+        precision_per_subcategory = {}
+        precision_metric = Precision(task='multiclass',num_classes=self.num_classes, average=None)
+        for class_name in self.all_behaviors_dict:
+            idx_class = self.class_to_idx[class_name]
+            class_subcategories = self.all_behaviors_dict[class_name]
+            for idx_subcat in range(len(class_subcategories)):
+                
+                subcategory_name = class_subcategories[idx_subcat]
+                current_subcategory_indices = np.where(np.array(subcategories) == subcategory_name)[0].tolist()
+
+                other_classes_indices = np.where(np.array(labels) != idx_class)[0].tolist()
+
+                subset_indices = torch.IntTensor(list(current_subcategory_indices + other_classes_indices))
+
+                subset_predictions = torch.index_select(pos_max_prediction, dim=0, index=subset_indices)
+                subset_labels = torch.index_select(labels, dim=0, index=subset_indices)
+                
+                precision_per_subcategory[subcategory_name] = precision_metric(subset_predictions, subset_labels)[idx_class]
+
+        return precision_per_subcategory
     
 
     def get_accuracy_per_subcategory(self, pos_max_prediction, labels, subcategories):

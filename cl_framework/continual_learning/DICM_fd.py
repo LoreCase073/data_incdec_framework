@@ -16,7 +16,7 @@ import pandas as pd
 from torch import nn
  
 
-class DataIncrementalDecrementalMethod(IncrementalApproach):
+class DICM_fd(IncrementalApproach):
     
     def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, behavior_dicts, all_behaviors_dict):
         self.total_classes = total_classes
@@ -27,24 +27,31 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         self.class_names = list(class_to_idx.keys())
         self.model = BaseModel(backbone=self.backbone, dataset=args.dataset)
         self.model.add_classification_head(self.total_classes)
-        self.print_running_approach()
+        
         self.criterion_type = args.criterion_type
-        #TODO: aggiungere criterion_type
         self.criterion = self.select_criterion(args.criterion_type)
         self.all_behaviors_dict = all_behaviors_dict
         self.freeze_backbone = args.freeze_backbone
 
+        self.fd_lamb = args.fd_lamb
+
+        self.print_running_approach()
+        
+
 
     def print_running_approach(self):
-        super(DataIncrementalDecrementalMethod, self).print_running_approach()
+        super(DICM_fd, self).print_running_approach()
+        print("- lambda fd: {}".format(self.fd_lamb))
         
 
     def pre_train(self,  task_id, trn_loader, test_loader):
         self.model.to(self.device)
-        if task_id > 0 and self.freeze_backbone == 'yes':
-            self.model.freeze_backbone()
-            print('Backbone will be frozen for this task.')
-        super(DataIncrementalDecrementalMethod, self).pre_train(task_id)
+
+        self.old_model = deepcopy(self.model)
+        self.old_model.freeze_all()
+        self.old_model.to(self.device)
+        self.old_model.eval()
+        super(DICM_fd, self).pre_train(task_id)
 
 
     def reset_model(self):
@@ -68,14 +75,23 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
             count_accumulation = 0
             for batch_idx, (images, targets, binarized_targets, _, _) in enumerate(tqdm(train_loader)):
                 images = images.to(self.device)
-                #TODO: aggiungere binarizzazione dei targets nel caso in cui il criterion_type sia multilabel
                 labels = self.select_proper_targets(targets, binarized_targets).to(self.device)
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
-                outputs, _ = self.model(images)
-                loss = self.criterion(outputs[0], labels)             
+
+                outputs, features = self.model(images)
+
+                old_features = None
+
+                if task_id > 0:
+                    _, old_features = self.old_model(images)
+                
+                cls_loss, fd_loss = self.criterion_computation(outputs, labels, task_id, features, old_features)   
+                loss = cls_loss + fd_loss
+
+
                 loss.backward()
-                train_loss += loss.detach() * current_batch_size
+                train_loss += cls_loss.detach() * current_batch_size
                 count_accumulation += 1
                 if ((batch_idx + 1) % self.n_accumulation == 0) or (batch_idx + 1 == len(train_loader)):
                     self.optimizer.step()
@@ -86,19 +102,39 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                 labels = self.select_proper_targets(targets, binarized_targets).to(self.device)
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
-                outputs, _ = self.model(images)
-                loss = self.criterion(outputs[0], labels)             
+
+                outputs, features = self.model(images)
+
+                old_features = None
+
+                if task_id > 0:
+                    _, old_features = self.old_model(images)
+                
+                cls_loss, fd_loss = self.criterion_computation(outputs, labels, task_id, features, old_features)   
+                loss = cls_loss + fd_loss  
+                     
                 loss.backward()
                 self.optimizer.step()
                 self.optimizer.zero_grad()
-                train_loss += loss.detach() * current_batch_size
+                train_loss += cls_loss.detach() * current_batch_size
         
         self.train_log(task_id, epoch, train_loss/n_samples)  
 
 
-    # cross entropy correct for our task of video classification
+    def criterion_computation(self, outputs, labels, task_id, features, old_features):
+
+        cls_loss, fd_loss = 0, 0
+
+        if task_id > 0:
+            fd_loss += self.fd_lamb * torch.dist(features, old_features, 2)
+        
+        cls_loss += self.criterion(outputs[0], labels)
+
+        return cls_loss, fd_loss
+    
+
+
     def select_criterion(self, criterion_type):
-        # here is 0 cause we only have one head
         if criterion_type == "multiclass":
             return torch.nn.CrossEntropyLoss()
         elif criterion_type == "multilabel":
@@ -114,20 +150,28 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
 
 
         
-        cls_loss, n_samples = 0, 0 
+        val_cls_loss, val_fd_loss, n_samples = 0, 0, 0
         with torch.no_grad():
             self.model.eval()
+            self.old_model.eval()
             for images, targets, binarized_targets, behavior, data_path in tqdm(loader):
                 images = images.to(self.device)
-                #TODO: aggiungere la binarizzazione dei targets
                 labels = self.select_proper_targets(targets, binarized_targets).to(self.device)
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
  
                 outputs, features = self.model(images)
+
+                old_features = None
+
+                if test_id > 0:
+                    _, old_features = self.old_model(images)
                 
-                cls_loss += self.criterion(outputs[0], labels) * current_batch_size
-                 
+                cls_loss, fd_loss = self.criterion_computation(outputs, labels, test_id, features, old_features)   
+                
+                val_cls_loss += cls_loss * current_batch_size
+
+                val_fd_loss += fd_loss
 
                 metric_evaluator.update(targets, binarized_targets.float().squeeze(dim=1),
                                         self.compute_probabilities(outputs, 0), behavior, data_path)
@@ -152,11 +196,6 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                                         metric_evaluator.get_subcategories(),
                                         testing
                                         )
-                #TODO: in caso rimuovere, già salvare in altra maniera.
-                """ self.save_ap_classes(current_training_task,
-                                      self.class_names,
-                                      ap,
-                                      testing) """
                 if self.criterion_type == "multiclass":
                     cm_figure = self.plot_confusion_matrix(confusion_matrix, self.class_names)
                 elif self.criterion_type == "multilabel":
@@ -172,7 +211,8 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
 
 
             if verbose:
-                print(" - classification loss: {}".format(cls_loss/n_samples))
+                print(" - classification loss: {}".format(val_cls_loss/n_samples))
+                print(" - fd loss: {}".format(val_fd_loss/n_samples))
 
             return acc, ap, cls_loss/n_samples, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory, accuracy_per_subcategory, precision_per_subcategory
         
@@ -370,17 +410,3 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         df.to_csv(name_file, index=False)
 
 
-    """ def save_ap_classes(self, task_id, class_names, ap, testing):
-        ea_path = os.path.join(self.out_path,'mAP')
-        if not os.path.exists(ea_path):
-            os.mkdir(ea_path)
-        
-        if testing == 'val':
-            name_file = os.path.join(ea_path,"task_{}_meanAP_validation_per_class.csv".format(task_id))
-        elif testing == 'test':
-            name_file = os.path.join(ea_path,"task_{}_meanAP__test_per_class.csv".format(task_id))
-
-        
-
-        df = pd.DataFrame(ap.numpy(), columns=class_names)
-        df.to_csv(name_file, index=False) """

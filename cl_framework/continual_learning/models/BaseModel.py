@@ -96,6 +96,12 @@ class BaseModel(nn.Module):
         """Freeze all parameters from the main model, but not the heads"""
         for param in self.backbone.parameters():
             param.requires_grad = False
+
+    
+    def unfreeze_backbone(self):
+        """Freeze all parameters from the main model, but not the heads"""
+        for param in self.backbone.parameters():
+            param.requires_grad = True
     
  
     def freeze_bn(self):

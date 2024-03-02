@@ -19,6 +19,7 @@ def seed_everything(seed=0):
     torch.cuda.manual_seed_all(seed)
     os.environ['PYTHONHASHSEED'] = str(seed)
     torch.backends.cudnn.deterministic = True
+    #torch.use_deterministic_algorithms(True)
 
 
 def experiment_folder(root_path, dev_mode, approach_name):

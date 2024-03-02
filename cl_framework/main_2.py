@@ -423,7 +423,7 @@ if __name__ == "__main__":
                 if current_lr < float(1e-5):
                     print(f"Early stopping because learning rate threshold is reached \t")
                     break
-
+                
 
             logger.print_best_epoch(best_epoch, task_id)
             val_logger.print_best_epoch(best_epoch, task_id)

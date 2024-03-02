@@ -696,6 +696,7 @@ class MoViNetIncDec(nn.Module):
         self.tf_like_head = tf_like
         self.causal_head = causal
         self.conv_type_head = conv_type
+        self.feature_space_size = cfg.dense9.hidden_dim
 
         # conv1
         self.conv1 = ConvBlock3D(
@@ -734,7 +735,18 @@ class MoViNetIncDec(nn.Module):
             norm_layer=norm_layer,
             activation_layer=activation_layer
             )
-        
+        # dense9
+        self.conv9 =nn.Sequential( 
+            ConvBlock3D(self.conv7_out_channels,
+                        self.dense9_hidden_dim,
+                        kernel_size=(1, 1, 1),
+                        tf_like=self.tf_like_head,
+                        causal=self.causal_head,
+                        conv_type=self.conv_type_head,
+                        bias=True),
+            Swish(),
+            nn.Dropout(p=0.2, inplace=True),
+        )
         if causal:
             self.cgap = TemporalCGAvgPool3D()
         if pretrained:
@@ -777,6 +789,7 @@ class MoViNetIncDec(nn.Module):
         x = self.blocks(x)
         x = self.conv7(x)
         x = self.avg(x)
+        x = self.conv9(x)
 
         return x
 
@@ -794,16 +807,6 @@ class MoViNetIncDec(nn.Module):
 
     def add_head(self, num_classes):
         return nn.Sequential(
-            # dense9
-            ConvBlock3D(self.conv7_out_channels,
-                        self.dense9_hidden_dim,
-                        kernel_size=(1, 1, 1),
-                        tf_like=self.tf_like_head,
-                        causal=self.causal_head,
-                        conv_type=self.conv_type_head,
-                        bias=True),
-            Swish(),
-            nn.Dropout(p=0.2, inplace=True),
             # dense10d
             ConvBlock3D(self.dense9_hidden_dim,
                         num_classes,

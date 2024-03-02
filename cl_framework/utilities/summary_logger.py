@@ -32,7 +32,7 @@ class SummaryLogger():
 
 
     def update_summary(self, exp_name, logger, avg_time):
-        if self.approach == 'incdec':
+        if self.approach == 'incdec'  or self.approach == 'incdec_efc' or self.approach == 'incdec_lwf' or self.approach == 'incdec_fd':
             list_map = list(np.around(logger.mean_ap, decimals=3))
             list_map_weighted = list(np.around(logger.map_weighted, decimals=3))
             

@@ -8,7 +8,7 @@ def get_args():
     """
     Structural hyperparams 
     """
-    parser.add_argument("--approach", type=str,default="incdec", choices=["finetuning", "ewc","lwf","incdec"], help="Type of machine learning approach to be followed.")
+    parser.add_argument("--approach", type=str,default="incdec", choices=["finetuning", "ewc","lwf","incdec", 'incdec_efc', 'incdec_lwf', 'incdec_fd'], help="Type of machine learning approach to be followed.")
     parser.add_argument("--pipeline", type=str,default="baseline", choices=["baseline","decremental","incremental_decremental","joint_incremental"], help="Type of pipeline to be follower in the incdec case.") 
     parser.add_argument("--n_accumulation", type=int, default=0, help="To be used in case batch size is low and you want to do gradient accumulation.")
     parser.add_argument("--outpath", "-op",default="./", type=str, help="Output directory where to save results.") 
@@ -21,6 +21,11 @@ def get_args():
 
     parser.add_argument("--restore_initial_parameters", type=str, default="no", choices=["yes", "no"], help="If training need to be done restoring at each task the inizial, randoms weights. Choices: ['yes','no']")
 
+    """
+    EFC hyperparams 
+    """
+    parser.add_argument("--efc_lambda", default=10.0, type=float, help="")
+    parser.add_argument("--damping", default=2.0, type=float, help="")
     
     """
     EWC Hyperparams
@@ -32,6 +37,13 @@ def get_args():
     """
     parser.add_argument("--lwf_lamb", default=10.0, type=float, help="")
     parser.add_argument("--lwf_T", default=2.0, type=float, help="")
+
+
+    """
+    FD hyperparams 
+    """
+    parser.add_argument("--fd_lamb", default=10.0, type=float, help="")
+
  
     """
     Training hyperparams 

@@ -14,9 +14,44 @@ from sklearn.metrics import PrecisionRecallDisplay
 import os
 import pandas as pd
 from torch import nn
- 
 
-class DataIncrementalDecrementalMethod(IncrementalApproach):
+def jacobian_in_batch(y, x):
+        '''
+        Compute the Jacobian matrix in batch form.
+        Return (B, D_y, D_x)
+        '''
+
+        batch = y.shape[0]
+        single_y_size = np.prod(y.shape[1:])
+        y = y.view(batch, -1)
+        vector = torch.ones(batch).to(y)
+
+        # Compute Jacobian row by row.
+        # dy_i / dx -> dy / dx
+        # (B, D) -> (B, 1, D) -> (B, D, D)
+        jac = [torch.autograd.grad(y[:, i], x, 
+                                grad_outputs=vector, 
+                                retain_graph=True,
+                                create_graph=True)[0].view(batch, -1)
+                    for i in range(single_y_size)]
+        jac = torch.stack(jac, dim=1)
+        
+        return jac
+
+
+def save_efm(cov, task_id, out_path):
+    print("Saving Empirical Feature Matrix")
+    torch.save(cov, os.path.join(out_path, "efm_task_{}.pt".format(task_id)))
+
+
+def isPSD(A, tol=1e-7):
+    A = A.cpu().numpy()
+    E = np.linalg.eigvalsh(A)
+    print("Maximum eigenvalue {}".format(np.max(E)))
+    return np.all(E > -tol)
+
+
+class DICM_efc(IncrementalApproach):
     
     def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, behavior_dicts, all_behaviors_dict):
         self.total_classes = total_classes
@@ -26,25 +61,35 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         self.class_to_idx = class_to_idx
         self.class_names = list(class_to_idx.keys())
         self.model = BaseModel(backbone=self.backbone, dataset=args.dataset)
+        self.old_model = None
         self.model.add_classification_head(self.total_classes)
-        self.print_running_approach()
+        
         self.criterion_type = args.criterion_type
-        #TODO: aggiungere criterion_type
         self.criterion = self.select_criterion(args.criterion_type)
         self.all_behaviors_dict = all_behaviors_dict
+        
         self.freeze_backbone = args.freeze_backbone
-
+        self.efc_lambda = args.efc_lambda
+        self.damping = args.damping
+        self.previous_efm = None
+        self.print_running_approach()
 
     def print_running_approach(self):
-        super(DataIncrementalDecrementalMethod, self).print_running_approach()
+        super(DICM_efc, self).print_running_approach()
+        print("\n efc_hyperparams")
+        print("- efc_lamb: {}".format(self.efc_lambda))
+        print("- damping: {}".format(self.damping)) 
         
 
     def pre_train(self,  task_id, trn_loader, test_loader):
         self.model.to(self.device)
-        if task_id > 0 and self.freeze_backbone == 'yes':
-            self.model.freeze_backbone()
-            print('Backbone will be frozen for this task.')
-        super(DataIncrementalDecrementalMethod, self).pre_train(task_id)
+
+        self.old_model = deepcopy(self.model)
+        self.old_model.freeze_all()
+        self.old_model.to(self.device)
+        self.old_model.eval()
+
+        super(DICM_efc, self).pre_train(task_id)
 
 
     def reset_model(self):
@@ -58,24 +103,27 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         print(torch.cuda.current_device())
         self.model.to(self.device)
         self.model.train()
-
         
        
-        train_loss, n_samples = 0, 0
+        train_loss, train_efc_loss, n_samples = 0, 0, 0
         self.optimizer.zero_grad()
         # if to work with loss accumulation, when batch size is too small
         if self.n_accumulation > 0:
             count_accumulation = 0
             for batch_idx, (images, targets, binarized_targets, _, _) in enumerate(tqdm(train_loader)):
                 images = images.to(self.device)
-                #TODO: aggiungere binarizzazione dei targets nel caso in cui il criterion_type sia multilabel
                 labels = self.select_proper_targets(targets, binarized_targets).to(self.device)
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
-                outputs, _ = self.model(images)
-                loss = self.criterion(outputs[0], labels)             
+
+                _, old_features = self.old_model(images)
+
+                outputs, features = self.model(images)
+                cls_loss, efc_loss = self.train_computation(outputs, labels, task_id, features, old_features, current_batch_size)
+                loss = cls_loss + efc_loss
+
                 loss.backward()
-                train_loss += loss.detach() * current_batch_size
+                train_loss += cls_loss.detach() * current_batch_size
                 count_accumulation += 1
                 if ((batch_idx + 1) % self.n_accumulation == 0) or (batch_idx + 1 == len(train_loader)):
                     self.optimizer.step()
@@ -86,15 +134,43 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                 labels = self.select_proper_targets(targets, binarized_targets).to(self.device)
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
-                outputs, _ = self.model(images)
-                loss = self.criterion(outputs[0], labels)             
+
+                _, old_features = self.old_model(images)
+
+                outputs, features = self.model(images)
+                cls_loss, efc_loss = self.train_computation(outputs, labels, task_id, features, old_features, current_batch_size)
+                loss = cls_loss + efc_loss
+         
                 loss.backward()
                 self.optimizer.step()
                 self.optimizer.zero_grad()
-                train_loss += loss.detach() * current_batch_size
+                train_loss += cls_loss.detach() * current_batch_size
         
         self.train_log(task_id, epoch, train_loss/n_samples)  
 
+    
+    def train_computation(self, outputs, labels, task_id, features, old_features, current_batch_size):
+
+        cls_loss, efc_loss = 0, 0
+
+        if task_id > 0:
+            efc_loss += self.efm_loss(features[:current_batch_size], old_features)
+            cls_loss += self.criterion(outputs[0], labels)
+        else:
+            # first task only a cross entropy loss
+            cls_loss += self.criterion(outputs[0], labels)
+
+        return cls_loss, efc_loss
+    
+
+    def efm_loss(self, features, old_features):
+        features = features.view(features.shape[0], -1)
+        features = features.unsqueeze(1)
+        old_features = old_features.view(old_features.shape[0], -1)
+        old_features = old_features.unsqueeze(1)
+        matrix_reg = self.efc_lambda *  self.previous_efm + self.damping * torch.eye(self.previous_efm.shape[0], device=self.device) 
+        efc_loss = torch.mean(torch.bmm(torch.bmm((features - old_features), matrix_reg.expand(features.shape[0], -1, -1)), (features - old_features).permute(0,2,1)))
+        return  efc_loss
 
     # cross entropy correct for our task of video classification
     def select_criterion(self, criterion_type):
@@ -104,33 +180,102 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         elif criterion_type == "multilabel":
             return torch.nn.BCEWithLogitsLoss()
         
+
+    
         
     def post_train(self, task_id, train_loader=None):
-        pass 
 
+
+        n_samples_batches = len(train_loader.dataset) // train_loader.batch_size
+
+        self.model.eval() 
+        # ensure that gradients are zero
+        self.model.zero_grad()   
+        empirical_feat_mat = torch.zeros((self.model.get_feat_size(), self.model.get_feat_size()), requires_grad=False).to(self.device)
+  
+        for batch_idx, (images, _, _, _, _) in enumerate(tqdm(train_loader)):
+
+            with torch.no_grad():
+                _, gap_out = self.model(images.to(self.device))
+            gap_out.requires_grad = True
+            out = self.model.heads[0](gap_out)
+
+            
+            
+            out_size = out.shape[1]
+            
+            log_p = nn.LogSigmoid()(out) # (n_batch,c_lass)
+            jac = jacobian_in_batch(log_p, gap_out).detach() 
+            gap_out.detach()
+       
+            with torch.no_grad():
+                p = torch.exp(log_p) # (n_batch,c_lass)
+                efm_per_batch = torch.zeros((images.shape[0], self.model.get_feat_size(), self.model.get_feat_size()), device=self.device)
+
+                for c in range(out_size):
+                        efm_per_batch +=  p[:,c].view(images.shape[0], 1, 1) * torch.bmm(jac[:,c, :].unsqueeze(1).permute(0,2,1), jac[:,c, :].unsqueeze(1)) 
+                        
+                empirical_feat_mat +=  torch.sum(efm_per_batch,dim=0)   
+
+
+        n_samples = n_samples_batches * train_loader.batch_size
+     
+        # divide by the total number of samples 
+        empirical_feat_mat = empirical_feat_mat/n_samples
+
+        self.previous_efm = empirical_feat_mat
+        if isPSD(self.previous_efm):
+            print("EFM is semidefinite positive")
+
+        # print rank of matrix
+        matrix_rank = torch.linalg.matrix_rank(self.previous_efm)
+        print("Matrix Rank: {}".format(matrix_rank))
+        # save matrix after each task for analysis
+        save_efm(self.previous_efm, task_id, self.out_path)
+
+
+    def val_computation(self, outputs, labels, task_id, features, old_features, current_batch_size):
+
+        cls_loss, efc_loss = 0, 0
+
+        if task_id > 0:
+            efc_loss = self.efm_loss(features[:current_batch_size], old_features)
+            cls_loss = self.criterion(outputs[0], labels)
+        else:
+            # first task only a cross entropy loss
+            cls_loss = self.criterion(outputs[0], labels)
+
+        return cls_loss, efc_loss
     
     def eval(self, current_training_task, test_id, loader, epoch, verbose, testing=None):
         metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.total_classes, self.criterion_type, self.all_behaviors_dict, self.class_to_idx)
 
-
         
-        cls_loss, n_samples = 0, 0 
+        val_cls_loss, val_efc_loss, n_samples = 0, 0, 0
         with torch.no_grad():
             self.model.eval()
+            self.old_model.eval()
             for images, targets, binarized_targets, behavior, data_path in tqdm(loader):
                 images = images.to(self.device)
-                #TODO: aggiungere la binarizzazione dei targets
+
                 labels = self.select_proper_targets(targets, binarized_targets).to(self.device)
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
- 
+
+                _, old_features = self.old_model(images)
+
                 outputs, features = self.model(images)
-                
-                cls_loss += self.criterion(outputs[0], labels) * current_batch_size
+                # self.criterion(outputs[0], labels)   
+                cls_loss, efc_loss = self.val_computation(outputs, labels, test_id, features, old_features, current_batch_size)
+
+                loss = cls_loss + efc_loss
                  
 
                 metric_evaluator.update(targets, binarized_targets.float().squeeze(dim=1),
                                         self.compute_probabilities(outputs, 0), behavior, data_path)
+                
+                val_cls_loss += cls_loss * current_batch_size
+                val_efc_loss += efc_loss * current_batch_size
                 
 
             acc, ap, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory, accuracy_per_subcategory, precision_per_subcategory = metric_evaluator.get(verbose=verbose)
@@ -172,7 +317,8 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
 
 
             if verbose:
-                print(" - classification loss: {}".format(cls_loss/n_samples))
+                print(" - classification loss: {}".format(val_cls_loss/n_samples))
+                print(" - efc loss: {}".format(val_efc_loss/n_samples))
 
             return acc, ap, cls_loss/n_samples, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory, accuracy_per_subcategory, precision_per_subcategory
         
@@ -369,18 +515,3 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         df = pd.DataFrame(unified_dict)
         df.to_csv(name_file, index=False)
 
-
-    """ def save_ap_classes(self, task_id, class_names, ap, testing):
-        ea_path = os.path.join(self.out_path,'mAP')
-        if not os.path.exists(ea_path):
-            os.mkdir(ea_path)
-        
-        if testing == 'val':
-            name_file = os.path.join(ea_path,"task_{}_meanAP_validation_per_class.csv".format(task_id))
-        elif testing == 'test':
-            name_file = os.path.join(ea_path,"task_{}_meanAP__test_per_class.csv".format(task_id))
-
-        
-
-        df = pd.DataFrame(ap.numpy(), columns=class_names)
-        df.to_csv(name_file, index=False) """
