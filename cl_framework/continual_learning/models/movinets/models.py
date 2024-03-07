@@ -795,6 +795,21 @@ class MoViNetIncDec(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         return self._forward_impl(x)
+    
+
+
+    # extract from previous layers
+    def extract_blocks_features(self, x: Tensor) -> Tensor:
+        x = self.conv1(x)
+        x = self.blocks(x)
+        return x
+
+    # reload features of previous layers and compute last layers forward
+    def forward_from_block_features(self, x: Tensor) -> Tensor:
+        x = self.conv7(x)
+        x = self.avg(x)
+        x = self.conv9(x)
+        return x
 
     @staticmethod
     def _clean_activation_buffers(m):

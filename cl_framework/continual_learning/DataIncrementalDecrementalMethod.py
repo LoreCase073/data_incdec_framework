@@ -68,7 +68,6 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
             count_accumulation = 0
             for batch_idx, (images, targets, binarized_targets, _, _) in enumerate(tqdm(train_loader)):
                 images = images.to(self.device)
-                #TODO: aggiungere binarizzazione dei targets nel caso in cui il criterion_type sia multilabel
                 labels = self.select_proper_targets(targets, binarized_targets).to(self.device)
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
@@ -119,7 +118,6 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
             self.model.eval()
             for images, targets, binarized_targets, behavior, data_path in tqdm(loader):
                 images = images.to(self.device)
-                #TODO: aggiungere la binarizzazione dei targets
                 labels = self.select_proper_targets(targets, binarized_targets).to(self.device)
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
@@ -152,11 +150,6 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                                         metric_evaluator.get_subcategories(),
                                         testing
                                         )
-                #TODO: in caso rimuovere, già salvare in altra maniera.
-                """ self.save_ap_classes(current_training_task,
-                                      self.class_names,
-                                      ap,
-                                      testing) """
                 if self.criterion_type == "multiclass":
                     cm_figure = self.plot_confusion_matrix(confusion_matrix, self.class_names)
                 elif self.criterion_type == "multilabel":
@@ -368,19 +361,3 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
             unified_dict = d | probs
         df = pd.DataFrame(unified_dict)
         df.to_csv(name_file, index=False)
-
-
-    """ def save_ap_classes(self, task_id, class_names, ap, testing):
-        ea_path = os.path.join(self.out_path,'mAP')
-        if not os.path.exists(ea_path):
-            os.mkdir(ea_path)
-        
-        if testing == 'val':
-            name_file = os.path.join(ea_path,"task_{}_meanAP_validation_per_class.csv".format(task_id))
-        elif testing == 'test':
-            name_file = os.path.join(ea_path,"task_{}_meanAP__test_per_class.csv".format(task_id))
-
-        
-
-        df = pd.DataFrame(ap.numpy(), columns=class_names)
-        df.to_csv(name_file, index=False) """

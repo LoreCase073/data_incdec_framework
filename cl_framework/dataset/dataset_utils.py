@@ -103,6 +103,15 @@ class KineticsDataset(Dataset):
     def get_class_to_idx(self):
         return self.class_to_idx
     
+    # this is used to get the name given the data_path of a sample, done to not modify the data_loader
+    def get_name_sample(self, data_path_sample):
+        data_name = data_path_sample.replace(self.data_folder,'')
+        if self.fps == 5:
+            data_name = data_name.replace('/5fps_jpgs','')
+        else:
+            data_name = data_name.replace('/jpgs','')
+        return data_name
+    
     def __len__(self) -> int:
         return len(self.data)
 

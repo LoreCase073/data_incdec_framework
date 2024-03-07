@@ -14,6 +14,7 @@ from sklearn.metrics import PrecisionRecallDisplay
 import os
 import pandas as pd
 from torch import nn
+from torch.utils.data import WeightedRandomSampler, SequentialSampler
 
 def jacobian_in_batch(y, x):
         '''
@@ -184,7 +185,9 @@ class DICM_efc(IncrementalApproach):
     
         
     def post_train(self, task_id, train_loader=None):
-
+        # replace the sampler with a SequentialSampler, critical if using the WeightedRandomSampler
+        old_sampler = train_loader.sampler
+        train_loader.sampler = SequentialSampler(train_loader.dataset)
 
         n_samples_batches = len(train_loader.dataset) // train_loader.batch_size
 
@@ -232,6 +235,9 @@ class DICM_efc(IncrementalApproach):
         print("Matrix Rank: {}".format(matrix_rank))
         # save matrix after each task for analysis
         save_efm(self.previous_efm, task_id, self.out_path)
+
+        # replace with the old sampler
+        train_loader.sampler = old_sampler
 
 
     def val_computation(self, outputs, labels, task_id, features, old_features, current_batch_size):
