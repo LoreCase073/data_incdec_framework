@@ -5,7 +5,7 @@ do
         --approach incdec_fd --pipeline baseline --n_accumulation 4 --seed $i --nw 4 \
         --freeze_bn no --freeze_backbone no --early_stopping_val 10 --weight_decay 5e-4 \
         --restore_initial_parameters no \
-        --lwf_lamb 1 --lwf_T 1 \
+        --fd_lamb 0.1 \
         --stop_first_task no \
         --epochs 100 --batch_size 4 --lr_first_task 1e-4 --head_lr 1e-4 --backbone_lr 1e-4 \
         --scheduler_type reduce_plateau --plateau_check map --patience 10 --device 0 \

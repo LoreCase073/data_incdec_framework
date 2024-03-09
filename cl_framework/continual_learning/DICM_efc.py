@@ -207,12 +207,12 @@ class DICM_efc(IncrementalApproach):
             
             out_size = out.shape[1]
             
-            log_p = nn.LogSigmoid()(out) # (n_batch,c_lass)
+            log_p = nn.LogSigmoid()(out) # (n_batch,class)
             jac = jacobian_in_batch(log_p, gap_out).detach() 
             gap_out.detach()
        
             with torch.no_grad():
-                p = torch.exp(log_p) # (n_batch,c_lass)
+                p = torch.exp(log_p) # (n_batch,class)
                 efm_per_batch = torch.zeros((images.shape[0], self.model.get_feat_size(), self.model.get_feat_size()), device=self.device)
 
                 for c in range(out_size):
