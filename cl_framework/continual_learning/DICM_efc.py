@@ -14,7 +14,7 @@ from sklearn.metrics import PrecisionRecallDisplay
 import os
 import pandas as pd
 from torch import nn
-from torch.utils.data import WeightedRandomSampler, SequentialSampler
+from torch.utils.data import WeightedRandomSampler, SequentialSampler, DataLoader
 
 def jacobian_in_batch(y, x):
         '''
@@ -185,18 +185,17 @@ class DICM_efc(IncrementalApproach):
     
         
     def post_train(self, task_id, train_loader=None):
-        # replace the sampler with a SequentialSampler, critical if using the WeightedRandomSampler
-        old_sampler = train_loader.sampler
-        train_loader.sampler = SequentialSampler(train_loader.dataset)
+        #create new Dataloader to do sequential sampling
+        tmp_loader = DataLoader(train_loader.dataset, batch_size=train_loader.batch_size, shuffle=False, num_workers=train_loader.num_workers)
 
-        n_samples_batches = len(train_loader.dataset) // train_loader.batch_size
+        n_samples_batches = len(tmp_loader.dataset) // tmp_loader.batch_size
 
         self.model.eval() 
         # ensure that gradients are zero
         self.model.zero_grad()   
         empirical_feat_mat = torch.zeros((self.model.get_feat_size(), self.model.get_feat_size()), requires_grad=False).to(self.device)
   
-        for batch_idx, (images, _, _, _, _) in enumerate(tqdm(train_loader)):
+        for batch_idx, (images, _, _, _, _) in enumerate(tqdm(tmp_loader)):
 
             with torch.no_grad():
                 _, gap_out = self.model(images.to(self.device))
@@ -235,9 +234,6 @@ class DICM_efc(IncrementalApproach):
         print("Matrix Rank: {}".format(matrix_rank))
         # save matrix after each task for analysis
         save_efm(self.previous_efm, task_id, self.out_path)
-
-        # replace with the old sampler
-        train_loader.sampler = old_sampler
 
 
     def val_computation(self, outputs, labels, task_id, features, old_features, current_batch_size):

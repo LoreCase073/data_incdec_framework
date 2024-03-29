@@ -102,6 +102,14 @@ def rollback_model(approach, out_path, device, name=None):
     else:
         approach.model.load_state_dict(torch.load(os.path.join(out_path,'_model.pth'), map_location=device))
 
+def rollback_model_movinet(approach, out_path, name=None):
+    if name is not None:
+        checkpoint = torch.load(out_path, map_location="cpu")
+        approach.model.load_state_dict(checkpoint["model"])
+        print("Model Loaded {}".format(out_path))
+    else:
+        approach.model.load_state_dict(torch.load(os.path.join(out_path,'_model.pth'), map_location="cpu"))
+
 
 def store_model(approach, out_path, name=""):
     torch.save(deepcopy(approach.model.state_dict()), os.path.join(out_path, name+"_model.pth"))

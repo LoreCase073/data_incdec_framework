@@ -1,5 +1,5 @@
 from utilities.generic_utils import experiment_folder, result_folder, \
-                            get_task_dict, seed_everything, rollback_model, \
+                            get_task_dict, seed_everything, rollback_model, rollback_model_movinet, \
                             store_model, store_valid_loader, get_class_per_task, remap_targets, \
                             get_task_dict_incdec, AverageMeter
 from utilities.parse_utils import get_args
@@ -156,7 +156,7 @@ if __name__ == "__main__":
     """
 
     #TODO: TB changed to extract data from other sources...
-    train_set, test_set, validation_set, total_classes = get_dataset(args.dataset, args.data_path)
+    train_set, test_set, validation_set, total_classes = get_dataset(args.dataset, args.data_path, args.pretrained_path)
     
     
     # mapping between classes and shuffled classes and re-map dataset classes for different order of classes
@@ -298,7 +298,10 @@ if __name__ == "__main__":
             approach.pre_train(task_id, train_loader,  valid_loaders[task_id])
             if args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd':
                 print("Loading model from path {}".format(args.firsttask_modelpath))
-                rollback_model(approach, args.firsttask_modelpath, device, name='best_mAP_task_0_model.pth')
+                # Here i substitute the normal head with a 200 size head, to load the pre-trained model on 200 classes
+                approach.substitute_head(200)
+                rollback_model_movinet(approach, args.firsttask_modelpath, name='checkpoint_adam.pt')
+                approach.substitute_head(total_classes)
             else:
                 print("Loading model from path {}".format(os.path.join(args.firsttask_modelpath, "{}_seed_{}".format(args.dataset, args.seed), "0_model.pth")))
                 rollback_model(approach, os.path.join(args.firsttask_modelpath, "{}_seed_{}".format(args.dataset, args.seed),"0_model.pth"), device, name=str(task_id))
@@ -318,6 +321,12 @@ if __name__ == "__main__":
             if task_id == 0 and args.restore_initial_parameters == 'yes':
                 print('Stored initial model to retrain on each subsequent task.')
                 store_model(approach, out_path, 'initial')
+            elif task_id ==0 and args.pretrained_path != "None":
+                print("Loading model from path {}".format(args.pretrained_path))
+                # Here i substitute the normal head with a 200 size head, to load the pre-trained model on 200 classes
+                approach.substitute_head(200)
+                rollback_model_movinet(approach, args.pretrained_path, name='checkpoint_adam.pt')
+                approach.substitute_head(total_classes)
 
             approach.pre_train(task_id, train_loader,  valid_loaders[task_id])
 
@@ -378,24 +387,7 @@ if __name__ == "__main__":
                     approach.reduce_lr_on_plateau.step()
                     
                 current_lr = approach.optimizer.param_groups[0]["lr"]
-                
-                if args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd':
-                    if mean_ap_eval > best_mAP:
-                        old_mAP = best_mAP
-                        best_mAP = mean_ap_eval
-                        name_model = "best_mAP_task_" + str(task_id)
-                        store_model(approach, out_path,name=name_model)
-                        print(f"  --> from mAP {old_mAP:.3f} to {best_mAP:.3f}")
-                        best_epoch = epoch
-                else:
-                    if taw_acc > best_taw_accuracy:
-                        old_accuracy = best_taw_accuracy
-                        best_taw_accuracy = taw_acc
-                        store_model(approach, out_path)
-                        print(f"  --> from acc {old_accuracy:.3f} to {taw_acc:.3f}")
 
-                
-                
 
                 avg_time_train.update(time.time() - end_time)
 
@@ -405,25 +397,37 @@ if __name__ == "__main__":
                     model_name = os.path.join(out_path,"best_mAP_task_{}_model.pth").format(task_id)
                     print("Loading model from path: {}".format(model_name))
                     rollback_model(approach, model_name, device, name=str(model_name))
-
-                # Commented because for now i'll do a early stopping when the lr becomes lower than a threshold
-                """ 
-                #checks if the mAP has decreased or not
-                if mean_ap_eval < best_mAP:
-                    no_decrement_count = 0
-                    best_mAP = mean_ap_eval
-                else:
-                    no_decrement_count += 1
-                #early stops if too many epochs without improving
-                if no_decrement_count == args.early_stopping_val:
-                    print(f"Early stopping because classification loss didn't improve for{args.early_stopping_val} epochs\t")
-                    break """
-                # Stops if the learning rate is lower than a threshold
-                print(f"Current learning rate for the next epoch is: {current_lr}")
-                if current_lr < float(1e-5):
-                    print(f"Early stopping because learning rate threshold is reached \t")
-                    break
                 
+                if args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd':
+                    if mean_ap_eval > best_mAP:
+                        old_mAP = best_mAP
+                        best_mAP = mean_ap_eval
+                        name_model = "best_mAP_task_" + str(task_id)
+                        store_model(approach, out_path,name=name_model)
+                        print(f"  --> from mAP {old_mAP:.3f} to {best_mAP:.3f}")
+                        best_epoch = epoch
+                        no_decrement_count = 0
+                    else:
+                        no_decrement_count += 1
+                    if args.scheduler_type == "fixd":
+                        if no_decrement_count == args.early_stopping_val:
+                            print(f"Early stopping because classification loss didn't improve for{args.early_stopping_val} epochs\t")
+                            break
+                    else:
+                        # Stops if the learning rate is lower than a threshold
+                        if current_lr < float(1e-5):
+                            print(f"Early stopping because learning rate threshold is reached \t")
+                            break
+                else:
+                    if taw_acc > best_taw_accuracy:
+                        old_accuracy = best_taw_accuracy
+                        best_taw_accuracy = taw_acc
+                        store_model(approach, out_path)
+                        print(f"  --> from acc {old_accuracy:.3f} to {taw_acc:.3f}")
+
+                print(f"Current learning rate for the next epoch is: {current_lr}")
+                    
+
 
             logger.print_best_epoch(best_epoch, task_id)
             val_logger.print_best_epoch(best_epoch, task_id)

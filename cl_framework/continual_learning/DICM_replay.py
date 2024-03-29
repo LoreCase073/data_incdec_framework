@@ -14,7 +14,7 @@ from sklearn.metrics import PrecisionRecallDisplay
 import os
 import pandas as pd
 from torch import nn
-from torch.utils.data import WeightedRandomSampler, SequentialSampler
+from torch.utils.data import WeightedRandomSampler, SequentialSampler, DataLoader
  
 
 class DataIncrementalDecrementalMethod(IncrementalApproach):
@@ -122,9 +122,10 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         
         
     def post_train(self, task_id, train_loader=None):
-        # replace the sampler with a SequentialSampler, critical if using the WeightedRandomSampler
-        old_sampler = train_loader.sampler
-        train_loader.sampler = SequentialSampler(train_loader.dataset)
+        #create new Dataloader to do sequential sampling
+        tmp_loader = DataLoader(train_loader.dataset, batch_size=train_loader.batch_size, shuffle=False, num_workers=train_loader.num_workers)
+
+        n_samples_batches = len(tmp_loader.dataset) // tmp_loader.batch_size
 
         features_path = os.path.join(self.out_path,'extracted_features')
         if not os.path.exists(features_path):
@@ -144,7 +145,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
 
         with torch.no_grad():
             
-            for batch_idx, (images, targets, binarized_targets, behavior, data_path) in enumerate(tqdm(train_loader)):
+            for batch_idx, (images, targets, binarized_targets, behavior, data_path) in enumerate(tqdm(tmp_loader)):
                 lab = self.select_proper_targets(targets,binarized_targets)
                 
                 features = self.model.backbone.extract_blocks_features(images)
@@ -155,8 +156,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         
         self.save_features_list(self.class_names, data_paths, labels, subcategories, name_file)
 
-        # replace with the old sampler
-        train_loader.sampler = old_sampler
+
 
 
 

@@ -52,6 +52,7 @@ def get_args():
     parser.add_argument("--epochs", "-e", type=int, default=100)
     parser.add_argument("--batch_size", type=int, default=2)
     parser.add_argument("--lr_first_task", type=float, default=1e-4, help="for tiny-imagenet and cifar100, for imagenet-subet default  are in IncrementalApproach.py")
+    parser.add_argument("--lr_first_task_head", type=float, default=1e-4, help="for tiny-imagenet and cifar100, for imagenet-subet default  are in IncrementalApproach.py")
     parser.add_argument("--backbone_lr", type=float, default=1e-4)
     parser.add_argument("--head_lr", type=float, default=1e-4)
     parser.add_argument("--scheduler_type", type=str, default="reduce_plateau", choices=["fixd", "multi_step","reduce_plateau"])
@@ -77,6 +78,7 @@ def get_args():
     """
     parser.add_argument("--backbone", type=str, default="movinetA0", choices=["resnet18","3dresnet18","3dresnet10","movinetA0","movinetA1","movinetA2"])
     parser.add_argument("--firsttask_modelpath", type=str, default="None", help="specify model path if start from a pre-trained model after first task")
+    parser.add_argument("--pretrained_path", type=str, default="None", help="specify model path if start from a pre-trained model for also task 0")
 
     
     args = parser.parse_args()

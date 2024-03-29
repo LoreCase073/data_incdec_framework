@@ -51,7 +51,6 @@ class BaseModel(nn.Module):
             self.heads.append(
                 torch.nn.Sequential(nn.Linear(self.backbone.feature_space_size, n_out, bias=False)))
 
-    
     def reset_backbone(self, backbone = None):
 
         if self.dataset == "cifar100":

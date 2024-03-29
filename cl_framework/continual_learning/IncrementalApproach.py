@@ -21,6 +21,7 @@ class IncrementalApproach(metaclass=abc.ABCMeta):
       self.backbone = args.backbone
       # Optimizer args
       self.lr_first_task = args.lr_first_task
+      self.lr_first_task_head = args.lr_first_task_head
       self.scheduler_type  = args.scheduler_type
       self.plateau_check = args.plateau_check
       self.patience = args.patience
@@ -82,7 +83,29 @@ class IncrementalApproach(metaclass=abc.ABCMeta):
                                                          )
          else:
     
-            self.optimizer = torch.optim.Adam(params_to_optimize, lr=self.lr_first_task, weight_decay=self.weight_decay)
+            # self.optimizer = torch.optim.Adam(params_to_optimize, lr=self.lr_first_task, weight_decay=self.weight_decay)
+            backbone_params = [p for p in  self.model.backbone.parameters() if p.requires_grad]
+            old_head_params = [p for p in self.model.heads[:-1].parameters()  if p.requires_grad]
+            new_head_params = [p for p in  self.model.heads[-1].parameters() if p.requires_grad]
+            head_params = old_head_params + new_head_params
+            
+               
+            
+         
+            params = backbone_params + head_params
+            if self.lr_first_task == self.lr_first_task_head:
+                  print("Using Adam with a single lr {}".format(self.lr_first_task))
+                  self.optimizer =  torch.optim.Adam(params, lr=self.lr_first_task, weight_decay=self.weight_decay)
+            
+            else:
+                  print("Using Adam with two lr. Backbone: {}, Head: {}".format(self.lr_first_task, self.lr_first_task_head))
+         
+                  self.optimizer = torch.optim.Adam([{'params': head_params, 'lr':self.lr_first_task_head},
+                                                {'params': backbone_params}
+                                                ],lr=self.lr_first_task, 
+                                                weight_decay=self.weight_decay)
+                  
+                  
             if self.scheduler_type == 'multi_step':
                self.reduce_lr_on_plateau = torch.optim.lr_scheduler.MultiStepLR(self.optimizer,
                                                          milestones=self.milestones_first_task,
@@ -94,6 +117,11 @@ class IncrementalApproach(metaclass=abc.ABCMeta):
                   self.reduce_lr_on_plateau = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, 'max', patience=self.patience, verbose=True)
                elif self.plateau_check == "class_loss":
                   self.reduce_lr_on_plateau = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, 'min', patience=self.patience, verbose=True)
+            else:
+               self.reduce_lr_on_plateau = torch.optim.lr_scheduler.MultiStepLR(self.optimizer,
+                                                         milestones=self.milestones_first_task,
+                                                         gamma=0.1, verbose=True
+                                                            )
       else:            
 
             self.optimizer, self.reduce_lr_on_plateau = self.optimizer_manager.get_optimizer(task_id, self.model, self.auxiliary_classifier, self.weight_decay, self.patience, self.freeze_bn)

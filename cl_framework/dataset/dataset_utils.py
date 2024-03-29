@@ -344,7 +344,7 @@ class TinyImagenetDataset(Dataset):
 
         
         
-def get_dataset(dataset_type, data_path):
+def get_dataset(dataset_type, data_path, pretrained_path=None):
     if  dataset_type == "cifar100":
         print("Loading Cifar 100")
         train_transform = [transforms.Pad(4), transforms.RandomResizedCrop(32), 
@@ -427,23 +427,39 @@ def get_dataset(dataset_type, data_path):
         
         print("Loading Kinetics")
         
-        train_transform = [transforms.Resize(size=(200,200)),
-                           #TODO: in futuro provare con un random crop invece che centercrop
-                           transforms.RandomCrop(172),
-                           transforms.RandomHorizontalFlip(),
-                            transforms.ToTensor(),
-                            #added normalization factors computed on the actual dataset, training set
-                            transforms.Normalize(mean=[0.4516, 0.3883, 0.3569],std=[0.2925, 0.2791, 0.2746])
-                ]
-        train_transform = transforms.Compose(train_transform)
+        if pretrained_path == None:
+            train_transform = [transforms.Resize(size=(200,200)),
+                            #TODO: in futuro provare con un random crop invece che centercrop
+                            transforms.RandomCrop(172),
+                            transforms.RandomHorizontalFlip(),
+                                transforms.ToTensor(),
+                                #added normalization factors computed on the actual dataset, training set
+                                transforms.Normalize(mean=[0.4516, 0.3883, 0.3569],std=[0.2925, 0.2791, 0.2746])
+                            ]
+            train_transform = transforms.Compose(train_transform)
 
-        test_transform = [transforms.Resize(size=(172,172)),
+            test_transform = [transforms.Resize(size=(172,172)),
+                                transforms.CenterCrop(172),
+                                transforms.ToTensor(),
+                                #added normalization factors computed on the actual dataset, training set
+                                transforms.Normalize(mean=[0.4516, 0.3883, 0.3569],std=[0.2925, 0.2791, 0.2746])
+                            ]  
+            test_transform = transforms.Compose(test_transform)
+        else:
+            train_transform = [transforms.Resize(size=(200,200)),
+                        transforms.RandomCrop(172),
+                        transforms.RandomHorizontalFlip(),
+                        transforms.ToTensor(),
+                        transforms.Normalize(mean=[0.43216, 0.394666, 0.37645],std=[0.22803, 0.22145, 0.216989])
+                            ]
+            train_transform = transforms.Compose(train_transform)
+        
+            test_transform = [transforms.Resize(size=(200,200)),
                             transforms.CenterCrop(172),
                             transforms.ToTensor(),
-                            #added normalization factors computed on the actual dataset, training set
-                            transforms.Normalize(mean=[0.4516, 0.3883, 0.3569],std=[0.2925, 0.2791, 0.2746])
-                          ]  
-        test_transform = transforms.Compose(test_transform)
+                            transforms.Normalize(mean=[0.43216, 0.394666, 0.37645],std=[0.22803, 0.22145, 0.216989])
+                            ]  
+            test_transform = transforms.Compose(test_transform)
 
 
  
