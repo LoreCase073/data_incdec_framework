@@ -2,23 +2,15 @@ import sys
 import torchvision
 from torchvision import transforms
 import os
-import matplotlib
 import numpy as np
 import pandas as pd
-from scipy import ndimage
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-import zipfile
 from sklearn import preprocessing
-import requests 
-from io import BytesIO
 from torchvision import datasets
 from torch.utils.data import Dataset
 from PIL import Image 
 from typing import Tuple,Any 
-from torch.utils.data import DataLoader
-from tqdm import tqdm 
 import torch
+import math
 
 def find_classes(dir):
     if sys.version_info >= (3, 5):
@@ -129,11 +121,10 @@ class KineticsDataset(Dataset):
         video = []
         std_video_len = self.fps*10
 
-        tmp_len = len(os.listdir(images_path))
+        current_video_len = len(os.listdir(images_path))
 
-        #TODO: modificare come fa Simone        
-        for i in range(std_video_len):
-            image_name = 'image_{:05d}.jpg'.format((i%tmp_len)+1)
+        for i in range(current_video_len):
+            image_name = 'image_{:05d}.jpg'.format((i%current_video_len)+1)
             im_path = os.path.join(images_path,image_name)
             with open(im_path, 'rb') as f:
                 img = Image.open(f)
@@ -143,6 +134,11 @@ class KineticsDataset(Dataset):
                 video.append(img)      
         
         video = torch.stack(video,0).permute(1, 0, 2, 3)
+        # repeat video until max frame reach 
+        n_repeat = math.ceil(std_video_len/current_video_len)
+        video = video.repeat(1, n_repeat, 1, 1)
+        # clip the first 50 frames
+        video = video[:,:std_video_len, :, :]
         binarized_target = preprocessing.label_binarize([target], classes=[i for i in range(len(self.class_to_idx.keys()))])
         return video, target, binarized_target, behavior, images_path
     

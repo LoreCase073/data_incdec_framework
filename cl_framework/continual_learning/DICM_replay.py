@@ -45,8 +45,14 @@ class DICM_replay(IncrementalApproach):
     def pre_train(self,  task_id, trn_loader, test_loader):
         self.model.to(self.device)
         self.data_path_prefix, self.data_path_suffix = trn_loader.dataset.get_prefix_suffix_data_path()
+
         # TODO: aggiungere logica di replay buffering
-        # qui sarà da caricare un train loader e caricare gli elementi
+        # qui sarà da caricare un Dataloader e caricare gli elementi
+        # deve essere anche controllato di caricare soltanto gli elementi spariti, non tutti gli esempi
+        # mi salvo una lista in post_train da li posso recuperare il resto
+
+
+        #TODO: fare che poi la backbone è freezata fino ad un punto preciso, ovvero dove estraggo le features
 
         if task_id > 0 and self.freeze_backbone == 'yes':
             self.model.freeze_backbone()
@@ -66,21 +72,13 @@ class DICM_replay(IncrementalApproach):
         self.model.add_classification_head(num_classes)
 
 
-    def replay_train_computation(self, task_id):
-        outputs = None
-        # Here what we have to do is load the features computed on the last task training model
-
-        if task_id > 0:
-            outputs = ...
-
-        return outputs
-
     def train(self, task_id, train_loader, epoch, epochs):
         print(torch.cuda.current_device())
         self.model.to(self.device)
         self.model.train()
 
-        
+        #TODO: aggiungere iter() per caricare dai due dataloader separatamente
+        feature_iterator = iter(feature_dataloader)
        
         train_loss, n_samples = 0, 0
         self.optimizer.zero_grad()
@@ -92,10 +90,16 @@ class DICM_replay(IncrementalApproach):
                 labels = self.select_proper_targets(targets, binarized_targets).to(self.device)
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
+
+                #TODO: fare next per ottenere nuovo example dal nuovo dataloader
+                try:
+                    replay_features = next(feature_iterator)
+                except StopIteration:
+                    feature_iterator = iter(feature_dataloader)
+                    replay_features = next(feature_iterator)
+
+                #TODO: modificare in maniera che in inferenza, prenda sia images che features e le ricombini ad un determinato stadio della rete
                 outputs, _ = self.model(images)
-                # TODO: modificare e aggiungere replay computation
-                _ = self.replay_train_computation(task_id)
-                # TODO: modificare criterion in modo da aggiungereloss del replay
                 loss = self.criterion(outputs[0], labels)
 
                 loss.backward()
@@ -110,6 +114,15 @@ class DICM_replay(IncrementalApproach):
                 labels = self.select_proper_targets(targets, binarized_targets).to(self.device)
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
+
+                #TODO: fare next per ottenere nuovo example dal nuovo dataloader
+                try:
+                    replay_features = next(feature_iterator)
+                except StopIteration:
+                    feature_iterator = iter(feature_dataloader)
+                    replay_features = next(feature_iterator)
+
+                #TODO: modificare in maniera che in inferenza, prenda sia images che features e le ricombini ad un determinato stadio della rete
                 outputs, _ = self.model(images)
                 loss = self.criterion(outputs[0], labels)             
                 loss.backward()

@@ -793,8 +793,23 @@ class MoViNetIncDec(nn.Module):
 
         return x
 
-    def forward(self, x: Tensor) -> Tensor:
-        return self._forward_impl(x)
+
+    def _forward_impl_with_features(self, x: Tensor, features) -> Tensor:
+        x = self.conv1(x)
+        x = self.blocks(x)
+        x = torch.cat([x,features], dim=0)
+        x = self.conv7(x)
+        x = self.avg(x)
+        x = self.conv9(x)
+
+        return x
+    
+    # select the forward implementation
+    def forward(self, x: Tensor, features: Tensor = None) -> Tensor:
+        if features is None:
+            return self._forward_impl(x)
+        else:
+            return self._forward_impl_with_features(x, features)
     
 
 
@@ -804,12 +819,6 @@ class MoViNetIncDec(nn.Module):
         x = self.blocks(x)
         return x
 
-    # reload features of previous layers and compute last layers forward
-    def forward_from_block_features(self, x: Tensor) -> Tensor:
-        x = self.conv7(x)
-        x = self.avg(x)
-        x = self.conv9(x)
-        return x
 
     @staticmethod
     def _clean_activation_buffers(m):
