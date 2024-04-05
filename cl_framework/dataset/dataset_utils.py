@@ -104,13 +104,13 @@ class KineticsDataset(Dataset):
         return self.class_to_idx
     
     # this is used to get the name given the data_path of a sample, done to not modify the data_loader
-    def get_name_sample(self, data_path_sample):
-        data_name = data_path_sample.replace(self.data_folder,'')
+    def get_prefix_suffix_data_path(self):
+        data_path_prefix = self.data_folder
         if self.fps == 5:
-            data_name = data_name.replace('/5fps_jpgs','')
+            data_path_suffix = '/5fps_jpgs'
         else:
-            data_name = data_name.replace('/jpgs','')
-        return data_name
+            data_path_suffix = '/jpgs'
+        return data_path_prefix, data_path_suffix
     
     def __len__(self) -> int:
         return len(self.data)
@@ -131,7 +131,7 @@ class KineticsDataset(Dataset):
 
         tmp_len = len(os.listdir(images_path))
 
-        
+        #TODO: modificare come fa Simone        
         for i in range(std_video_len):
             image_name = 'image_{:05d}.jpg'.format((i%tmp_len)+1)
             im_path = os.path.join(images_path,image_name)

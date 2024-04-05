@@ -100,6 +100,11 @@ class DICM_efc(IncrementalApproach):
         self.model.add_classification_head(self.total_classes)
 
 
+    def substitute_head(self, num_classes):
+        self.model.heads = nn.ModuleList()
+        self.model.add_classification_head(num_classes)
+
+
     def train(self, task_id, train_loader, epoch, epochs):
         print(torch.cuda.current_device())
         self.model.to(self.device)

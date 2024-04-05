@@ -41,6 +41,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
 
     def pre_train(self,  task_id, trn_loader, test_loader):
         self.model.to(self.device)
+        #self.model = torch.compile(self.model)
         if task_id > 0 and self.freeze_backbone == 'yes':
             self.model.freeze_backbone()
             print('Backbone will be frozen for this task.')

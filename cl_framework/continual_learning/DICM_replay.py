@@ -17,7 +17,7 @@ from torch import nn
 from torch.utils.data import WeightedRandomSampler, SequentialSampler, DataLoader
  
 
-class DataIncrementalDecrementalMethod(IncrementalApproach):
+class DICM_replay(IncrementalApproach):
     
     def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, behavior_dicts, all_behaviors_dict):
         self.total_classes = total_classes
@@ -33,22 +33,25 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         self.criterion = self.select_criterion(args.criterion_type)
         self.all_behaviors_dict = all_behaviors_dict
         self.freeze_backbone = args.freeze_backbone
+        # save paths for the dataset in order to fix the files names in order to be saved
+        self.data_path_prefix = None
+        self.data_path_suffix = None
 
 
     def print_running_approach(self):
-        super(DataIncrementalDecrementalMethod, self).print_running_approach()
+        super(DICM_replay, self).print_running_approach()
         
 
     def pre_train(self,  task_id, trn_loader, test_loader):
         self.model.to(self.device)
-
+        self.data_path_prefix, self.data_path_suffix = trn_loader.dataset.get_prefix_suffix_data_path()
         # TODO: aggiungere logica di replay buffering
         # qui sarà da caricare un train loader e caricare gli elementi
 
         if task_id > 0 and self.freeze_backbone == 'yes':
             self.model.freeze_backbone()
             print('Backbone will be frozen for this task.')
-        super(DataIncrementalDecrementalMethod, self).pre_train(task_id)
+        super(DICM_replay, self).pre_train(task_id)
 
 
     def reset_model(self):
@@ -56,6 +59,11 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         self.model.reset_backbone()
         self.model.heads = nn.ModuleList()
         self.model.add_classification_head(self.total_classes)
+
+
+    def substitute_head(self, num_classes):
+        self.model.heads = nn.ModuleList()
+        self.model.add_classification_head(num_classes)
 
 
     def replay_train_computation(self, task_id):
@@ -125,7 +133,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         #create new Dataloader to do sequential sampling
         tmp_loader = DataLoader(train_loader.dataset, batch_size=train_loader.batch_size, shuffle=False, num_workers=train_loader.num_workers)
 
-        n_samples_batches = len(tmp_loader.dataset) // tmp_loader.batch_size
+        #n_samples_batches = len(tmp_loader.dataset) // tmp_loader.batch_size
 
         features_path = os.path.join(self.out_path,'extracted_features')
         if not os.path.exists(features_path):
@@ -137,9 +145,9 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
 
         # file to save the examples that were saved
         name_file = os.path.join(task_id_features_path,"task_{}_feature_data.csv".format(task_id))
-        data_paths = []
-        labels = []
-        subcategories = []
+        data_paths_list = []
+        labels_list = []
+        subcategories_list = []
 
         self.model.eval()
 
@@ -151,10 +159,15 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                 features = self.model.backbone.extract_blocks_features(images)
                 for i in range(features.shape[0]):
                     # TODO: save features and then save a list of the elements used
-                    pass
+                    # fix the data path to only include the name
+                    features_names = data_path[i].replace(self.data_path_prefix, '').replace(self.data_path_suffix,'')
+                    torch.save(features[i], features_names + '.pt')
+                data_paths_list.append(data_path)
+                labels_list.append(lab)
+                subcategories_list.append(behavior)
                     
         
-        self.save_features_list(self.class_names, data_paths, labels, subcategories, name_file)
+        self.save_features_list(self.class_names, data_paths_list, labels_list, subcategories_list, name_file)
 
 
 
