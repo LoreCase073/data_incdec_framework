@@ -219,12 +219,12 @@ class VZCDataset(Dataset):
         video = []
         std_video_len = self.fps*16  # VZC videos are at most 16s (when everything is correct)
 
-        tmp_len = len(os.listdir(images_path))
+
+        current_video_len = len(os.listdir(images_path))
 
         
-        for i in range(std_video_len):
-            #TODO: to modify with jpgs names in VZC
-            image_name = 'image_{:05d}.jpg'.format((i%tmp_len)+1)
+        for i in range(current_video_len):
+            image_name = 'image_{:05d}.jpg'.format((i%current_video_len)+1)
             im_path = os.path.join(images_path,image_name)
             with open(im_path, 'rb') as f:
                 img = Image.open(f)
@@ -234,6 +234,11 @@ class VZCDataset(Dataset):
                 video.append(img)      
         
         video = torch.stack(video,0).permute(1, 0, 2, 3)
+        # repeat video until max frame reach 
+        n_repeat = math.ceil(std_video_len/current_video_len)
+        video = video.repeat(1, n_repeat, 1, 1)
+        # clip the first 50 frames
+        video = video[:,:std_video_len, :, :]
         binarized_target = preprocessing.label_binarize([target], classes=[i for i in range(len(self.class_to_idx.keys()))])
         return video, target, binarized_target, 0, images_path
 
