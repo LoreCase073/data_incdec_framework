@@ -366,7 +366,8 @@ def get_dataset(dataset_type, data_path, pretrained_path=None):
             valid_set = None
             n_classes = 100
  
-
+        # no subcat, so i fix it to None
+        subcat_dict = None
     elif dataset_type == "tiny-imagenet":
         # images_url = 'http://cs231n.stanford.edu/tiny-imagenet-200.zip'
         print("Loading Tiny Imagenet")
@@ -395,7 +396,8 @@ def get_dataset(dataset_type, data_path, pretrained_path=None):
         test_set = TinyImagenetDataset(test_data, test_targets, class_to_idx, test_transform)
         
         n_classes = 200
-        
+        # no subcat, so i fix it to None
+        subcat_dict = None
     elif dataset_type == "imagenet-subset":
         print("Loading Imagenet Subset")
  
@@ -424,13 +426,15 @@ def get_dataset(dataset_type, data_path, pretrained_path=None):
         test_set = TinyImagenetDataset(test_data, test_targets, class_to_idx, test_transform)
         
         n_classes = 100
+        # no subcat, so i fix it to None
+        subcat_dict = None
     elif dataset_type == "kinetics":
         
         print("Loading Kinetics")
         
         if pretrained_path == None:
             train_transform = [transforms.Resize(size=(200,200)),
-                            #TODO: in futuro provare con un random crop invece che centercrop
+                            
                             transforms.RandomCrop(172),
                             transforms.RandomHorizontalFlip(),
                                 transforms.ToTensor(),
@@ -473,25 +477,45 @@ def get_dataset(dataset_type, data_path, pretrained_path=None):
 
         #TODO: per ora aggiungo a mano, modificare da prendere dall'esterno
         n_classes = 5
+        #TODO: per ora aggiungo a mano, modificare da prendere dall'esterno
+        subcat_dict = {
+        'food': [
+            'eating burger', 'eating cake', 'eating carrots', 'eating chips', 'eating doughnuts',
+            'eating hotdog', 'eating ice cream', 'eating spaghetti', 'eating watermelon',
+            'sucking lolly', 'tasting beer', 'tasting food', 'tasting wine', 'sipping cup'
+        ],
+        'phone': [
+            'texting', 'talking on cell phone', 'looking at phone'
+        ],
+        'smoking': [
+            'smoking', 'smoking hookah', 'smoking pipe'
+        ],
+        'fatigue': [
+            'sleeping', 'yawning', 'headbanging', 'headbutting', 'shaking head'
+        ],
+        'selfcare': [
+            'scrubbing face', 'putting in contact lenses', 'putting on eyeliner', 'putting on foundation',
+            'putting on lipstick', 'putting on mascara', 'brushing hair', 'brushing teeth', 'braiding hair',
+            'combing hair', 'dyeing eyebrows', 'dyeing hair'
+        ]
+        }
     elif dataset_type == "vzc":
         
         print("Loading vzc Dataset")
         
         train_transform = [transforms.Resize(size=(200,200)),
-                           transforms.RandomCrop(172),
-                           transforms.RandomHorizontalFlip(),
-                            transforms.ToTensor(),
-                            #TODO: normalize is at the moment with the data from Kinetics used by us, to be modified with your data
-                            transforms.Normalize(mean=[0.4516, 0.3883, 0.3569],std=[0.2925, 0.2791, 0.2746])
-                ]
+                        transforms.RandomCrop(172),
+                        transforms.RandomHorizontalFlip(),
+                        transforms.ToTensor(),
+                        transforms.Normalize(mean=[0.43216, 0.394666, 0.37645],std=[0.22803, 0.22145, 0.216989])
+                            ]
         train_transform = transforms.Compose(train_transform)
-
-        test_transform = [transforms.Resize(size=(172,172)),
-                            transforms.CenterCrop(172),
-                            transforms.ToTensor(),
-                            #TODO: normalize is at the moment with the data from Kinetics used by us, to be modified with your data
-                            transforms.Normalize(mean=[0.4516, 0.3883, 0.3569],std=[0.2925, 0.2791, 0.2746])
-                          ]  
+    
+        test_transform = [transforms.Resize(size=(200,200)),
+                        transforms.CenterCrop(172),
+                        transforms.ToTensor(),
+                        transforms.Normalize(mean=[0.43216, 0.394666, 0.37645],std=[0.22803, 0.22145, 0.216989])
+                        ]  
         test_transform = transforms.Compose(test_transform)
 
 
@@ -505,9 +529,11 @@ def get_dataset(dataset_type, data_path, pretrained_path=None):
 
         #TODO: for now set here, to be passed from outside later in implementation
         n_classes = 4
+        #TODO: add how to get the subcat_dict
+        subcat_dict = None
         
     
-    return train_set, test_set, valid_set, n_classes
+    return train_set, test_set, valid_set, n_classes, subcat_dict
 
  
             

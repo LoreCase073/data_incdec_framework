@@ -1,7 +1,7 @@
 from utilities.generic_utils import experiment_folder, result_folder, \
                             get_task_dict, seed_everything, rollback_model, rollback_model_movinet, \
                             store_model, store_valid_loader, get_class_per_task, remap_targets, \
-                            get_task_dict_incdec, AverageMeter
+                            get_task_dict_incdec, old_get_task_dict_incdec, AverageMeter
 from utilities.parse_utils import get_args
 from utilities.matrix_logger import Logger, IncDecLogger
 from torch.utils.data.dataloader import DataLoader
@@ -155,8 +155,8 @@ if __name__ == "__main__":
     Dataset Preparation
     """
 
-    #TODO: TB changed to extract data from other sources...
-    train_set, test_set, validation_set, total_classes = get_dataset(args.dataset, args.data_path, args.pretrained_path)
+    
+    train_set, test_set, validation_set, total_classes, subcat_dict = get_dataset(args.dataset, args.data_path, args.pretrained_path)
     
     
     # mapping between classes and shuffled classes and re-map dataset classes for different order of classes
@@ -172,7 +172,7 @@ if __name__ == "__main__":
     
     # task_dict = {task_id: list_of_class_ids}
     if args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd':
-        task_dict, behavior_dicts, all_behaviors_dict = get_task_dict_incdec(args.n_task, total_classes, args.behaviors_csv_path, args.pipeline, args.behaviors_randomize, out_path)
+        task_dict, behavior_dicts, all_behaviors_dict = get_task_dict_incdec(args.n_task, total_classes, args.behaviors_csv_path, args.pipeline, args.behaviors_randomize, out_path, subcat_dict)
     else:
         task_dict = get_task_dict(args.n_task, total_classes, class_per_task, args.n_class_first_task)   
     

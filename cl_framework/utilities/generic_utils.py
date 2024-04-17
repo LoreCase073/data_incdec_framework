@@ -151,41 +151,180 @@ def store_valid_loader(out_path, valid_loaders, store):
 
 
 
-#TODO to remove, right now everything i need to use is in get_task_dict_incdec
-""" def get_behaviors_per_task(total_classes, n_task=6, pipeline='baseline', behaviors_to_be_removed_csv_path = None):
-
-    if pipeline == 'baseline':
-        behaviors_to_change = 0
-    elif pipeline == 'decremental':
-        pass
 
 
-    return behaviors_to_change """
 
-
-def get_task_dict_incdec(n_task, total_classes, behaviors_csv_path, pipeline, behaviors_randomize, out_path):
+def get_task_dict_incdec(n_task, total_classes, behaviors_csv_path, pipeline, behaviors_randomize, out_path, init_dict):
     #TODO: this starting_data_dict should be returned from an external file maybe
-    starting_data_dict = {
-    'food': [
-        'eating burger', 'eating cake', 'eating carrots', 'eating chips', 'eating doughnuts',
-        'eating hotdog', 'eating ice cream', 'eating spaghetti', 'eating watermelon',
-        'sucking lolly', 'tasting beer', 'tasting food', 'tasting wine', 'sipping cup'
-    ],
-    'phone': [
-        'texting', 'talking on cell phone', 'looking at phone'
-    ],
-    'smoking': [
-        'smoking', 'smoking hookah', 'smoking pipe'
-    ],
-    'fatigue': [
-        'sleeping', 'yawning', 'headbanging', 'headbutting', 'shaking head'
-    ],
-    'selfcare': [
-        'scrubbing face', 'putting in contact lenses', 'putting on eyeliner', 'putting on foundation',
-        'putting on lipstick', 'putting on mascara', 'brushing hair', 'brushing teeth', 'braiding hair',
-        'combing hair', 'dyeing eyebrows', 'dyeing hair'
-    ]
-    }
+    starting_data_dict = init_dict
+
+    d = {}
+
+    behaviors_dicts = []
+       
+    if pipeline == 'baseline' or pipeline == 'joint_incremental':
+        for i in range(n_task):
+            d[i] = (len(starting_data_dict.keys()))
+            behaviors_dicts.append(starting_data_dict)
+    elif pipeline == 'decremental':
+        
+        result_folder(out_path, 'behaviors_task')
+
+        save_path = os.path.join(out_path, 'behaviors_task')
+
+        behaviors_to_remove = pd.read_csv(behaviors_csv_path)
+        # i deepcopy just to be sure that i do not change the starting data dict if i need to reuse it
+        current_behaviors_dict = deepcopy(starting_data_dict)
+
+        # shuffling columns to do a randomized order of decremental behaviors
+        # randomize all but the first row, which should not have any behaviors removed
+        if behaviors_randomize == 'yes':
+            for column in current_behaviors_dict:
+                behaviors_to_remove[column][1:] = np.random.permutation(behaviors_to_remove[column].values[1:])
+
+        for i, row in behaviors_to_remove.iterrows():
+            d[i] = (len(starting_data_dict.keys()))
+
+            # iterate the classes to remove them
+            for idx_class in current_behaviors_dict.keys():
+                # get how many behaviors to remove
+                count_to_remove = row[idx_class]
+                # remove the behaviors if != 0
+                if count_to_remove != 0:
+                    for count_idx in range(count_to_remove):
+                        # get current behaviors of that class from the current dict of behaviors
+                        behaviors_count = len(current_behaviors_dict[idx_class])
+                        # now select randomly the index of the behavior to be removed
+                        idx_to_remove = random.randint(0,behaviors_count-1)
+                        # check if it's not the last behavior from some of the classes
+                        el_to_remove = current_behaviors_dict[idx_class][idx_to_remove]
+                        last_remaining = False
+                        for tmp_idx_class in current_behaviors_dict.keys():
+                            if len(current_behaviors_dict[tmp_idx_class]) == 1 and el_to_remove in current_behaviors_dict[tmp_idx_class]:
+                                last_remaining = True
+                        # remove the item from the list if last_remaining not True
+                        # make sure to remove it from all of the classes
+                        if last_remaining == False:
+                            for tmp_idx_class in current_behaviors_dict.keys():
+                                if el_to_remove in current_behaviors_dict[tmp_idx_class]:
+                                    current_behaviors_dict[tmp_idx_class].remove(el_to_remove)
+                        else:
+                            print("Removal could not happen because it would be the last remaining subcategory from some of the classes.")
+            # add the new dict to the behaviors dicts
+            behaviors_dicts.append(deepcopy(current_behaviors_dict))
+            csv_behavior = pd.DataFrame.from_dict(current_behaviors_dict, orient='index')
+            csv_behavior.to_csv(os.path.join(save_path,'task_{}'.format(i)),header=False,index=False)
+    elif pipeline == 'incremental_decremental':
+        result_folder(out_path, 'behaviors_task')
+
+        save_path = os.path.join(out_path, 'behaviors_task')
+
+        behaviors_to_substitute = pd.read_csv(behaviors_csv_path)
+        # get a subset of behaviors to start with, as described in the first row of the csv
+        tmp_behaviors_dict = deepcopy(starting_data_dict)
+
+        if behaviors_randomize == 'yes':
+            for column in tmp_behaviors_dict:
+                behaviors_to_substitute[column][1:] = np.random.permutation(behaviors_to_substitute[column].values[1:])
+
+        first_task_behaviors = behaviors_to_substitute.iloc[0]
+
+        current_behaviors_dict = {}
+
+        for idx_class in tmp_behaviors_dict.keys():
+            current_behaviors_dict[idx_class] = []
+
+        # get the behaviors for the first task
+        for idx_class in tmp_behaviors_dict.keys():
+                # get how many behaviors to remove
+                count_to_get = first_task_behaviors[idx_class]
+                if count_to_get != 0:
+                    for count_idx in range(count_to_get):
+                        # get current behaviors of that class from the current dict of behaviors
+                        behaviors_count = len(tmp_behaviors_dict[idx_class])
+                        # now select randomly the index of the behavior to be added to the first task
+                        idx_to_add = random.randint(0,behaviors_count-1)
+                        # check if it's not the last element from some of the classes
+                        el_to_add_and_remove = tmp_behaviors_dict[idx_class][idx_to_add]
+                        last_remaining = False
+                        for tmp_idx_class in tmp_behaviors_dict.keys():
+                            if len(tmp_behaviors_dict[tmp_idx_class]) == 1 and el_to_add_and_remove in tmp_behaviors_dict[tmp_idx_class]:
+                                last_remaining = True
+                        if last_remaining == False:
+                            for tmp_idx_class in tmp_behaviors_dict.keys():
+                                if el_to_add_and_remove in tmp_behaviors_dict[tmp_idx_class]:
+                                    current_behaviors_dict[tmp_idx_class].append(el_to_add_and_remove)
+                                    tmp_behaviors_dict[tmp_idx_class].remove(el_to_add_and_remove)
+                        else:
+                            print("Removal could not happen because it would be the last remaining subcategory from some of the classes.")
+        d[0] = (len(starting_data_dict.keys()))
+        # add the first dict to the behaviors dictionaries
+        behaviors_dicts.append(deepcopy(current_behaviors_dict))
+        # dict with all the behaviors from the first task to be removed
+        behaviors_to_remove = deepcopy(current_behaviors_dict)
+        csv_behavior = pd.DataFrame.from_dict(current_behaviors_dict, orient='index')
+        csv_behavior.to_csv(os.path.join(save_path,'task_0'),header=False,index=False)
+
+        for i, row in behaviors_to_substitute.iterrows():
+            # skip the first task
+            if i != 0:
+                d[i] = (len(starting_data_dict.keys()))
+
+                # iterate the classes to remove them
+                for idx_class in tmp_behaviors_dict.keys():
+                    count_to_get = row[idx_class]
+                    if count_to_get != 0:
+                        for count_idx in range(count_to_get):
+                            behaviors_count_remaining_to_add = len(tmp_behaviors_dict[idx_class])
+                            if behaviors_count_remaining_to_add != 0:
+                                # now select randomly the index of the behavior to be added to the task
+                                idx_to_add = random.randint(0,behaviors_count_remaining_to_add-1)
+
+                                behaviors_count_remaining_to_remove = len(behaviors_to_remove[idx_class])
+                                # now select randomly the index of the behavior to be removed to the task
+                                idx_to_remove = random.randint(0,behaviors_count_remaining_to_remove-1)
+                                # check if it's not the last behavior from some of the classes
+                                el_to_remove = behaviors_to_remove[idx_class][idx_to_remove]
+                                el_to_add = tmp_behaviors_dict[idx_class][idx_to_add]
+                                last_remaining = False
+                                for tmp_idx_class in current_behaviors_dict.keys():
+                                    if len(current_behaviors_dict[tmp_idx_class]) == 1 and el_to_remove in current_behaviors_dict[tmp_idx_class]:
+                                        last_remaining = True
+                                # remove the item from the list if last_remaining not True
+                                # make sure to remove it from all of the classes
+                                # if it's the last in some of them, just add the subcategory to all of them
+                                if last_remaining == False:
+                                    for tmp_idx_class in current_behaviors_dict.keys():
+                                        if el_to_remove in current_behaviors_dict[tmp_idx_class]:
+                                            #current_behaviors_dict[tmp_idx_class].append(el_to_add)
+                                            #tmp_behaviors_dict[tmp_idx_class].remove(el_to_add)
+                                            current_behaviors_dict[tmp_idx_class].remove(el_to_remove)
+                                            behaviors_to_remove[tmp_idx_class].remove(el_to_remove)
+                                        if el_to_add in tmp_behaviors_dict[tmp_idx_class]:
+                                            current_behaviors_dict[tmp_idx_class].append(el_to_add)
+                                            tmp_behaviors_dict[tmp_idx_class].remove(el_to_add)
+
+                                else:
+                                    print("Removal could not happen because it would be the last remaining subcategory from some of the classes.")
+                                    print("Just adding the new subcategory to all of them.")
+                                    # just add the new subcat for all of the classes
+                                    for tmp_idx_class in current_behaviors_dict.keys():
+                                        if el_to_remove in current_behaviors_dict[tmp_idx_class]:
+                                            current_behaviors_dict[tmp_idx_class].append(el_to_add)
+                                            tmp_behaviors_dict[tmp_idx_class].remove(el_to_add)
+                            else:
+                                print("No more subcats to add for this class.")
+
+                behaviors_dicts.append(deepcopy(current_behaviors_dict))
+                csv_behavior = pd.DataFrame.from_dict(current_behaviors_dict, orient='index')
+                csv_behavior.to_csv(os.path.join(save_path,'task_{}'.format(i)),header=False,index=False)
+
+    return d, behaviors_dicts, starting_data_dict
+
+
+def old_get_task_dict_incdec(n_task, total_classes, behaviors_csv_path, pipeline, behaviors_randomize, out_path, init_dict):
+    #TODO: this starting_data_dict should be returned from an external file maybe
+    starting_data_dict = init_dict
 
     d = {}
 
@@ -293,6 +432,7 @@ def get_task_dict_incdec(n_task, total_classes, behaviors_csv_path, pipeline, be
                 csv_behavior.to_csv(os.path.join(save_path,'task_{}'.format(i)),header=False,index=False)
 
     return d, behaviors_dicts, starting_data_dict
+
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
