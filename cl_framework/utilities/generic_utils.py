@@ -240,23 +240,24 @@ def get_task_dict_incdec(n_task, total_classes, behaviors_csv_path, pipeline, be
                 count_to_get = first_task_behaviors[idx_class]
                 if count_to_get != 0:
                     for count_idx in range(count_to_get):
-                        # get current behaviors of that class from the current dict of behaviors
-                        behaviors_count = len(tmp_behaviors_dict[idx_class])
-                        # now select randomly the index of the behavior to be added to the first task
-                        idx_to_add = random.randint(0,behaviors_count-1)
-                        # check if it's not the last element from some of the classes
-                        el_to_add_and_remove = tmp_behaviors_dict[idx_class][idx_to_add]
-                        last_remaining = False
-                        for tmp_idx_class in tmp_behaviors_dict.keys():
-                            if len(tmp_behaviors_dict[tmp_idx_class]) == 1 and el_to_add_and_remove in tmp_behaviors_dict[tmp_idx_class]:
-                                last_remaining = True
-                        if last_remaining == False:
+                        if len(current_behaviors_dict[idx_class]) < count_to_get:
+                            # get current behaviors of that class from the current dict of behaviors
+                            behaviors_count = len(tmp_behaviors_dict[idx_class])
+                            # now select randomly the index of the behavior to be added to the first task
+                            idx_to_add = random.randint(0,behaviors_count-1)
+                            # check if it's not the last element from some of the classes
+                            el_to_add_and_remove = tmp_behaviors_dict[idx_class][idx_to_add]
+                            last_remaining = False
                             for tmp_idx_class in tmp_behaviors_dict.keys():
-                                if el_to_add_and_remove in tmp_behaviors_dict[tmp_idx_class]:
-                                    current_behaviors_dict[tmp_idx_class].append(el_to_add_and_remove)
-                                    tmp_behaviors_dict[tmp_idx_class].remove(el_to_add_and_remove)
-                        else:
-                            print("Removal could not happen because it would be the last remaining subcategory from some of the classes.")
+                                if len(tmp_behaviors_dict[tmp_idx_class]) == 1 and el_to_add_and_remove in tmp_behaviors_dict[tmp_idx_class]:
+                                    last_remaining = True
+                            if last_remaining == False:
+                                for tmp_idx_class in tmp_behaviors_dict.keys():
+                                    if el_to_add_and_remove in tmp_behaviors_dict[tmp_idx_class]:
+                                        current_behaviors_dict[tmp_idx_class].append(el_to_add_and_remove)
+                                        tmp_behaviors_dict[tmp_idx_class].remove(el_to_add_and_remove)
+                            else:
+                                print("Removal could not happen because it would be the last remaining subcategory from some of the classes.")
         d[0] = (len(starting_data_dict.keys()))
         # add the first dict to the behaviors dictionaries
         behaviors_dicts.append(deepcopy(current_behaviors_dict))
@@ -308,8 +309,8 @@ def get_task_dict_incdec(n_task, total_classes, behaviors_csv_path, pipeline, be
                                     print("Removal could not happen because it would be the last remaining subcategory from some of the classes.")
                                     print("Just adding the new subcategory to all of them.")
                                     # just add the new subcat for all of the classes
-                                    for tmp_idx_class in current_behaviors_dict.keys():
-                                        if el_to_remove in current_behaviors_dict[tmp_idx_class]:
+                                    for tmp_idx_class in tmp_behaviors_dict.keys():
+                                        if el_to_add in tmp_behaviors_dict[tmp_idx_class]:
                                             current_behaviors_dict[tmp_idx_class].append(el_to_add)
                                             tmp_behaviors_dict[tmp_idx_class].remove(el_to_add)
                             else:

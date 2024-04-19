@@ -299,6 +299,25 @@ class DataIncrementalDecrementalPipelineDataset():
 
             return cl_test_dataset, cl_test_sizes, None, None
         
+    def new_get_weighted_random_sampler(self,indices):
+        """ 
+         TODO: controllare di aver fatto il sampler correttamente """
+        tmp_targets = [self.dataset.targets[i] for i in indices]
+        class_sample_count = np.array([0 for i in range(self.total_classes)])
+        sample_weight = [0 for i in range(self.total_classes)]
+        for i in range(self.total_classes):
+            classes = np.unique(self.dataset.targets)
+            class_sample_count[i] = len(np.where(tmp_targets == classes[i])[0])
+            
+        sample_weight = 1. / class_sample_count
+        sample_weight[sample_weight == np.inf] = 0
+
+        samples_weight = np.array(sample_weight[[self.dataset.targets[i] for i in indices]])
+        sampler = WeightedRandomSampler(samples_weight, len(samples_weight))
+
+        return sampler
+    
+
     def get_weighted_random_sampler(self,indices):
         """ 
          TODO: controllare di aver fatto il sampler correttamente """
