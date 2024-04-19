@@ -10,8 +10,8 @@ do
         --epochs 5 --batch_size 4 --lr_first_task 1e-4 --lr_first_task_head 1e-4 --head_lr 1e-4 --backbone_lr 1e-4 \
         --scheduler_type fixd --plateau_check map --patience 10 --device 1 \
         --criterion_type multilabel --dataset kinetics --data_path ./Kinetics \
-        --behaviors_csv_path ./Kinetics/Info/behaviors_to_substitute.csv --behaviors_randomize yes \
+        --subcategories_csv_path ./Kinetics/Info/subcategories_to_substitute.csv --subcategories_randomize yes \
         --n_class_first_task 5 --n_task 6 --initial_split 2 --valid_size 0.0 --sampler imbalance_sampler \
-        --behaviors_check yes --backbone movinetA0 --pretrained_path ./cleaned_checkpoint_sgd.pt
+        --subcategories_check yes --backbone movinetA0 --pretrained_path ./cleaned_checkpoint_sgd.pt
 done
 

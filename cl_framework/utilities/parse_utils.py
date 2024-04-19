@@ -64,14 +64,14 @@ def get_args():
     "Dataset Settings"
     parser.add_argument("--dataset", type=str, default="kinetics", choices=["cifar100","tiny-imagenet","imagenet-subset", "kinetics", "vzc"], help="dataset to use") 
     parser.add_argument("--data_path",type=str, default="./Kinetics",help="path where dataset is saved")
-    parser.add_argument("--behaviors_csv_path",type=str, default="./Kinetics/Info/behaviors_to_remove.csv",help="path where the csv with the specification of the behaviors to be removed/substituted is stored, for the pipeline decremental/incremental_decremental. Maybe to be modified later.")
-    parser.add_argument("--behaviors_randomize", type=str, default="yes", choices=["yes", "no"], help="Use it if we want to work with behaviors (subcategories), and in the decremental pipeline you want to randomize the order in which are removed") 
+    parser.add_argument("--subcategories_csv_path",type=str, default="./Kinetics/Info/subcategories_to_remove.csv",help="path where the csv with the specification of the subcategories to be removed/substituted is stored, for the pipeline decremental/incremental_decremental. Maybe to be modified later.")
+    parser.add_argument("--subcategories_randomize", type=str, default="yes", choices=["yes", "no"], help="Use it if we want to work with subcategories (subcategories), and in the decremental pipeline you want to randomize the order in which are removed") 
     parser.add_argument("--n_class_first_task", type=int, default=5, help="if greater than -1 use a larger number of classes for the first class, n_task include this one. If incdec approach set it to the number of classes of all tasks.")
     parser.add_argument("--n_task", type=int, default=6, help="number of tasks")
     parser.add_argument("--initial_split", type=int, default=2, choices=[2], help="how to divide in the initial split the dataset. 2 will divide in 50%/50%")
     parser.add_argument("--valid_size", type=float, default=0.0, help="percentage of train for validation set, default not use validation set")
     parser.add_argument("--sampler", type=str, default="balanced", choices=["imbalance_sampler","balanced"], help="Select the type of sampler to ber used by dataloader. imbalance sampler is for class imbalance cases. balanced is the standard one.")
-    parser.add_argument("--behaviors_check", type=str, default="yes", choices=["yes", "no"], help="Use it if we want to work with behaviors (subcategories), do not include it if not") 
+    parser.add_argument("--subcategories_check", type=str, default="yes", choices=["yes", "no"], help="Use it if we want to work with subcategories (subcategories), do not include it if not") 
 
     """
     Network Params

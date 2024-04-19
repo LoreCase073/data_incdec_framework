@@ -25,20 +25,20 @@ def find_classes(dir):
 
 def kinetics_classes(classes_csv):
     df = pd.read_csv(classes_csv)
-    classes_behaviors = {}
+    classes_subcategories = {}
 
     for _, row in df.iterrows():
         class_name = row['Class']
         subcategory = row['Subcategory']
         
         # Check if the class_name is already in the dictionary, if not, create a new entry
-        if class_name not in classes_behaviors:
-            classes_behaviors[class_name] = []
+        if class_name not in classes_subcategories:
+            classes_subcategories[class_name] = []
         
         # Add the subcategory to the corresponding class_name entry in the dictionary
-        classes_behaviors[class_name].append(subcategory)
+        classes_subcategories[class_name].append(subcategory)
 
-    return classes_behaviors
+    return classes_subcategories
 
 
 class KineticsDataset(Dataset):
@@ -63,14 +63,14 @@ class KineticsDataset(Dataset):
 
         self.data = []
         self.targets = []
-        self.behaviors = []
+        self.subcategories = []
 
-        #create a mapping between classes - behaviors
+        #create a mapping between classes - subcategories
         class_csv = os.path.join(folder_csv, 'classes.csv')
-        self.classes_behaviors = kinetics_classes(class_csv)
+        self.classes_subcategories = kinetics_classes(class_csv)
 
         #create a index for each class -- {class: idx}
-        self.class_to_idx = {key: i for i, key in enumerate(self.classes_behaviors.keys())}
+        self.class_to_idx = {key: i for i, key in enumerate(self.classes_subcategories.keys())}
 
         for _, row in df.iterrows():
             #replace to match how the data was called in the folder
@@ -86,7 +86,7 @@ class KineticsDataset(Dataset):
             #retrieve the behavior from category.csv
             self.targets.append(self.class_to_idx[matching_class])
             matching_behavior = cat_row['Sub-behavior']
-            self.behaviors.append(matching_behavior)
+            self.subcategories.append(matching_behavior)
         
         self.transform = transform
 
@@ -110,7 +110,7 @@ class KineticsDataset(Dataset):
     
     def __getitem__(self, index: int) -> Tuple[Any, Any]:
 
-        img_id, target, behavior = self.data[index], self.targets[index], self.behaviors[index]
+        img_id, target, behavior = self.data[index], self.targets[index], self.subcategories[index]
 
         video_id_path = os.path.join(self.data_folder,img_id)
         if self.fps == 5:
@@ -164,8 +164,8 @@ class VZCDataset(Dataset):
         self.data = []
         self.targets = []
         
-        #TODO: i guess not used for VZC case
-        #self.behaviors = []
+        #TODO: here subcategories should be the vehicles
+        #self.subcategories = []
 
         #TODO: implement a class_to_idx dict, here i did an example
         #create a index for each class -- {class: idx}
@@ -178,8 +178,7 @@ class VZCDataset(Dataset):
         
 
         for _, row in df.iterrows():
-            #TODO: replace to match how the data was called in the folder of vzc
-            # id_data = 'id_' + str(row['youtube_id']) + '_' + '{:06d}'.format(row['time_start']) + '_' + '{:06d}'.format(row['time_end'])
+            #TODO: check if the columns will be called id
             id_data = str(row['id'])
             self.data.append(id_data)
 
@@ -208,12 +207,6 @@ class VZCDataset(Dataset):
         img_id, target = self.data[index], self.targets[index]
 
         video_id_path = os.path.join(self.data_folder,img_id)
-        #TODO: to be modified, maybe will only be necessary a single directory control
-        """
-        if self.fps == 5:
-            images_path = os.path.join(video_id_path,'5fps_jpgs')
-        else:
-        """
         images_path = os.path.join(video_id_path,'jpgs')
 
         video = []

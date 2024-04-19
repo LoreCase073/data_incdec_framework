@@ -8,7 +8,7 @@ from sklearn.preprocessing import label_binarize
 
 
 class MetricEvaluatorIncDec():
-    def __init__(self, out_path, num_classes, criterion_type, all_behaviors_dict, class_to_idx):
+    def __init__(self, out_path, num_classes, criterion_type, all_subcategories_dict, class_to_idx):
         self.out_path = out_path
         self.num_classes = num_classes
         self.class_to_idx = class_to_idx
@@ -21,7 +21,7 @@ class MetricEvaluatorIncDec():
 
         self.criterion_type = criterion_type
         # this is required to extract the ap for each subcategory
-        self.all_behaviors_dict = all_behaviors_dict
+        self.all_subcategories_dict = all_subcategories_dict
 
 
 
@@ -192,9 +192,9 @@ class MetricEvaluatorIncDec():
     def get_ap_per_subcategory(self, predictions, labels, subcategories):
         ap_per_subcategory = {}
         ap_metric = MulticlassAveragePrecision(num_classes=self.num_classes, average=None)
-        for class_name in self.all_behaviors_dict:
+        for class_name in self.all_subcategories_dict:
             idx_class = self.class_to_idx[class_name]
-            class_subcategories = self.all_behaviors_dict[class_name]
+            class_subcategories = self.all_subcategories_dict[class_name]
             for idx_subcat in range(len(class_subcategories)):
                 
                 subcategory_name = class_subcategories[idx_subcat]
@@ -214,9 +214,9 @@ class MetricEvaluatorIncDec():
     def get_recall_per_subcategory(self, pos_max_prediction, labels, subcategories):
         recall_per_subcategory = {}
         recall_metric = Recall(task='multiclass',num_classes=self.num_classes, average=None)
-        for class_name in self.all_behaviors_dict:
+        for class_name in self.all_subcategories_dict:
             idx_class = self.class_to_idx[class_name]
-            class_subcategories = self.all_behaviors_dict[class_name]
+            class_subcategories = self.all_subcategories_dict[class_name]
             for idx_subcat in range(len(class_subcategories)):
                 
                 subcategory_name = class_subcategories[idx_subcat]
@@ -237,9 +237,9 @@ class MetricEvaluatorIncDec():
     def get_precision_per_subcategory(self, pos_max_prediction, labels, subcategories):
         precision_per_subcategory = {}
         precision_metric = Precision(task='multiclass',num_classes=self.num_classes, average=None)
-        for class_name in self.all_behaviors_dict:
+        for class_name in self.all_subcategories_dict:
             idx_class = self.class_to_idx[class_name]
-            class_subcategories = self.all_behaviors_dict[class_name]
+            class_subcategories = self.all_subcategories_dict[class_name]
             for idx_subcat in range(len(class_subcategories)):
                 
                 subcategory_name = class_subcategories[idx_subcat]
@@ -260,9 +260,9 @@ class MetricEvaluatorIncDec():
     def get_accuracy_per_subcategory(self, pos_max_prediction, labels, subcategories):
         accuracy_per_subcategory = {}
         
-        for class_name in self.all_behaviors_dict:
+        for class_name in self.all_subcategories_dict:
             idx_class = self.class_to_idx[class_name]
-            class_subcategories = self.all_behaviors_dict[class_name]
+            class_subcategories = self.all_subcategories_dict[class_name]
             for idx_subcat in range(len(class_subcategories)):
                 
                 subcategory_name = class_subcategories[idx_subcat]

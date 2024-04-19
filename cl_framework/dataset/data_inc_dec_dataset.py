@@ -2,14 +2,11 @@ from torch.utils.data import Subset, WeightedRandomSampler
 import numpy as np
 import torch
 
-""" TODO: modificare come spiegato su notion, in Refactoring e pulizia codice.
-    TLDR: fare che elementi interni a dataset sono passati dall'esterno (per pulizia e chiarezza codice)
-    e implementare collect anche senza behaviors per uso di Verizon.
- """
+
 class DataIncDecBaselineDataset():
     def __init__(self, dataset,  
                     n_task, initial_split,
-                    total_classes, behaviors_check='yes', train=True, validation=None, valid_size=None):
+                    total_classes, subcategories_check='yes', train=True, validation=None, valid_size=None):
         
         self.dataset = dataset
         self.train = train 
@@ -27,7 +24,7 @@ class DataIncDecBaselineDataset():
         #compute class sample count for the sample weights to be used in weighted random sample
         self.class_sample_count = np.array([len(np.where(self.dataset.targets == t)[0]) for t in np.unique(self.dataset.targets)])
         self.sample_weight = 1. / self.class_sample_count
-        self.behaviors_check = behaviors_check
+        self.subcategories_check = subcategories_check
 
 
     
@@ -122,19 +119,19 @@ class DataIncDecBaselineDataset():
         first_split = []
         second_split = []
         # do the splits including behavior information in the splits, if not just work on the classes
-        if self.behaviors_check == 'yes':
+        if self.subcategories_check == 'yes':
             #now divide the two first splits of the dataset
             for idx_class in range(self.total_classes):
                 #takes the class name from the idx
                 #class_to_idx {class: idx}
                 class_name = [ c for c, idx in self.dataset.class_to_idx.items() if idx == idx_class ][0]
 
-                #iterate over the behaviors for class_name
-                #classes_behaviors {class: [sub1,sub2...]}
-                for it_behaviors in (self.dataset.classes_behaviors[class_name]):
+                #iterate over the subcategories for class_name
+                #classes_subcategories {class: [sub1,sub2...]}
+                for it_subcategories in (self.dataset.classes_subcategories[class_name]):
                     
-                    #Return indices of elements from the current it_behaviors
-                    current_behavior_indices = np.where(np.array(self.dataset.behaviors) == it_behaviors)[0]
+                    #Return indices of elements from the current it_subcategories
+                    current_behavior_indices = np.where(np.array(self.dataset.subcategories) == it_subcategories)[0]
                     np.random.shuffle(current_behavior_indices)
 
                     num_data_first_split = int(len(current_behavior_indices)/self.initial_split)
@@ -169,13 +166,13 @@ class DataIncDecBaselineDataset():
 Work in progress...
  """
 class DataIncrementalDecrementalPipelineDataset():
-    def __init__(self, dataset, behaviors_dictionary, 
+    def __init__(self, dataset, subcategories_dictionary, 
                     n_task, initial_split,
-                    total_classes, behaviors_check='yes', train=True, validation=None, valid_size=None):
+                    total_classes, subcategories_check='yes', train=True, validation=None, valid_size=None):
         
         self.dataset = dataset
         self.train = train
-        self.behaviors_dictionary = behaviors_dictionary
+        self.subcategories_dictionary = subcategories_dictionary
 
         #initial_split will explain how to split the data
         #will usually be 50-50
@@ -196,7 +193,7 @@ class DataIncrementalDecrementalPipelineDataset():
         """ self.class_sample_count = np.array([len(np.where(self.dataset.targets == t)[0]) for t in np.unique(self.dataset.targets)])
         self.sample_weight = 1. / self.class_sample_count
          """
-        self.behaviors_check = behaviors_check
+        self.subcategories_check = subcategories_check
 
 
     
@@ -212,23 +209,23 @@ class DataIncrementalDecrementalPipelineDataset():
 
 
 
-            #TODO: controllare di aver fatto l'eliminazione dei behaviors e quindi la suddivisione del dataset correttamente
+            #TODO: controllare di aver fatto l'eliminazione dei subcategories e quindi la suddivisione del dataset correttamente
 
             for idx_class in range(self.total_classes):
-                # get the class name to use in behaviors_dictionary
+                # get the class name to use in subcategories_dictionary
                 class_name = [ c for c, idx in self.dataset.class_to_idx.items() if idx == idx_class ][0]
-                for it_behaviors in (self.dataset.classes_behaviors[class_name]):
-                    #Return indices of elements from the current it_behaviors
-                    current_behavior_indices = np.where(np.array(self.dataset.behaviors) == it_behaviors)[0]
+                for it_subcategories in (self.dataset.classes_subcategories[class_name]):
+                    #Return indices of elements from the current it_subcategories
+                    current_behavior_indices = np.where(np.array(self.dataset.subcategories) == it_subcategories)[0]
                     np.random.shuffle(current_behavior_indices)
                     
-                    # now iterate over the behaviors that should be different for each task
+                    # now iterate over the subcategories that should be different for each task
                     for idx_task in range(self.n_task):
                        
                         # get the current task behavior_dict
-                        current_behaviors_dict = self.behaviors_dictionary[idx_task]
+                        current_subcategories_dict = self.subcategories_dictionary[idx_task]
                         #check if the behavior selected is in the current task
-                        if it_behaviors in current_behaviors_dict[class_name]:
+                        if it_subcategories in current_subcategories_dict[class_name]:
 
                             #takes indices of the current behavior from the first split and second split
                             f_class_indices = [idx for idx in current_behavior_indices if idx in first_split]
@@ -262,15 +259,15 @@ class DataIncrementalDecrementalPipelineDataset():
                 
                 #Here validation passed from out of the train, but it's not the same for all the tasks
                 for idx_class in range(self.total_classes):
-                    # get the class name to use in behaviors_dictionary
+                    # get the class name to use in subcategories_dictionary
                     class_name = [ c for c, idx in self.validation.class_to_idx.items() if idx == idx_class ][0]
                     for idx_task in range(self.n_task):
                         # get the current task behavior_dict
-                        current_behaviors_dict = self.behaviors_dictionary[idx_task]
-                        # now iterate over the behaviors that should be different for each task
-                        for it_behaviors in (current_behaviors_dict[class_name]):
-                            #Return indices of elements from the current it_behaviors
-                            current_behavior_indices = np.where(np.array(self.validation.behaviors) == it_behaviors)[0]
+                        current_subcategories_dict = self.subcategories_dictionary[idx_task]
+                        # now iterate over the subcategories that should be different for each task
+                        for it_subcategories in (current_subcategories_dict[class_name]):
+                            #Return indices of elements from the current it_subcategories
+                            current_behavior_indices = np.where(np.array(self.validation.subcategories) == it_subcategories)[0]
 
                             #add and remove data and make the list of indices for the task
                             val_indices_list[idx_task].extend(list(current_behavior_indices))
@@ -334,19 +331,19 @@ class DataIncrementalDecrementalPipelineDataset():
         first_split = []
         second_split = []
         # do the splits including behavior information in the splits, if not just work on the classes
-        if self.behaviors_check == 'yes':
+        if self.subcategories_check == 'yes':
             #now divide the two first splits of the dataset
             for idx_class in range(self.total_classes):
                 #takes the class name from the idx
                 #class_to_idx {class: idx}
                 class_name = [ c for c, idx in self.dataset.class_to_idx.items() if idx == idx_class ][0]
 
-                #iterate over the behaviors for class_name
-                #classes_behaviors {class: [sub1,sub2...]}
-                for it_behaviors in (self.dataset.classes_behaviors[class_name]):
+                #iterate over the subcategories for class_name
+                #classes_subcategories {class: [sub1,sub2...]}
+                for it_subcategories in (self.dataset.classes_subcategories[class_name]):
                     
-                    #Return indices of elements from the current it_behaviors
-                    current_behavior_indices = np.where(np.array(self.dataset.behaviors) == it_behaviors)[0]
+                    #Return indices of elements from the current it_subcategories
+                    current_behavior_indices = np.where(np.array(self.dataset.subcategories) == it_subcategories)[0]
                     np.random.shuffle(current_behavior_indices)
 
                     num_data_first_split = int(len(current_behavior_indices)/self.initial_split)
@@ -382,7 +379,7 @@ class DataIncrementalDecrementalPipelineDataset():
 class JointIncrementalBaselineDataset():
     def __init__(self, dataset,  
                     n_task, initial_split,
-                    total_classes, behaviors_check='yes', train=True, validation=None, valid_size=None):
+                    total_classes, subcategories_check='yes', train=True, validation=None, valid_size=None):
         
         self.dataset = dataset
         self.train = train 
@@ -400,7 +397,7 @@ class JointIncrementalBaselineDataset():
         #compute class sample count for the sample weights to be used in weighted random sample
         self.class_sample_count = np.array([len(np.where(self.dataset.targets == t)[0]) for t in np.unique(self.dataset.targets)])
         self.sample_weight = 1. / self.class_sample_count
-        self.behaviors_check = behaviors_check
+        self.subcategories_check = subcategories_check
 
 
     
@@ -490,19 +487,19 @@ class JointIncrementalBaselineDataset():
         first_split = []
         second_split = []
         # do the splits including behavior information in the splits, if not just work on the classes
-        if self.behaviors_check == 'yes':
+        if self.subcategories_check == 'yes':
             #now divide the two first splits of the dataset
             for idx_class in range(self.total_classes):
                 #takes the class name from the idx
                 #class_to_idx {class: idx}
                 class_name = [ c for c, idx in self.dataset.class_to_idx.items() if idx == idx_class ][0]
 
-                #iterate over the behaviors for class_name
-                #classes_behaviors {class: [sub1,sub2...]}
-                for it_behaviors in (self.dataset.classes_behaviors[class_name]):
+                #iterate over the subcategories for class_name
+                #classes_subcategories {class: [sub1,sub2...]}
+                for it_subcategories in (self.dataset.classes_subcategories[class_name]):
                     
-                    #Return indices of elements from the current it_behaviors
-                    current_behavior_indices = np.where(np.array(self.dataset.behaviors) == it_behaviors)[0]
+                    #Return indices of elements from the current it_subcategories
+                    current_behavior_indices = np.where(np.array(self.dataset.subcategories) == it_subcategories)[0]
                     np.random.shuffle(current_behavior_indices)
 
                     num_data_first_split = int(len(current_behavior_indices)/self.initial_split)

@@ -19,7 +19,7 @@ from torch.utils.data import WeightedRandomSampler, SequentialSampler, DataLoade
 
 class DICM_replay(IncrementalApproach):
     
-    def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, behavior_dicts, all_behaviors_dict):
+    def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, subcategories_dict, all_subcategories_dict):
         self.total_classes = total_classes
         
         self.n_accumulation = args.n_accumulation
@@ -31,7 +31,7 @@ class DICM_replay(IncrementalApproach):
         self.print_running_approach()
         self.criterion_type = args.criterion_type
         self.criterion = self.select_criterion(args.criterion_type)
-        self.all_behaviors_dict = all_behaviors_dict
+        self.all_subcategories_dict = all_subcategories_dict
         self.freeze_backbone = args.freeze_backbone
         # save paths for the dataset in order to fix the files names in order to be saved
         self.data_path_prefix = None
@@ -166,7 +166,7 @@ class DICM_replay(IncrementalApproach):
 
         with torch.no_grad():
             
-            for batch_idx, (images, targets, binarized_targets, behavior, data_path) in enumerate(tqdm(tmp_loader)):
+            for batch_idx, (images, targets, binarized_targets, subcategory, data_path) in enumerate(tqdm(tmp_loader)):
                 lab = self.select_proper_targets(targets,binarized_targets)
                 
                 features = self.model.backbone.extract_blocks_features(images)
@@ -177,7 +177,7 @@ class DICM_replay(IncrementalApproach):
                     torch.save(features[i], features_names + '.pt')
                 data_paths_list.append(data_path)
                 labels_list.append(lab)
-                subcategories_list.append(behavior)
+                subcategories_list.append(subcategory)
                     
         
         self.save_features_list(self.class_names, data_paths_list, labels_list, subcategories_list, name_file)
@@ -188,14 +188,14 @@ class DICM_replay(IncrementalApproach):
 
     
     def eval(self, current_training_task, test_id, loader, epoch, verbose, testing=None):
-        metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.total_classes, self.criterion_type, self.all_behaviors_dict, self.class_to_idx)
+        metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.total_classes, self.criterion_type, self.all_subcategories_dict, self.class_to_idx)
 
 
         
         cls_loss, n_samples = 0, 0 
         with torch.no_grad():
             self.model.eval()
-            for images, targets, binarized_targets, behavior, data_path in tqdm(loader):
+            for images, targets, binarized_targets, subcategory, data_path in tqdm(loader):
                 images = images.to(self.device)
                 labels = self.select_proper_targets(targets, binarized_targets).to(self.device)
                 current_batch_size = images.shape[0]
@@ -207,7 +207,7 @@ class DICM_replay(IncrementalApproach):
                  
 
                 metric_evaluator.update(targets, binarized_targets.float().squeeze(dim=1),
-                                        self.compute_probabilities(outputs, 0), behavior, data_path)
+                                        self.compute_probabilities(outputs, 0), subcategory, data_path)
                 
 
             acc, ap, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory, accuracy_per_subcategory, precision_per_subcategory = metric_evaluator.get(verbose=verbose)

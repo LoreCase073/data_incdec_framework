@@ -54,7 +54,7 @@ def isPSD(A, tol=1e-7):
 
 class DICM_efc(IncrementalApproach):
     
-    def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, behavior_dicts, all_behaviors_dict):
+    def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, subcategories_dict, all_subcategories_dict):
         self.total_classes = total_classes
         
         self.n_accumulation = args.n_accumulation
@@ -67,7 +67,7 @@ class DICM_efc(IncrementalApproach):
         
         self.criterion_type = args.criterion_type
         self.criterion = self.select_criterion(args.criterion_type)
-        self.all_behaviors_dict = all_behaviors_dict
+        self.all_subcategories_dict = all_subcategories_dict
         
         self.freeze_backbone = args.freeze_backbone
         self.efc_lambda = args.efc_lambda
@@ -255,14 +255,14 @@ class DICM_efc(IncrementalApproach):
         return cls_loss, efc_loss
     
     def eval(self, current_training_task, test_id, loader, epoch, verbose, testing=None):
-        metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.total_classes, self.criterion_type, self.all_behaviors_dict, self.class_to_idx)
+        metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.total_classes, self.criterion_type, self.all_subcategories_dict, self.class_to_idx)
 
         
         val_cls_loss, val_efc_loss, n_samples = 0, 0, 0
         with torch.no_grad():
             self.model.eval()
             self.old_model.eval()
-            for images, targets, binarized_targets, behavior, data_path in tqdm(loader):
+            for images, targets, binarized_targets, subcategory, data_path in tqdm(loader):
                 images = images.to(self.device)
 
                 labels = self.select_proper_targets(targets, binarized_targets).to(self.device)
@@ -279,7 +279,7 @@ class DICM_efc(IncrementalApproach):
                  
 
                 metric_evaluator.update(targets, binarized_targets.float().squeeze(dim=1),
-                                        self.compute_probabilities(outputs, 0), behavior, data_path)
+                                        self.compute_probabilities(outputs, 0), subcategory, data_path)
                 
                 val_cls_loss += cls_loss * current_batch_size
                 val_efc_loss += efc_loss * current_batch_size

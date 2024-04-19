@@ -32,25 +32,25 @@ import time
 def get_training_validation_subset_for_tasks(approach, pipeline, train_set, task_dict, 
                                                     n_task, initial_split, 
                                                     total_classes,
-                                                    behaviors_check,validation_set,
-                                                    valid_size, n_class_first_task,behavior_dicts = None):
+                                                    subcategories_check,validation_set,
+                                                    valid_size, n_class_first_task,subcategories_dict = None):
     if approach == 'incdec' or approach == 'incdec_efc' or approach == 'incdec_lwf' or approach == 'incdec_fd':
         if pipeline == 'baseline':
             cl_train_val = DataIncDecBaselineDataset(train_set,
                                                     n_task, initial_split, 
                                                     total_classes,
-                                                    behaviors_check=behaviors_check,
+                                                    subcategories_check=subcategories_check,
                                                     train=True, validation=validation_set,
                                                     valid_size=valid_size)
         elif pipeline == 'decremental' or pipeline == 'incremental_decremental':
-            cl_train_val = DataIncrementalDecrementalPipelineDataset(train_set, behavior_dicts, 
+            cl_train_val = DataIncrementalDecrementalPipelineDataset(train_set, subcategories_dict, 
                     n_task, initial_split,
-                    total_classes, behaviors_check='yes', train=True, validation=validation_set, valid_size=valid_size)
+                    total_classes, subcategories_check='yes', train=True, validation=validation_set, valid_size=valid_size)
         elif pipeline == 'joint_incremental':
             cl_train_val = JointIncrementalBaselineDataset(train_set,
                                                     n_task, initial_split, 
                                                     total_classes,
-                                                    behaviors_check=behaviors_check,
+                                                    subcategories_check=subcategories_check,
                                                     train=True, validation=validation_set,
                                                     valid_size=valid_size)
     else:
@@ -65,25 +65,25 @@ def get_training_validation_subset_for_tasks(approach, pipeline, train_set, task
 def get_test_subset_for_tasks(approach, pipeline, test_set, task_dict,  
                                                     n_task, initial_split, 
                                                     total_classes,
-                                                    behaviors_check, behavior_dicts = None):
+                                                    subcategories_check, subcategories_dict = None):
     
     if approach == 'incdec' or approach == 'incdec_efc' or approach == 'incdec_lwf' or approach == 'incdec_fd':
         if pipeline == 'baseline':
             cl_test = DataIncDecBaselineDataset(test_set,
                                                     n_task, initial_split, 
                                                     total_classes,
-                                                    behaviors_check=behaviors_check,
+                                                    subcategories_check=subcategories_check,
                                                     train=False, validation=None,
                                                     valid_size=None,)
         elif pipeline == 'decremental' or pipeline == 'incremental_decremental':
-            cl_test = DataIncrementalDecrementalPipelineDataset(test_set, behavior_dicts, 
+            cl_test = DataIncrementalDecrementalPipelineDataset(test_set, subcategories_dict, 
                     n_task, initial_split,
-                    total_classes, behaviors_check='yes', train=False, validation=None, valid_size=None)
+                    total_classes, subcategories_check='yes', train=False, validation=None, valid_size=None)
         elif pipeline == 'joint_incremental':
             cl_test = JointIncrementalBaselineDataset(test_set,
                                                     n_task, initial_split, 
                                                     total_classes,
-                                                    behaviors_check=behaviors_check,
+                                                    subcategories_check=subcategories_check,
                                                     train=False, validation=None,
                                                     valid_size=None,)
     else:
@@ -172,7 +172,7 @@ if __name__ == "__main__":
     
     # task_dict = {task_id: list_of_class_ids}
     if args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd':
-        task_dict, behavior_dicts, all_behaviors_dict = get_task_dict_incdec(args.n_task, total_classes, args.behaviors_csv_path, args.pipeline, args.behaviors_randomize, out_path, subcat_dict)
+        task_dict, subcategories_dict, all_subcategories_dict = get_task_dict_incdec(args.n_task, total_classes, args.subcategories_csv_path, args.pipeline, args.subcategories_randomize, out_path, subcat_dict)
     else:
         task_dict = get_task_dict(args.n_task, total_classes, class_per_task, args.n_class_first_task)   
     
@@ -186,9 +186,9 @@ if __name__ == "__main__":
     cl_train_val = get_training_validation_subset_for_tasks(args.approach, args.pipeline, train_set, task_dict,
                                                             args.n_task, args.initial_split, 
                                                             total_classes,
-                                                            args.behaviors_check,
+                                                            args.subcategories_check,
                                                             validation_set,
-                                                            args.valid_size,args.n_class_first_task, behavior_dicts)
+                                                            args.valid_size,args.n_class_first_task, subcategories_dict)
 
     
     train_dataset_list, train_sizes, val_dataset_list, val_sizes = cl_train_val.collect()
@@ -197,7 +197,7 @@ if __name__ == "__main__":
     cl_test = get_test_subset_for_tasks(args.approach, args.pipeline, test_set, task_dict,
                                                             args.n_task, args.initial_split, 
                                                             total_classes,
-                                                            args.behaviors_check,behavior_dicts)
+                                                            args.subcategories_check,subcategories_dict)
 
 
     test_dataset_list, test_sizes, _, _  = cl_test.collect()
@@ -216,8 +216,8 @@ if __name__ == "__main__":
     Logger Init
     """
     if args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd':
-        logger = IncDecLogger(out_path=out_path, n_task=args.n_task, task_dict=task_dict, all_behaviors_dict = all_behaviors_dict, class_to_idx= train_set.get_class_to_idx(), num_classes=total_classes, criterion_type=args.criterion_type)
-        val_logger = IncDecLogger(out_path=out_path, n_task=args.n_task, task_dict=task_dict, all_behaviors_dict = all_behaviors_dict, class_to_idx= train_set.get_class_to_idx(), num_classes=total_classes, criterion_type=args.criterion_type, validation_mode=True)
+        logger = IncDecLogger(out_path=out_path, n_task=args.n_task, task_dict=task_dict, all_subcategories_dict = all_subcategories_dict, class_to_idx= train_set.get_class_to_idx(), num_classes=total_classes, criterion_type=args.criterion_type)
+        val_logger = IncDecLogger(out_path=out_path, n_task=args.n_task, task_dict=task_dict, all_subcategories_dict = all_subcategories_dict, class_to_idx= train_set.get_class_to_idx(), num_classes=total_classes, criterion_type=args.criterion_type, validation_mode=True)
     else:
         logger = Logger(out_path=out_path, n_task=args.n_task, task_dict=task_dict, test_sizes=test_sizes)
     result_folder(out_path, "tensorboard")
@@ -247,8 +247,8 @@ if __name__ == "__main__":
                     # class_names used to print the confusion matrices and pr_curves
                     # will work only with Kinetics and vzc dataset
                     class_to_idx= train_set.get_class_to_idx(),
-                    behavior_dicts = behavior_dicts,
-                    all_behaviors_dict = all_behaviors_dict,
+                    subcategories_dict = subcategories_dict,
+                    all_subcategories_dict = all_subcategories_dict,
                     )
     elif args.approach == 'incdec_efc':
         approach = DICM_efc(args=args, device = device,
@@ -258,8 +258,8 @@ if __name__ == "__main__":
                             # class_names used to print the confusion matrices and pr_curves
                             # will work only with Kinetics and vzc dataset
                             class_to_idx= train_set.get_class_to_idx(),
-                            behavior_dicts = behavior_dicts,
-                            all_behaviors_dict = all_behaviors_dict,
+                            subcategories_dict = subcategories_dict,
+                            all_subcategories_dict = all_subcategories_dict,
                             )
     elif args.approach == 'incdec_lwf':
         approach = DICM_lwf(args=args, device = device,
@@ -269,8 +269,8 @@ if __name__ == "__main__":
                             # class_names used to print the confusion matrices and pr_curves
                             # will work only with Kinetics and vzc dataset
                             class_to_idx= train_set.get_class_to_idx(),
-                            behavior_dicts = behavior_dicts,
-                            all_behaviors_dict = all_behaviors_dict,
+                            subcategories_dict = subcategories_dict,
+                            all_subcategories_dict = all_subcategories_dict,
                             )
     elif args.approach == 'incdec_fd':
         approach = DICM_fd(args=args, device = device,
@@ -280,8 +280,8 @@ if __name__ == "__main__":
                             # class_names used to print the confusion matrices and pr_curves
                             # will work only with Kinetics and vzc dataset
                             class_to_idx= train_set.get_class_to_idx(),
-                            behavior_dicts = behavior_dicts,
-                            all_behaviors_dict = all_behaviors_dict,
+                            subcategories_dict = subcategories_dict,
+                            all_subcategories_dict = all_subcategories_dict,
                             )
 
     else:
@@ -321,7 +321,7 @@ if __name__ == "__main__":
             if task_id == 0 and args.restore_initial_parameters == 'yes':
                 print('Stored initial model to retrain on each subsequent task.')
                 store_model(approach, out_path, 'initial')
-            elif task_id ==0 and args.pretrained_path != "None":
+            elif task_id == 0 and args.pretrained_path != "None":
                 print("Loading model from path {}".format(args.pretrained_path))
                 # Here i substitute the normal head with a 200 size head, to load the pre-trained model on 200 classes
                 approach.substitute_head(200)
@@ -440,10 +440,6 @@ if __name__ == "__main__":
         print("Loading model from path: {}".format(model_name))
         rollback_model(approach, model_name, device, name=str(model_name))
 
-        #TODO: forse non necessario perchè salvo comunque quello migliore prima...
-        #TODO: controllare se rimuovere
-        #store_model(approach, out_path, name=str(task_id))
-
 
         # Here do a validation eval for the best epoch model
         # this is redundant, but here i print metrics of the best model on the validation set...
@@ -460,8 +456,6 @@ if __name__ == "__main__":
         if args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd':
             acc_value, ap_value, _, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory, accuracy_per_subcategory,precision_per_subcategory = approach.eval(task_id, task_id, test_loaders[task_id], epoch,  verbose=False, testing='test')
             logger.update_accuracy(current_training_task_id=task_id, acc_value=acc_value, ap_value=ap_value, acc_per_class=acc_per_class, mean_ap=mean_ap, map_weighted=map_weighted, precision_per_class=precision_per_class, recall_per_class=recall_per_class, exact_match=exact_match, ap_per_subcategory=ap_per_subcategory, recall_per_subcategory=recall_per_subcategory, accuracy_per_subcategory=accuracy_per_subcategory, precision_per_subcategory=precision_per_subcategory)
-            #TODO: questo è forse per misurare quando si dimentica dei vecchi task, in futuro introdurre qualche metrica del genere
-            #Per ora commento perchè non utile allo scopo per come è fatto, anche perchè eliminato update_forgetting da LoggerIncDec
             logger.update_forgetting(current_training_task_id=task_id)
             logger.print_latest(current_training_task_id=task_id)
         else:
