@@ -24,8 +24,8 @@ def get_args():
     """
     EFC hyperparams 
     """
-    parser.add_argument("--efc_lambda", default=10.0, type=float, help="")
-    parser.add_argument("--damping", default=2.0, type=float, help="")
+    parser.add_argument("--efc_lambda", default=1.0, type=float, help="")
+    parser.add_argument("--damping", default=0.0, type=float, help="")
     
     """
     EWC Hyperparams
@@ -35,14 +35,14 @@ def get_args():
     """
     LWF hyperparams 
     """
-    parser.add_argument("--lwf_lamb", default=10.0, type=float, help="")
-    parser.add_argument("--lwf_T", default=2.0, type=float, help="")
+    parser.add_argument("--lwf_lamb", default=1.0, type=float, help="")
+    parser.add_argument("--lwf_T", default=1.0, type=float, help="")
 
 
     """
     FD hyperparams 
     """
-    parser.add_argument("--fd_lamb", default=10.0, type=float, help="")
+    parser.add_argument("--fd_lamb", default=0.1, type=float, help="")
 
  
     """
@@ -60,9 +60,10 @@ def get_args():
     parser.add_argument("--patience", type=int, default=10, help="Patience for the reduce_plateau scheduler.")
     parser.add_argument("--device", type=int, default=0)
     parser.add_argument("--criterion_type", type=str, default="multilabel", choices=["multiclass", "multilabel"], help="Select the type of loss to be used, for multiclass is cross_entropy, for multilabel BCE.")
-    
+    parser.add_argument("--multilabel", type=str, default="no", choices=["yes", "no"], help="Select if to consider a multilabel setting in evaluation. Used if multilabel is used and for VZC.")
+
     "Dataset Settings"
-    parser.add_argument("--dataset", type=str, default="kinetics", choices=["cifar100","tiny-imagenet","imagenet-subset", "kinetics", "vzc"], help="dataset to use") 
+    parser.add_argument("--dataset", type=str, default="kinetics", choices=["cifar100","tiny-imagenet","imagenet-subset", "kinetics", "vzc", "vzctest"], help="dataset to use") 
     parser.add_argument("--data_path",type=str, default="./Kinetics",help="path where dataset is saved")
     parser.add_argument("--subcategories_csv_path",type=str, default="./Kinetics/Info/subcategories_to_remove.csv",help="path where the csv with the specification of the subcategories to be removed/substituted is stored, for the pipeline decremental/incremental_decremental. Maybe to be modified later.")
     parser.add_argument("--subcategories_randomize", type=str, default="yes", choices=["yes", "no"], help="Use it if we want to work with subcategories (subcategories), and in the decremental pipeline you want to randomize the order in which are removed") 

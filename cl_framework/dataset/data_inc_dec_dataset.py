@@ -6,7 +6,7 @@ import torch
 class DataIncDecBaselineDataset():
     def __init__(self, dataset,  
                     n_task, initial_split,
-                    total_classes, subcategories_check='yes', train=True, validation=None, valid_size=None):
+                    total_classes, subcategories_check='yes', train=True, validation=None, valid_size=None, no_class_check=False):
         
         self.dataset = dataset
         self.train = train 
@@ -18,7 +18,11 @@ class DataIncDecBaselineDataset():
         self.n_task = n_task
         self.len_dataset = len(dataset)
         #number of classes
-        self.total_classes = total_classes
+        if no_class_check == True:
+            # this is because we pass all the classes -1 in case of vzc
+            self.total_classes = total_classes + 1
+        else:
+            self.total_classes = total_classes
 
         self.validation = validation
         #compute class sample count for the sample weights to be used in weighted random sample
@@ -118,7 +122,7 @@ class DataIncDecBaselineDataset():
     def get_initial_splits(self):
         first_split = []
         second_split = []
-        # do the splits including behavior information in the splits, if not just work on the classes
+        # do the splits including subcategory information in the splits, if not just work on the classes
         if self.subcategories_check == 'yes':
             #now divide the two first splits of the dataset
             for idx_class in range(self.total_classes):
@@ -130,15 +134,19 @@ class DataIncDecBaselineDataset():
                 #classes_subcategories {class: [sub1,sub2...]}
                 for it_subcategories in (self.dataset.classes_subcategories[class_name]):
                     
+                    
+                    
                     #Return indices of elements from the current it_subcategories
-                    current_behavior_indices = np.where(np.array(self.dataset.subcategories) == it_subcategories)[0]
-                    np.random.shuffle(current_behavior_indices)
+                    current_class_indices = np.where(np.array(self.dataset.targets) == idx_class)[0].tolist()
+                    current_subcategory_indices = np.where(np.array(self.dataset.subcategories) == it_subcategories)[0].tolist()
+                    current_subcategory_indices = np.array(list(set(current_subcategory_indices).intersection(current_class_indices)))
+                    np.random.shuffle(current_subcategory_indices)
 
-                    num_data_first_split = int(len(current_behavior_indices)/self.initial_split)
+                    num_data_first_split = int(len(current_subcategory_indices)/self.initial_split)
 
-                    #create the two splits for each behavior
-                    first_split_indices = current_behavior_indices[:num_data_first_split]
-                    second_split_indices = current_behavior_indices[num_data_first_split:]
+                    #create the two splits for each subcategory
+                    first_split_indices = current_subcategory_indices[:num_data_first_split]
+                    second_split_indices = current_subcategory_indices[num_data_first_split:]
                     #add these indices for the first task
                     first_split.extend(list(first_split_indices))
                     second_split.extend(list(second_split_indices))
@@ -152,7 +160,7 @@ class DataIncDecBaselineDataset():
 
                 num_data_first_split = int(len(current_class_indices)/self.initial_split)
 
-                #create the two splits for each behavior
+                #create the two splits for each subcategory
                 first_split_indices = current_class_indices[:num_data_first_split]
                 second_split_indices = current_class_indices[num_data_first_split:]
                 #add these indices for the first task
@@ -168,7 +176,7 @@ Work in progress...
 class DataIncrementalDecrementalPipelineDataset():
     def __init__(self, dataset, subcategories_dictionary, 
                     n_task, initial_split,
-                    total_classes, subcategories_check='yes', train=True, validation=None, valid_size=None):
+                    total_classes, subcategories_check='yes', train=True, validation=None, valid_size=None, no_class_check=False):
         
         self.dataset = dataset
         self.train = train
@@ -181,18 +189,14 @@ class DataIncrementalDecrementalPipelineDataset():
         self.n_task = n_task
         self.len_dataset = len(dataset)
         #number of classes
-        self.total_classes = total_classes
+        if no_class_check == True:
+            # this is because we pass all the classes -1 in case of vzc
+            self.total_classes = total_classes + 1
+        else:
+            self.total_classes = total_classes
 
         self.validation = validation
-        #compute class sample count for the sample weights to be used in weighted random sample
-        """ TODO: necessario anche nel caso di DataDecremental?
-        se necessario anche nel caso DataDecremental, devo prenderlo ad ogni iterazione diverso probabilmente, 
-        da prendere nella funzione direttamente
-        TODO:modificare
-         """
-        """ self.class_sample_count = np.array([len(np.where(self.dataset.targets == t)[0]) for t in np.unique(self.dataset.targets)])
-        self.sample_weight = 1. / self.class_sample_count
-         """
+        
         self.subcategories_check = subcategories_check
 
 
@@ -216,21 +220,23 @@ class DataIncrementalDecrementalPipelineDataset():
                 class_name = [ c for c, idx in self.dataset.class_to_idx.items() if idx == idx_class ][0]
                 for it_subcategories in (self.dataset.classes_subcategories[class_name]):
                     #Return indices of elements from the current it_subcategories
-                    current_behavior_indices = np.where(np.array(self.dataset.subcategories) == it_subcategories)[0]
-                    np.random.shuffle(current_behavior_indices)
+                    current_class_indices = np.where(np.array(self.dataset.targets) == idx_class)[0].tolist()
+                    current_subcategory_indices = np.where(np.array(self.dataset.subcategories) == it_subcategories)[0].tolist()
+                    current_subcategory_indices = np.array(list(set(current_subcategory_indices).intersection(current_class_indices)))
+                    np.random.shuffle(current_subcategory_indices)
                     
                     # now iterate over the subcategories that should be different for each task
                     for idx_task in range(self.n_task):
                        
-                        # get the current task behavior_dict
+                        # get the current task subcategory_dict
                         current_subcategories_dict = self.subcategories_dictionary[idx_task]
-                        #check if the behavior selected is in the current task
+                        #check if the subcategory selected is in the current task
                         if it_subcategories in current_subcategories_dict[class_name]:
 
-                            #takes indices of the current behavior from the first split and second split
-                            f_class_indices = [idx for idx in current_behavior_indices if idx in first_split]
+                            #takes indices of the current subcategory from the first split and second split
+                            f_class_indices = [idx for idx in current_subcategory_indices if idx in first_split]
 
-                            sec_class_indices = [idx for idx in current_behavior_indices if idx in second_split]
+                            sec_class_indices = [idx for idx in current_subcategory_indices if idx in second_split]
 
                             #number of data from the second split to be added
                             if self.n_task > 1:
@@ -262,15 +268,17 @@ class DataIncrementalDecrementalPipelineDataset():
                     # get the class name to use in subcategories_dictionary
                     class_name = [ c for c, idx in self.validation.class_to_idx.items() if idx == idx_class ][0]
                     for idx_task in range(self.n_task):
-                        # get the current task behavior_dict
+                        # get the current task subcategory_dict
                         current_subcategories_dict = self.subcategories_dictionary[idx_task]
                         # now iterate over the subcategories that should be different for each task
                         for it_subcategories in (current_subcategories_dict[class_name]):
                             #Return indices of elements from the current it_subcategories
-                            current_behavior_indices = np.where(np.array(self.validation.subcategories) == it_subcategories)[0]
+                            current_class_indices = np.where(np.array(self.validation.targets) == idx_class)[0].tolist()
+                            current_subcategory_indices = np.where(np.array(self.validation.subcategories) == it_subcategories)[0].tolist()
+                            current_subcategory_indices = np.array(list(set(current_subcategory_indices).intersection(current_class_indices)))
 
                             #add and remove data and make the list of indices for the task
-                            val_indices_list[idx_task].extend(list(current_behavior_indices))
+                            val_indices_list[idx_task].extend(list(current_subcategory_indices))
             else:
                 #TODO: implement if validation is not passed from out of the train
                 pass
@@ -330,7 +338,7 @@ class DataIncrementalDecrementalPipelineDataset():
     def get_initial_splits(self):
         first_split = []
         second_split = []
-        # do the splits including behavior information in the splits, if not just work on the classes
+        # do the splits including subcategory information in the splits, if not just work on the classes
         if self.subcategories_check == 'yes':
             #now divide the two first splits of the dataset
             for idx_class in range(self.total_classes):
@@ -343,14 +351,16 @@ class DataIncrementalDecrementalPipelineDataset():
                 for it_subcategories in (self.dataset.classes_subcategories[class_name]):
                     
                     #Return indices of elements from the current it_subcategories
-                    current_behavior_indices = np.where(np.array(self.dataset.subcategories) == it_subcategories)[0]
-                    np.random.shuffle(current_behavior_indices)
+                    current_class_indices = np.where(np.array(self.dataset.targets) == idx_class)[0].tolist()
+                    current_subcategory_indices = np.where(np.array(self.dataset.subcategories) == it_subcategories)[0].tolist()
+                    current_subcategory_indices = np.array(list(set(current_subcategory_indices).intersection(current_class_indices)))
+                    np.random.shuffle(current_subcategory_indices)
 
-                    num_data_first_split = int(len(current_behavior_indices)/self.initial_split)
+                    num_data_first_split = int(len(current_subcategory_indices)/self.initial_split)
 
-                    #create the two splits for each behavior
-                    first_split_indices = current_behavior_indices[:num_data_first_split]
-                    second_split_indices = current_behavior_indices[num_data_first_split:]
+                    #create the two splits for each subcategory
+                    first_split_indices = current_subcategory_indices[:num_data_first_split]
+                    second_split_indices = current_subcategory_indices[num_data_first_split:]
                     #add these indices for the first task
                     first_split.extend(list(first_split_indices))
                     second_split.extend(list(second_split_indices))
@@ -364,7 +374,7 @@ class DataIncrementalDecrementalPipelineDataset():
 
                 num_data_first_split = int(len(current_class_indices)/self.initial_split)
 
-                #create the two splits for each behavior
+                #create the two splits for each subcategory
                 first_split_indices = current_class_indices[:num_data_first_split]
                 second_split_indices = current_class_indices[num_data_first_split:]
                 #add these indices for the first task
@@ -379,7 +389,7 @@ class DataIncrementalDecrementalPipelineDataset():
 class JointIncrementalBaselineDataset():
     def __init__(self, dataset,  
                     n_task, initial_split,
-                    total_classes, subcategories_check='yes', train=True, validation=None, valid_size=None):
+                    total_classes, subcategories_check='yes', train=True, validation=None, valid_size=None, no_class_check=False):
         
         self.dataset = dataset
         self.train = train 
@@ -391,7 +401,11 @@ class JointIncrementalBaselineDataset():
         self.n_task = n_task
         self.len_dataset = len(dataset)
         #number of classes
-        self.total_classes = total_classes
+        if no_class_check == True:
+            # this is because we pass all the classes -1 in case of vzc
+            self.total_classes = total_classes + 1
+        else:
+            self.total_classes = total_classes
 
         self.validation = validation
         #compute class sample count for the sample weights to be used in weighted random sample
@@ -486,7 +500,7 @@ class JointIncrementalBaselineDataset():
     def get_initial_splits(self):
         first_split = []
         second_split = []
-        # do the splits including behavior information in the splits, if not just work on the classes
+        # do the splits including subcategory information in the splits, if not just work on the classes
         if self.subcategories_check == 'yes':
             #now divide the two first splits of the dataset
             for idx_class in range(self.total_classes):
@@ -499,14 +513,16 @@ class JointIncrementalBaselineDataset():
                 for it_subcategories in (self.dataset.classes_subcategories[class_name]):
                     
                     #Return indices of elements from the current it_subcategories
-                    current_behavior_indices = np.where(np.array(self.dataset.subcategories) == it_subcategories)[0]
-                    np.random.shuffle(current_behavior_indices)
+                    current_class_indices = np.where(np.array(self.dataset.targets) == idx_class)[0].tolist()
+                    current_subcategory_indices = np.where(np.array(self.dataset.subcategories) == it_subcategories)[0].tolist()
+                    current_subcategory_indices = np.array(list(set(current_subcategory_indices).intersection(current_class_indices)))
+                    np.random.shuffle(current_subcategory_indices)
 
-                    num_data_first_split = int(len(current_behavior_indices)/self.initial_split)
+                    num_data_first_split = int(len(current_subcategory_indices)/self.initial_split)
 
-                    #create the two splits for each behavior
-                    first_split_indices = current_behavior_indices[:num_data_first_split]
-                    second_split_indices = current_behavior_indices[num_data_first_split:]
+                    #create the two splits for each subcategory
+                    first_split_indices = current_subcategory_indices[:num_data_first_split]
+                    second_split_indices = current_subcategory_indices[num_data_first_split:]
                     #add these indices for the first task
                     first_split.extend(list(first_split_indices))
                     second_split.extend(list(second_split_indices))
@@ -520,7 +536,7 @@ class JointIncrementalBaselineDataset():
 
                 num_data_first_split = int(len(current_class_indices)/self.initial_split)
 
-                #create the two splits for each behavior
+                #create the two splits for each subcategory
                 first_split_indices = current_class_indices[:num_data_first_split]
                 second_split_indices = current_class_indices[num_data_first_split:]
                 #add these indices for the first task

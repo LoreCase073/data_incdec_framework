@@ -154,7 +154,7 @@ def store_valid_loader(out_path, valid_loaders, store):
 
 
 
-def get_task_dict_incdec(n_task, total_classes, subcategories_csv_path, pipeline, subcategories_randomize, out_path, init_dict):
+def get_task_dict_incdec(n_task, subcategories_csv_path, pipeline, subcategories_randomize, out_path, init_dict):
     #TODO: this starting_data_dict should be returned from an external file maybe
     starting_data_dict = init_dict
 
@@ -323,7 +323,7 @@ def get_task_dict_incdec(n_task, total_classes, subcategories_csv_path, pipeline
     return d, subcategories_dicts, starting_data_dict
 
 
-def old_get_task_dict_incdec(n_task, total_classes, subcategories_csv_path, pipeline, subcategories_randomize, out_path, init_dict):
+def old_get_task_dict_incdec(n_task, subcategories_csv_path, pipeline, subcategories_randomize, out_path, init_dict):
     #TODO: this starting_data_dict should be returned from an external file maybe
     starting_data_dict = init_dict
 

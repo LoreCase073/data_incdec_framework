@@ -52,13 +52,28 @@ if __name__ == '__main__':
         if subcat not in class_subcat_dict[class_name]:
             class_subcat_dict[class_name].append(subcat)
 
+    # Check ho many subcategories for each class
+    subcat_number = []
+    for class_name in class_subcat_dict:
+        subcat_number.append({'Class': class_name, 'NumberSubcat': len(class_subcat_dict[class_name])})
+
+    # Create a pandas DataFrame from the data list
+    df = pd.DataFrame(subcat_number)
+
+    # Output CSV file
+    output_csv_file = os.path.join(args.dst_path, 'subcat_number.csv')
+
+    # Write the DataFrame to a CSV file
+    df.to_csv(output_csv_file, index=False)
+
+
     # Create a list to store class names and subcategories
     data = []
 
     # Iterate through the data_dict and populate the data list
     for class_name, subcategories in class_subcat_dict.items():
         for subcategory in subcategories:
-            data.append({'Class': class_name, 'Subcategory': subcategory})
+            data.append({'Category': class_name, 'Subcategory': subcategory})
 
     # Create a pandas DataFrame from the data list
     df = pd.DataFrame(data)

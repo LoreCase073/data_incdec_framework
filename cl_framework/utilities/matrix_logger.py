@@ -147,9 +147,11 @@ class IncDecLogger():
         self.num_subcategories = 0
         self.names_subcategories = []
         for class_name in all_subcategories_dict:
-            self.num_subcategories += len(all_subcategories_dict[class_name])
-            for idx_subcat in range(len(all_subcategories_dict[class_name])):
-                self.names_subcategories.append(all_subcategories_dict[class_name][idx_subcat])
+            # do not put subcategories that are only from nothing class into them, check how to use them in another time
+            if class_name != 'nothing':
+                self.num_subcategories += len(all_subcategories_dict[class_name])
+                for idx_subcat in range(len(all_subcategories_dict[class_name])):
+                    self.names_subcategories.append(all_subcategories_dict[class_name][idx_subcat])
         self.ap_per_subcategory = np.zeros((n_task, self.num_subcategories))
         self.recall_per_subcategory = np.zeros((n_task, self.num_subcategories))
         self.accuracy_per_subcategory = np.zeros((n_task, self.num_subcategories))

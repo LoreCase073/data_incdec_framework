@@ -7,6 +7,7 @@ from sklearn.utils import compute_class_weight
 from continual_learning.IncrementalApproach import IncrementalApproach
 from continual_learning.models.BaseModel import BaseModel
 from continual_learning.metrics.metric_evaluator_incdec import MetricEvaluatorIncDec
+from continual_learning.metrics.metric_evaluator_incdec_multilabel import MetricEvaluatorIncDec_multilabel
 import numpy as np
 import matplotlib.pyplot as plt
 import itertools
@@ -18,7 +19,7 @@ from torch import nn
 
 class DICM_fd(IncrementalApproach):
     
-    def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, subcategories_dict, all_subcategories_dict):
+    def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, subcategories_dict, all_subcategories_dict,multilabel,no_class_check):
         self.total_classes = total_classes
         
         self.n_accumulation = args.n_accumulation
@@ -36,7 +37,9 @@ class DICM_fd(IncrementalApproach):
         self.fd_lamb = args.fd_lamb
 
         self.print_running_approach()
-        
+        # to check if working with multilabel with samples with no classses
+        self.no_class_check = no_class_check
+        self.multilabel = multilabel
 
 
     def print_running_approach(self):
@@ -150,7 +153,10 @@ class DICM_fd(IncrementalApproach):
 
     
     def eval(self, current_training_task, test_id, loader, epoch, verbose, testing=None):
-        metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.total_classes, self.criterion_type, self.all_subcategories_dict, self.class_to_idx)
+        if self.multilabel:
+            metric_evaluator = MetricEvaluatorIncDec_multilabel(self.out_path, self.total_classes, self.criterion_type, self.all_subcategories_dict, self.class_to_idx)
+        else:
+            metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.total_classes, self.criterion_type, self.all_subcategories_dict, self.class_to_idx)
 
 
         
@@ -192,7 +198,7 @@ class DICM_fd(IncrementalApproach):
 
             if testing != None:
                 self.save_error_analysis(current_training_task,
-                                         self.class_names,
+                                        self.class_names,
                                         metric_evaluator.get_data_paths(),
                                         metric_evaluator.get_predictions(),
                                         metric_evaluator.get_targets(),
@@ -397,12 +403,12 @@ class DICM_fd(IncrementalApproach):
             name_file = os.path.join(ea_path,"task_{}_test_error_analysis.csv".format(task_id))
 
         probs = {}
-        for i in range(len(class_names)):
+        for i in range(self.total_classes):
             probs[class_names[i]] = probabilities[:,i]
         
         if self.criterion_type == "multilabel":
             binary_targets = {}
-            for i in range(len(class_names)):
+            for i in range(self.total_classes):
                 binary_targets["target_" + class_names[i]] = targets[:,i]
             
             d = {'video_path':data_paths, 'prediction':predictions, 'subcategory': subcategory}
@@ -412,5 +418,3 @@ class DICM_fd(IncrementalApproach):
             unified_dict = d | probs
         df = pd.DataFrame(unified_dict)
         df.to_csv(name_file, index=False)
-
-
