@@ -20,7 +20,7 @@ def get_class_subcategory(id_video_path, category_file_name, subcat_name):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        'dir_path', default=None, type=Path, help='Directory path of videos')
+        'dir_path', type=Path, help='Directory path of videos')
     parser.add_argument(
         'dst_path',
         default='random_stuff',
