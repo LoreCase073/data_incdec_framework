@@ -134,7 +134,6 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                 labels = self.select_proper_targets(targets, binarized_targets).to(self.device)
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
- 
                 outputs, features = self.model(images)
                 
                 cls_loss += self.criterion(outputs[0], labels) * current_batch_size
@@ -374,4 +373,3 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
             unified_dict = d | probs
         df = pd.DataFrame(unified_dict)
         df.to_csv(name_file, index=False)
-

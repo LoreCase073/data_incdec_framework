@@ -491,7 +491,6 @@ class JointIncrementalBaselineDataset():
             return cl_test_dataset, cl_test_sizes, None, None
         
     def get_weighted_random_sampler(self,indices):
-        
         samples_weight = np.array(self.sample_weight[[self.dataset.targets[i] for i in indices]])
         sampler = WeightedRandomSampler(samples_weight, len(samples_weight))
 
@@ -511,7 +510,7 @@ class JointIncrementalBaselineDataset():
                 #iterate over the subcategories for class_name
                 #classes_subcategories {class: [sub1,sub2...]}
                 for it_subcategories in (self.dataset.classes_subcategories[class_name]):
-                    
+
                     #Return indices of elements from the current it_subcategories
                     current_class_indices = np.where(np.array(self.dataset.targets) == idx_class)[0].tolist()
                     current_subcategory_indices = np.where(np.array(self.dataset.subcategories) == it_subcategories)[0].tolist()

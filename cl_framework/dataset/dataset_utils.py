@@ -186,7 +186,7 @@ class VZCDataset(Dataset):
 
         for _, row in df.iterrows():
             #TODO: check if the columns will be called id
-            id_data = str(row['id'])
+            id_data = str(row['video_id'])
             self.data.append(id_data)
 
             #retrieve the class - targets from category.csv
@@ -199,10 +199,11 @@ class VZCDataset(Dataset):
             self.targets.append(self.class_to_idx[matching_class])
             # TODO: check if we get the vehicle correctly
             matching_subcat = cat_row['vehicle_id']
-            self.subcategories.append(matching_subcat)
+            self.subcategories.append(str(matching_subcat))
    
         self.transform = transform
         self.fps = fps
+
 
     def get_class_to_idx(self):
         return self.class_to_idx
