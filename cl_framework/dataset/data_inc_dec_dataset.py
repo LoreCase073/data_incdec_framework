@@ -421,37 +421,43 @@ class JointIncrementalBaselineDataset():
         if self.train:
 
             # List of list, each list contains indices in the entire dataset to accumulate for the task
-            train_indices_list = [[] for _ in range(self.n_task)]  
+            train_indices_list = [[] for _ in range(self.n_task)]
+
+            if self.n_task == 1:
+                for idx_class in range(self.total_classes):
+                    current_class_indices = np.where(np.array(self.dataset.targets) == idx_class)[0]
+                    train_indices_list[0].extend(list(current_class_indices))
+            else:
             
-            first_split, second_split = self.get_initial_splits()
+                first_split, second_split = self.get_initial_splits()
 
 
-            
-            for idx_class in range(self.total_classes):
-                #takes indices of the class
-                current_class_indices = np.where(np.array(self.dataset.targets) == idx_class)[0]
-                np.random.shuffle(current_class_indices)
-                for i in range(self.n_task):     
+                
+                for idx_class in range(self.total_classes):
+                    #takes indices of the class
+                    current_class_indices = np.where(np.array(self.dataset.targets) == idx_class)[0]
+                    np.random.shuffle(current_class_indices)
+                    for i in range(self.n_task):     
 
-                    #takes indices of the class from the first split
-                    f_class_indices = [idx for idx in current_class_indices if idx in first_split]
+                        #takes indices of the class from the first split
+                        f_class_indices = [idx for idx in current_class_indices if idx in first_split]
 
-                    sec_class_indices = [idx for idx in current_class_indices if idx in second_split]
+                        sec_class_indices = [idx for idx in current_class_indices if idx in second_split]
 
-                    #number of data from the second split to be added
-                    if self.n_task > 1:
-                        sec_data_task = int(len(sec_class_indices)/(self.n_task-1))
-                    else:
-                        sec_data_task = int(len(sec_class_indices))
+                        #number of data from the second split to be added
+                        if self.n_task > 1:
+                            sec_data_task = int(len(sec_class_indices)/(self.n_task-1))
+                        else:
+                            sec_data_task = int(len(sec_class_indices))
 
-                    #indices from the first split, should always be all used
-                    f_idx = f_class_indices[:]
+                        #indices from the first split, should always be all used
+                        f_idx = f_class_indices[:]
 
-                    #indices from the second split 
-                    s_idx = sec_class_indices[:sec_data_task*i]
+                        #indices from the second split 
+                        s_idx = sec_class_indices[:sec_data_task*i]
 
-                    #add and remove data and make the list of indices for the task
-                    train_indices_list[i].extend(list(f_idx + s_idx))
+                        #add and remove data and make the list of indices for the task
+                        train_indices_list[i].extend(list(f_idx + s_idx))
                       
             
             cl_train_dataset = [Subset(self.dataset, ids)  for ids in train_indices_list]
@@ -459,6 +465,7 @@ class JointIncrementalBaselineDataset():
 
             #TODO: implementare validation set, sia per validation esterno sia da separarlo da train
             val_indices_list = [[] for _ in range(self.n_task)] 
+            
             if self.validation != None:
                 #Here validation passed from out of the train, same for all the tasks
                 for i in range(self.n_task):

@@ -282,43 +282,50 @@ def get_task_dict_incdec(n_task, subcategories_csv_path, pipeline, subcategories
                                 idx_to_add = random.randint(0,subcategories_count_remaining_to_add-1)
 
                                 subcategories_count_remaining_to_remove = len(subcategories_to_remove[idx_class])
-                                # now select randomly the index of the subcategory to be removed to the task
-                                idx_to_remove = random.randint(0,subcategories_count_remaining_to_remove-1)
-                                # check if it's not the last subcategory from some of the classes
-                                el_to_remove = subcategories_to_remove[idx_class][idx_to_remove]
-                                el_to_add = tmp_subcategories_dict[idx_class][idx_to_add]
-                                last_remaining = False
-                                for tmp_idx_class in current_subcategories_dict.keys():
-                                    if len(current_subcategories_dict[tmp_idx_class]) == 1 and el_to_remove in current_subcategories_dict[tmp_idx_class]:
-                                        last_remaining = True
-                                # remove the item from the list if last_remaining not True
-                                # make sure to remove it from all of the classes
-                                # if it's the last in some of them, just add the subcategory to all of them
-                                if last_remaining == False:
+                                if subcategories_count_remaining_to_remove != 0:
+                                    # now select randomly the index of the subcategory to be removed to the task
+                                    idx_to_remove = random.randint(0,subcategories_count_remaining_to_remove-1)
+                                    # check if it's not the last subcategory from some of the classes
+                                    el_to_remove = subcategories_to_remove[idx_class][idx_to_remove]
+                                    el_to_add = tmp_subcategories_dict[idx_class][idx_to_add]
+                                    last_remaining = False
                                     for tmp_idx_class in current_subcategories_dict.keys():
-                                        if el_to_remove in current_subcategories_dict[tmp_idx_class]:
-                                            #current_subcategories_dict[tmp_idx_class].append(el_to_add)
-                                            #tmp_subcategories_dict[tmp_idx_class].remove(el_to_add)
-                                            current_subcategories_dict[tmp_idx_class].remove(el_to_remove)
-                                            subcategories_to_remove[tmp_idx_class].remove(el_to_remove)
-                                        if el_to_add in tmp_subcategories_dict[tmp_idx_class]:
-                                            current_subcategories_dict[tmp_idx_class].append(el_to_add)
-                                            tmp_subcategories_dict[tmp_idx_class].remove(el_to_add)
-
+                                        if len(current_subcategories_dict[tmp_idx_class]) == 1 and el_to_remove in current_subcategories_dict[tmp_idx_class]:
+                                            last_remaining = True
+                                    # remove the item from the list if last_remaining not True
+                                    # make sure to remove it from all of the classes
+                                    # if it's the last in some of them, just add the subcategory to all of them
+                                    if last_remaining == False:
+                                        for tmp_idx_class in current_subcategories_dict.keys():
+                                            if el_to_remove in current_subcategories_dict[tmp_idx_class]:
+                                                current_subcategories_dict[tmp_idx_class].remove(el_to_remove)
+                                                subcategories_to_remove[tmp_idx_class].remove(el_to_remove)
+                                            if el_to_add in tmp_subcategories_dict[tmp_idx_class]:
+                                                current_subcategories_dict[tmp_idx_class].append(el_to_add)
+                                                tmp_subcategories_dict[tmp_idx_class].remove(el_to_add)
+                                    else:
+                                        print("Removal could not happen because it would be the last remaining subcategory from some of the classes.")
+                                        print("Just adding the new subcategory to all of them.")
+                                        # just add the new subcat for all of the classes
+                                        for tmp_idx_class in tmp_subcategories_dict.keys():
+                                            if el_to_add in tmp_subcategories_dict[tmp_idx_class]:
+                                                current_subcategories_dict[tmp_idx_class].append(el_to_add)
+                                                tmp_subcategories_dict[tmp_idx_class].remove(el_to_add)
                                 else:
-                                    print("Removal could not happen because it would be the last remaining subcategory from some of the classes.")
-                                    print("Just adding the new subcategory to all of them.")
-                                    # just add the new subcat for all of the classes
-                                    for tmp_idx_class in tmp_subcategories_dict.keys():
+                                    print("No more subcategories to remove for this class, but still adding the subcategories if remaining.")
+                                    el_to_add = tmp_subcategories_dict[idx_class][idx_to_add]
+                                    for tmp_idx_class in current_subcategories_dict.keys():
                                         if el_to_add in tmp_subcategories_dict[tmp_idx_class]:
                                             current_subcategories_dict[tmp_idx_class].append(el_to_add)
                                             tmp_subcategories_dict[tmp_idx_class].remove(el_to_add)
                             else:
-                                print("No more subcats to add for this class.")
+                                print("No more subcategories to add for this class.")
 
                 subcategories_dicts.append(deepcopy(current_subcategories_dict))
                 csv_subcategories = pd.DataFrame.from_dict(current_subcategories_dict, orient='index')
                 csv_subcategories.to_csv(os.path.join(save_path,'task_{}'.format(i)),header=False,index=False)
+            num_subcategories_for_task = [len(current_subcategories_dict[key]) for key in current_subcategories_dict]
+            print("Subcategories count for current task: {}".format(num_subcategories_for_task))
 
     return d, subcategories_dicts, starting_data_dict
 

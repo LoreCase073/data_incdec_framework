@@ -198,7 +198,7 @@ class VZCDataset(Dataset):
             #retrieve the behavior from category.csv
             self.targets.append(self.class_to_idx[matching_class])
             # TODO: check if we get the vehicle correctly
-            matching_subcat = cat_row['vehicle_id']
+            matching_subcat = cat_row['account_id']
             self.subcategories.append(str(matching_subcat))
    
         self.transform = transform
@@ -288,12 +288,12 @@ class VZCTestDataset(Dataset):
 
         for _, row in df.iterrows():
             #TODO: check if the columns will be called id
-            id_data = str(row['id'])
+            id_data = str(row['video_id'])
             self.data.append(id_data)
 
             #retrieve the behavior from category.csv
             self.targets.append(self.class_to_idx[row['Category']])
-            self.subcategories.append(str(row['vehicle_id']))
+            self.subcategories.append(str(row['unit_id']))
    
         self.transform = transform
         self.fps = fps

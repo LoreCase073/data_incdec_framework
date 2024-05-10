@@ -196,6 +196,8 @@ if __name__ == "__main__":
 
     
     train_dataset_list, train_sizes, val_dataset_list, val_sizes = cl_train_val.collect()
+    print("train_sizes: {}".format(train_sizes))
+    print("val_sizes: {}".format(val_sizes))
 
     
     cl_test = get_test_subset_for_tasks(args.approach, args.pipeline, test_set, task_dict,

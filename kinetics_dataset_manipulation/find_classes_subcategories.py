@@ -39,7 +39,7 @@ if __name__ == '__main__':
     if args.dataset == 'kinetics':
         subcat_name = 'Sub-behavior'
     else:
-        subcat_name = 'vehicle_id'
+        subcat_name = 'account_id'
 
     category_file_name = 'category.csv'
 
