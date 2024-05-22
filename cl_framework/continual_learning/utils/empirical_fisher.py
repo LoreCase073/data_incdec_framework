@@ -64,9 +64,14 @@ class EmpiricalFIM:
             gap_out.requires_grad = True
             out = self.model.heads[0](gap_out)
             #preds =  out.argmax(1).flatten()
+            indices_max = torch.argmax(out, dim=1, keepdim=True)
+            preds_tens = torch.zeros_like(out)
+            preds_tens.scatter_(1, indices_max, 1)
+
             
             if criterion_type == 'multilabel':
-                loss = torch.nn.functional.binary_cross_entropy(torch.sigmoid(out), targets)
+                #loss = torch.nn.functional.binary_cross_entropy(torch.sigmoid(out), targets)
+                loss = torch.nn.functional.binary_cross_entropy(torch.sigmoid(out), preds_tens)
             else:
                 loss = torch.nn.functional.cross_entropy(out, targets)
             
