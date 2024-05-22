@@ -7,6 +7,7 @@ from sklearn.utils import compute_class_weight
 from continual_learning.IncrementalApproach import IncrementalApproach
 from continual_learning.models.BaseModel import BaseModel
 from continual_learning.metrics.metric_evaluator_incdec import MetricEvaluatorIncDec
+from continual_learning.metrics.metric_evaluator_incdec_multilabel import MetricEvaluatorIncDec_multilabel
 import numpy as np
 import matplotlib.pyplot as plt
 import itertools
@@ -14,12 +15,12 @@ from sklearn.metrics import PrecisionRecallDisplay
 import os
 import pandas as pd
 from torch import nn
-from torch.utils.data import WeightedRandomSampler, SequentialSampler
+from torch.utils.data import WeightedRandomSampler, SequentialSampler, DataLoader
  
 
-class DataIncrementalDecrementalMethod(IncrementalApproach):
+class DICM_replay(IncrementalApproach):
     
-    def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, behavior_dicts, all_behaviors_dict):
+    def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, subcategories_dict, all_subcategories_dict, multilabel,no_class_check):
         self.total_classes = total_classes
         
         self.n_accumulation = args.n_accumulation
@@ -31,24 +32,36 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         self.print_running_approach()
         self.criterion_type = args.criterion_type
         self.criterion = self.select_criterion(args.criterion_type)
-        self.all_behaviors_dict = all_behaviors_dict
+        self.all_subcategories_dict = all_subcategories_dict
         self.freeze_backbone = args.freeze_backbone
+        # save paths for the dataset in order to fix the files names in order to be saved
+        self.data_path_prefix = None
+        self.data_path_suffix = None
+        # to check if working with multilabel with samples with no classses
+        self.no_class_check = no_class_check
+        self.multilabel = multilabel
 
 
     def print_running_approach(self):
-        super(DataIncrementalDecrementalMethod, self).print_running_approach()
+        super(DICM_replay, self).print_running_approach()
         
 
     def pre_train(self,  task_id, trn_loader, test_loader):
         self.model.to(self.device)
+        self.data_path_prefix, self.data_path_suffix = trn_loader.dataset.get_prefix_suffix_data_path()
 
         # TODO: aggiungere logica di replay buffering
-        # qui sarà da caricare un train loader e caricare gli elementi
+        # qui sarà da caricare un Dataloader e caricare gli elementi
+        # deve essere anche controllato di caricare soltanto gli elementi spariti, non tutti gli esempi
+        # mi salvo una lista in post_train da li posso recuperare il resto
+
+
+        #TODO: fare che poi la backbone è freezata fino ad un punto preciso, ovvero dove estraggo le features
 
         if task_id > 0 and self.freeze_backbone == 'yes':
             self.model.freeze_backbone()
             print('Backbone will be frozen for this task.')
-        super(DataIncrementalDecrementalMethod, self).pre_train(task_id)
+        super(DICM_replay, self).pre_train(task_id)
 
 
     def reset_model(self):
@@ -58,21 +71,18 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         self.model.add_classification_head(self.total_classes)
 
 
-    def replay_train_computation(self, task_id):
-        outputs = None
-        # Here what we have to do is load the features computed on the last task training model
+    def substitute_head(self, num_classes):
+        self.model.heads = nn.ModuleList()
+        self.model.add_classification_head(num_classes)
 
-        if task_id > 0:
-            outputs = ...
-
-        return outputs
 
     def train(self, task_id, train_loader, epoch, epochs):
         print(torch.cuda.current_device())
         self.model.to(self.device)
         self.model.train()
 
-        
+        #TODO: aggiungere iter() per caricare dai due dataloader separatamente
+        feature_iterator = iter(feature_dataloader)
        
         train_loss, n_samples = 0, 0
         self.optimizer.zero_grad()
@@ -84,10 +94,16 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                 labels = self.select_proper_targets(targets, binarized_targets).to(self.device)
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
+
+                #TODO: fare next per ottenere nuovo example dal nuovo dataloader
+                try:
+                    replay_features = next(feature_iterator)
+                except StopIteration:
+                    feature_iterator = iter(feature_dataloader)
+                    replay_features = next(feature_iterator)
+
+                #TODO: modificare in maniera che in inferenza, prenda sia images che features e le ricombini ad un determinato stadio della rete
                 outputs, _ = self.model(images)
-                # TODO: modificare e aggiungere replay computation
-                _ = self.replay_train_computation(task_id)
-                # TODO: modificare criterion in modo da aggiungereloss del replay
                 loss = self.criterion(outputs[0], labels)
 
                 loss.backward()
@@ -102,6 +118,15 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                 labels = self.select_proper_targets(targets, binarized_targets).to(self.device)
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
+
+                #TODO: fare next per ottenere nuovo example dal nuovo dataloader
+                try:
+                    replay_features = next(feature_iterator)
+                except StopIteration:
+                    feature_iterator = iter(feature_dataloader)
+                    replay_features = next(feature_iterator)
+
+                #TODO: modificare in maniera che in inferenza, prenda sia images che features e le ricombini ad un determinato stadio della rete
                 outputs, _ = self.model(images)
                 loss = self.criterion(outputs[0], labels)             
                 loss.backward()
@@ -122,9 +147,10 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         
         
     def post_train(self, task_id, train_loader=None):
-        # replace the sampler with a SequentialSampler, critical if using the WeightedRandomSampler
-        old_sampler = train_loader.sampler
-        train_loader.sampler = SequentialSampler(train_loader.dataset)
+        #create new Dataloader to do sequential sampling
+        tmp_loader = DataLoader(train_loader.dataset, batch_size=train_loader.batch_size, shuffle=False, num_workers=train_loader.num_workers)
+
+        #n_samples_batches = len(tmp_loader.dataset) // tmp_loader.batch_size
 
         features_path = os.path.join(self.out_path,'extracted_features')
         if not os.path.exists(features_path):
@@ -136,40 +162,47 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
 
         # file to save the examples that were saved
         name_file = os.path.join(task_id_features_path,"task_{}_feature_data.csv".format(task_id))
-        data_paths = []
-        labels = []
-        subcategories = []
+        data_paths_list = []
+        labels_list = []
+        subcategories_list = []
 
         self.model.eval()
 
         with torch.no_grad():
             
-            for batch_idx, (images, targets, binarized_targets, behavior, data_path) in enumerate(tqdm(train_loader)):
+            for batch_idx, (images, targets, binarized_targets, subcategory, data_path) in enumerate(tqdm(tmp_loader)):
                 lab = self.select_proper_targets(targets,binarized_targets)
                 
                 features = self.model.backbone.extract_blocks_features(images)
                 for i in range(features.shape[0]):
                     # TODO: save features and then save a list of the elements used
-                    pass
+                    # fix the data path to only include the name
+                    features_names = data_path[i].replace(self.data_path_prefix, '').replace(self.data_path_suffix,'')
+                    torch.save(features[i], features_names + '.pt')
+                data_paths_list.append(data_path)
+                labels_list.append(lab)
+                subcategories_list.append(subcategory)
                     
         
-        self.save_features_list(self.class_names, data_paths, labels, subcategories, name_file)
+        self.save_features_list(self.class_names, data_paths_list, labels_list, subcategories_list, name_file)
 
-        # replace with the old sampler
-        train_loader.sampler = old_sampler
+
 
 
 
     
     def eval(self, current_training_task, test_id, loader, epoch, verbose, testing=None):
-        metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.total_classes, self.criterion_type, self.all_behaviors_dict, self.class_to_idx)
+        if self.multilabel:
+            metric_evaluator = MetricEvaluatorIncDec_multilabel(self.out_path, self.total_classes, self.criterion_type, self.all_subcategories_dict, self.class_to_idx)
+        else:
+            metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.total_classes, self.criterion_type, self.all_subcategories_dict, self.class_to_idx)
 
 
         
         cls_loss, n_samples = 0, 0 
         with torch.no_grad():
             self.model.eval()
-            for images, targets, binarized_targets, behavior, data_path in tqdm(loader):
+            for images, targets, binarized_targets, subcategory, data_path in tqdm(loader):
                 images = images.to(self.device)
                 labels = self.select_proper_targets(targets, binarized_targets).to(self.device)
                 current_batch_size = images.shape[0]
@@ -181,7 +214,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                  
 
                 metric_evaluator.update(targets, binarized_targets.float().squeeze(dim=1),
-                                        self.compute_probabilities(outputs, 0), behavior, data_path)
+                                        self.compute_probabilities(outputs, 0), subcategory, data_path)
                 
 
             acc, ap, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory, accuracy_per_subcategory, precision_per_subcategory = metric_evaluator.get(verbose=verbose)
@@ -195,7 +228,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
 
             if testing != None:
                 self.save_error_analysis(current_training_task,
-                                         self.class_names,
+                                        self.class_names,
                                         metric_evaluator.get_data_paths(),
                                         metric_evaluator.get_predictions(),
                                         metric_evaluator.get_targets(),
@@ -399,12 +432,12 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
             name_file = os.path.join(ea_path,"task_{}_test_error_analysis.csv".format(task_id))
 
         probs = {}
-        for i in range(len(class_names)):
+        for i in range(self.total_classes):
             probs[class_names[i]] = probabilities[:,i]
         
         if self.criterion_type == "multilabel":
             binary_targets = {}
-            for i in range(len(class_names)):
+            for i in range(self.total_classes):
                 binary_targets["target_" + class_names[i]] = targets[:,i]
             
             d = {'video_path':data_paths, 'prediction':predictions, 'subcategory': subcategory}
@@ -414,6 +447,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
             unified_dict = d | probs
         df = pd.DataFrame(unified_dict)
         df.to_csv(name_file, index=False)
+
 
     def save_features_list(self, class_names, data_paths, targets, subcategory, save_path):
         

@@ -7,6 +7,7 @@ from sklearn.utils import compute_class_weight
 from continual_learning.IncrementalApproach import IncrementalApproach
 from continual_learning.models.BaseModel import BaseModel
 from continual_learning.metrics.metric_evaluator_incdec import MetricEvaluatorIncDec
+from continual_learning.metrics.metric_evaluator_incdec_multilabel import MetricEvaluatorIncDec_multilabel
 import numpy as np
 import matplotlib.pyplot as plt
 import itertools
@@ -14,7 +15,7 @@ from sklearn.metrics import PrecisionRecallDisplay
 import os
 import pandas as pd
 from torch import nn
-from torch.utils.data import WeightedRandomSampler, SequentialSampler
+from torch.utils.data import WeightedRandomSampler, SequentialSampler, DataLoader
 
 def jacobian_in_batch(y, x):
         '''
@@ -54,7 +55,7 @@ def isPSD(A, tol=1e-7):
 
 class DICM_efc(IncrementalApproach):
     
-    def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, behavior_dicts, all_behaviors_dict):
+    def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, subcategories_dict, all_subcategories_dict, multilabel,no_class_check):
         self.total_classes = total_classes
         
         self.n_accumulation = args.n_accumulation
@@ -67,13 +68,16 @@ class DICM_efc(IncrementalApproach):
         
         self.criterion_type = args.criterion_type
         self.criterion = self.select_criterion(args.criterion_type)
-        self.all_behaviors_dict = all_behaviors_dict
+        self.all_subcategories_dict = all_subcategories_dict
         
         self.freeze_backbone = args.freeze_backbone
         self.efc_lambda = args.efc_lambda
         self.damping = args.damping
         self.previous_efm = None
         self.print_running_approach()
+        # to check if working with multilabel with samples with no classses
+        self.no_class_check = no_class_check
+        self.multilabel = multilabel
 
     def print_running_approach(self):
         super(DICM_efc, self).print_running_approach()
@@ -98,6 +102,11 @@ class DICM_efc(IncrementalApproach):
         self.model.reset_backbone()
         self.model.heads = nn.ModuleList()
         self.model.add_classification_head(self.total_classes)
+
+
+    def substitute_head(self, num_classes):
+        self.model.heads = nn.ModuleList()
+        self.model.add_classification_head(num_classes)
 
 
     def train(self, task_id, train_loader, epoch, epochs):
@@ -185,18 +194,17 @@ class DICM_efc(IncrementalApproach):
     
         
     def post_train(self, task_id, train_loader=None):
-        # replace the sampler with a SequentialSampler, critical if using the WeightedRandomSampler
-        old_sampler = train_loader.sampler
-        train_loader.sampler = SequentialSampler(train_loader.dataset)
+        #create new Dataloader to do sequential sampling
+        tmp_loader = DataLoader(train_loader.dataset, batch_size=train_loader.batch_size, shuffle=False, num_workers=train_loader.num_workers)
 
-        n_samples_batches = len(train_loader.dataset) // train_loader.batch_size
+        n_samples_batches = len(tmp_loader.dataset) // tmp_loader.batch_size
 
         self.model.eval() 
         # ensure that gradients are zero
         self.model.zero_grad()   
         empirical_feat_mat = torch.zeros((self.model.get_feat_size(), self.model.get_feat_size()), requires_grad=False).to(self.device)
   
-        for batch_idx, (images, _, _, _, _) in enumerate(tqdm(train_loader)):
+        for batch_idx, (images, _, _, _, _) in enumerate(tqdm(tmp_loader)):
 
             with torch.no_grad():
                 _, gap_out = self.model(images.to(self.device))
@@ -236,9 +244,6 @@ class DICM_efc(IncrementalApproach):
         # save matrix after each task for analysis
         save_efm(self.previous_efm, task_id, self.out_path)
 
-        # replace with the old sampler
-        train_loader.sampler = old_sampler
-
 
     def val_computation(self, outputs, labels, task_id, features, old_features, current_batch_size):
 
@@ -254,14 +259,17 @@ class DICM_efc(IncrementalApproach):
         return cls_loss, efc_loss
     
     def eval(self, current_training_task, test_id, loader, epoch, verbose, testing=None):
-        metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.total_classes, self.criterion_type, self.all_behaviors_dict, self.class_to_idx)
+        if self.multilabel:
+            metric_evaluator = MetricEvaluatorIncDec_multilabel(self.out_path, self.total_classes, self.criterion_type, self.all_subcategories_dict, self.class_to_idx)
+        else:
+            metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.total_classes, self.criterion_type, self.all_subcategories_dict, self.class_to_idx)
 
         
         val_cls_loss, val_efc_loss, n_samples = 0, 0, 0
         with torch.no_grad():
             self.model.eval()
             self.old_model.eval()
-            for images, targets, binarized_targets, behavior, data_path in tqdm(loader):
+            for images, targets, binarized_targets, subcategory, data_path in tqdm(loader):
                 images = images.to(self.device)
 
                 labels = self.select_proper_targets(targets, binarized_targets).to(self.device)
@@ -278,7 +286,7 @@ class DICM_efc(IncrementalApproach):
                  
 
                 metric_evaluator.update(targets, binarized_targets.float().squeeze(dim=1),
-                                        self.compute_probabilities(outputs, 0), behavior, data_path)
+                                        self.compute_probabilities(outputs, 0), subcategory, data_path)
                 
                 val_cls_loss += cls_loss * current_batch_size
                 val_efc_loss += efc_loss * current_batch_size
@@ -295,7 +303,7 @@ class DICM_efc(IncrementalApproach):
 
             if testing != None:
                 self.save_error_analysis(current_training_task,
-                                         self.class_names,
+                                        self.class_names,
                                         metric_evaluator.get_data_paths(),
                                         metric_evaluator.get_predictions(),
                                         metric_evaluator.get_targets(),
@@ -303,11 +311,6 @@ class DICM_efc(IncrementalApproach):
                                         metric_evaluator.get_subcategories(),
                                         testing
                                         )
-                #TODO: in caso rimuovere, già salvare in altra maniera.
-                """ self.save_ap_classes(current_training_task,
-                                      self.class_names,
-                                      ap,
-                                      testing) """
                 if self.criterion_type == "multiclass":
                     cm_figure = self.plot_confusion_matrix(confusion_matrix, self.class_names)
                 elif self.criterion_type == "multilabel":
@@ -505,12 +508,12 @@ class DICM_efc(IncrementalApproach):
             name_file = os.path.join(ea_path,"task_{}_test_error_analysis.csv".format(task_id))
 
         probs = {}
-        for i in range(len(class_names)):
+        for i in range(self.total_classes):
             probs[class_names[i]] = probabilities[:,i]
         
         if self.criterion_type == "multilabel":
             binary_targets = {}
-            for i in range(len(class_names)):
+            for i in range(self.total_classes):
                 binary_targets["target_" + class_names[i]] = targets[:,i]
             
             d = {'video_path':data_paths, 'prediction':predictions, 'subcategory': subcategory}
@@ -520,4 +523,3 @@ class DICM_efc(IncrementalApproach):
             unified_dict = d | probs
         df = pd.DataFrame(unified_dict)
         df.to_csv(name_file, index=False)
-

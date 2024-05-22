@@ -129,7 +129,7 @@ class FileOutputDuplicator(object):
 
 
 class IncDecLogger():
-    def __init__(self, out_path, n_task, task_dict, all_behaviors_dict, class_to_idx, num_classes, criterion_type, print_log_files=True, begin_time=None, validation_mode=False) -> None:
+    def __init__(self, out_path, n_task, task_dict, all_subcategories_dict, class_to_idx, num_classes, criterion_type, print_log_files=True, begin_time=None, validation_mode=False) -> None:
         self.criterion_type = criterion_type
         self.acc = np.zeros((n_task))
         self.mean_ap = np.zeros((n_task))
@@ -140,16 +140,18 @@ class IncDecLogger():
         self.recall_per_class = np.zeros((n_task, num_classes))
         self.exact_match = np.zeros((n_task))
         
-        self.all_behaviors_dict = all_behaviors_dict
+        self.all_subcategories_dict = all_subcategories_dict
         self.class_to_idx = class_to_idx
 
         self.num_classes = num_classes
         self.num_subcategories = 0
         self.names_subcategories = []
-        for class_name in all_behaviors_dict:
-            self.num_subcategories += len(all_behaviors_dict[class_name])
-            for idx_subcat in range(len(all_behaviors_dict[class_name])):
-                self.names_subcategories.append(all_behaviors_dict[class_name][idx_subcat])
+        for class_name in all_subcategories_dict:
+            # do not put subcategories that are only from nothing class into them, check how to use them in another time
+            if class_name != 'nothing':
+                self.num_subcategories += len(all_subcategories_dict[class_name])
+                for idx_subcat in range(len(all_subcategories_dict[class_name])):
+                    self.names_subcategories.append(all_subcategories_dict[class_name][idx_subcat])
         self.ap_per_subcategory = np.zeros((n_task, self.num_subcategories))
         self.recall_per_subcategory = np.zeros((n_task, self.num_subcategories))
         self.accuracy_per_subcategory = np.zeros((n_task, self.num_subcategories))

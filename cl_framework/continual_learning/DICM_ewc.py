@@ -15,9 +15,11 @@ from sklearn.metrics import PrecisionRecallDisplay
 import os
 import pandas as pd
 from torch import nn
- 
+from torch.utils.data import WeightedRandomSampler, SequentialSampler, DataLoader
+from continual_learning.utils.empirical_fisher import EmpiricalFIM
 
-class DataIncrementalDecrementalMethod(IncrementalApproach):
+
+class DICM_ewc(IncrementalApproach):
     
     def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, subcategories_dict, all_subcategories_dict, multilabel,no_class_check):
         self.total_classes = total_classes
@@ -27,29 +29,39 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         self.class_to_idx = class_to_idx
         self.class_names = list(class_to_idx.keys())
         self.model = BaseModel(backbone=self.backbone, dataset=args.dataset)
+        self.old_model = None
         self.model.add_classification_head(self.total_classes)
-        self.print_running_approach()
+        
         self.criterion_type = args.criterion_type
-        #TODO: aggiungere criterion_type
         self.criterion = self.select_criterion(args.criterion_type)
         self.all_subcategories_dict = all_subcategories_dict
+        
         self.freeze_backbone = args.freeze_backbone
+        self.ewc_lambda = args.ewc_lambda
+        self.alpha = 0.5
+        self.fisher = None
+        self.older_params = None
+        self.print_running_approach()
         # to check if working with multilabel with samples with no classses
         self.no_class_check = no_class_check
         self.multilabel = multilabel
 
-
     def print_running_approach(self):
-        super(DataIncrementalDecrementalMethod, self).print_running_approach()
+        super(DICM_ewc, self).print_running_approach()
+        print("\n ewc_hyperparams")
+        print("- lambda ewc: {}".format(self.ewc_lambda))
+        print("- alpha ewc: {}".format(self.alpha))
         
 
     def pre_train(self,  task_id, trn_loader, test_loader):
         self.model.to(self.device)
-        #self.model = torch.compile(self.model)
-        if task_id > 0 and self.freeze_backbone == 'yes':
-            self.model.freeze_backbone()
-            print('Backbone will be frozen for this task.')
-        super(DataIncrementalDecrementalMethod, self).pre_train(task_id)
+
+        self.old_model = deepcopy(self.model)
+        self.old_model.freeze_all()
+        self.old_model.to(self.device)
+        self.old_model.eval()
+
+        super(DICM_ewc, self).pre_train(task_id)
 
 
     def reset_model(self):
@@ -68,10 +80,9 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         print(torch.cuda.current_device())
         self.model.to(self.device)
         self.model.train()
-
         
        
-        train_loss, n_samples = 0, 0
+        train_loss, train_ewc_loss, n_samples = 0, 0, 0
         self.optimizer.zero_grad()
         # if to work with loss accumulation, when batch size is too small
         if self.n_accumulation > 0:
@@ -81,10 +92,15 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                 labels = self.select_proper_targets(targets, binarized_targets).to(self.device)
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
-                outputs, _ = self.model(images)
-                loss = self.criterion(outputs[0], labels)             
+
+                _, old_features = self.old_model(images)
+
+                outputs, features = self.model(images)
+                cls_loss, ewc_loss = self.train_computation(outputs, labels, task_id, features, old_features, current_batch_size)
+                loss = cls_loss + ewc_loss
+
                 loss.backward()
-                train_loss += loss.detach() * current_batch_size
+                train_loss += cls_loss.detach() * current_batch_size
                 count_accumulation += 1
                 if ((batch_idx + 1) % self.n_accumulation == 0) or (batch_idx + 1 == len(train_loader)):
                     self.optimizer.step()
@@ -95,14 +111,37 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
                 labels = self.select_proper_targets(targets, binarized_targets).to(self.device)
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
-                outputs, _ = self.model(images)
-                loss = self.criterion(outputs[0], labels)             
+
+                _, old_features = self.old_model(images)
+
+                outputs, features = self.model(images)
+                cls_loss, ewc_loss = self.train_computation(outputs, labels, task_id, features, old_features, current_batch_size)
+                loss = cls_loss + ewc_loss
+         
                 loss.backward()
                 self.optimizer.step()
                 self.optimizer.zero_grad()
-                train_loss += loss.detach() * current_batch_size
+                train_loss += cls_loss.detach() * current_batch_size
         
         self.train_log(task_id, epoch, train_loss/n_samples)  
+
+    
+    def train_computation(self, outputs, labels, task_id, features, old_features, current_batch_size):
+        """Returns the loss values"""
+        cls_loss = 0
+        ewc_loss = 0
+
+        if task_id > 0:
+      
+            # Eq. 3: elastic weight consolidation quadratic penalty
+            for n, p in self.model.backbone.named_parameters():
+                if n in self.fisher.keys():
+                    ewc_loss += torch.sum(self.fisher[n] * (p - self.older_params[n]).pow(2)) / 2
+            ewc_loss += self.lamb * ewc_loss
+
+        cls_loss = self.criterion(outputs[0], labels)
+        return cls_loss, ewc_loss
+    
 
 
     # cross entropy correct for our task of video classification
@@ -113,10 +152,39 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         elif criterion_type == "multilabel":
             return torch.nn.BCEWithLogitsLoss()
         
+
+    
         
     def post_train(self, task_id, train_loader=None):
-        pass 
+        fisher_matrix = EmpiricalFIM(self.device, self.out_path, self.criterion_type)
+        fisher_matrix.compute(self.model, train_loader, task_id)
+        if task_id == 0:
+            self.fisher = fisher_matrix.get()
+        else:
+            current_fisher = fisher_matrix.get()
+            for n in self.fisher.keys():
+                self.fisher[n] = (self.alpha * self.fisher[n] + (1 - self.alpha) * current_fisher[n])
+                
+        self.older_params = {n: p.clone().detach() for n, p in self.model.backbone.named_parameters() if p.requires_grad}
 
+
+    def val_computation(self, outputs, labels, task_id, features, old_features, current_batch_size):
+
+        """Returns the loss values"""
+        cls_loss = 0
+        ewc_loss = 0
+
+        if task_id > 0:
+      
+            # Eq. 3: elastic weight consolidation quadratic penalty
+            for n, p in self.model.backbone.named_parameters():
+                if n in self.fisher.keys():
+                    ewc_loss += torch.sum(self.fisher[n] * (p - self.older_params[n]).pow(2)) / 2
+            ewc_loss += self.lamb * ewc_loss
+
+        cls_loss = self.criterion(outputs[0], labels)
+        return cls_loss, ewc_loss
+    
     
     def eval(self, current_training_task, test_id, loader, epoch, verbose, testing=None):
         if self.multilabel:
@@ -124,23 +192,32 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         else:
             metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.total_classes, self.criterion_type, self.all_subcategories_dict, self.class_to_idx)
 
-
         
-        cls_loss, n_samples = 0, 0 
+        val_cls_loss, val_ewc_loss, n_samples = 0, 0, 0
         with torch.no_grad():
             self.model.eval()
+            self.old_model.eval()
             for images, targets, binarized_targets, subcategory, data_path in tqdm(loader):
                 images = images.to(self.device)
+
                 labels = self.select_proper_targets(targets, binarized_targets).to(self.device)
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
+
+                _, old_features = self.old_model(images)
+
                 outputs, features = self.model(images)
                 
-                cls_loss += self.criterion(outputs[0], labels) * current_batch_size
+                cls_loss, ewc_loss = self.val_computation(outputs, labels, test_id, features, old_features, current_batch_size)
+
+                loss = cls_loss + ewc_loss
                  
 
                 metric_evaluator.update(targets, binarized_targets.float().squeeze(dim=1),
                                         self.compute_probabilities(outputs, 0), subcategory, data_path)
+                
+                val_cls_loss += cls_loss * current_batch_size
+                val_ewc_loss += ewc_loss * current_batch_size
                 
 
             acc, ap, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory, accuracy_per_subcategory, precision_per_subcategory = metric_evaluator.get(verbose=verbose)
@@ -152,7 +229,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
               
             
 
-            if testing != None:    
+            if testing != None:
                 self.save_error_analysis(current_training_task,
                                         self.class_names,
                                         metric_evaluator.get_data_paths(),
@@ -177,7 +254,8 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
 
 
             if verbose:
-                print(" - classification loss: {}".format(cls_loss/n_samples))
+                print(" - classification loss: {}".format(val_cls_loss/n_samples))
+                print(" - ewc loss: {}".format(val_ewc_loss/n_samples))
 
             return acc, ap, cls_loss/n_samples, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory, accuracy_per_subcategory, precision_per_subcategory
         

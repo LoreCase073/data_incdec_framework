@@ -2,23 +2,15 @@ import sys
 import torchvision
 from torchvision import transforms
 import os
-import matplotlib
 import numpy as np
 import pandas as pd
-from scipy import ndimage
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-import zipfile
 from sklearn import preprocessing
-import requests 
-from io import BytesIO
 from torchvision import datasets
 from torch.utils.data import Dataset
 from PIL import Image 
 from typing import Tuple,Any 
-from torch.utils.data import DataLoader
-from tqdm import tqdm 
 import torch
+import math
 
 def find_classes(dir):
     if sys.version_info >= (3, 5):
@@ -31,22 +23,22 @@ def find_classes(dir):
     return classes, class_to_idx
 
 
-def kinetics_classes(classes_csv):
+def create_dict_classes_subcategories(classes_csv):
     df = pd.read_csv(classes_csv)
-    classes_behaviors = {}
+    classes_subcategories = {}
 
     for _, row in df.iterrows():
-        class_name = row['Class']
-        subcategory = row['Subcategory']
+        class_name = row['Category']
+        subcategory = str(row['Subcategory'])
         
         # Check if the class_name is already in the dictionary, if not, create a new entry
-        if class_name not in classes_behaviors:
-            classes_behaviors[class_name] = []
+        if class_name not in classes_subcategories:
+            classes_subcategories[class_name] = []
         
         # Add the subcategory to the corresponding class_name entry in the dictionary
-        classes_behaviors[class_name].append(subcategory)
+        classes_subcategories[class_name].append(subcategory)
 
-    return classes_behaviors
+    return classes_subcategories
 
 
 class KineticsDataset(Dataset):
@@ -71,14 +63,14 @@ class KineticsDataset(Dataset):
 
         self.data = []
         self.targets = []
-        self.behaviors = []
+        self.subcategories = []
 
-        #create a mapping between classes - behaviors
+        #create a mapping between classes - subcategories
         class_csv = os.path.join(folder_csv, 'classes.csv')
-        self.classes_behaviors = kinetics_classes(class_csv)
+        self.classes_subcategories = create_dict_classes_subcategories(class_csv)
 
         #create a index for each class -- {class: idx}
-        self.class_to_idx = {key: i for i, key in enumerate(self.classes_behaviors.keys())}
+        self.class_to_idx = {key: i for i, key in enumerate(self.classes_subcategories.keys())}
 
         for _, row in df.iterrows():
             #replace to match how the data was called in the folder
@@ -94,7 +86,7 @@ class KineticsDataset(Dataset):
             #retrieve the behavior from category.csv
             self.targets.append(self.class_to_idx[matching_class])
             matching_behavior = cat_row['Sub-behavior']
-            self.behaviors.append(matching_behavior)
+            self.subcategories.append(matching_behavior)
         
         self.transform = transform
 
@@ -104,13 +96,13 @@ class KineticsDataset(Dataset):
         return self.class_to_idx
     
     # this is used to get the name given the data_path of a sample, done to not modify the data_loader
-    def get_name_sample(self, data_path_sample):
-        data_name = data_path_sample.replace(self.data_folder,'')
+    def get_prefix_suffix_data_path(self):
+        data_path_prefix = self.data_folder
         if self.fps == 5:
-            data_name = data_name.replace('/5fps_jpgs','')
+            data_path_suffix = '/5fps_jpgs'
         else:
-            data_name = data_name.replace('/jpgs','')
-        return data_name
+            data_path_suffix = '/jpgs'
+        return data_path_prefix, data_path_suffix
     
     def __len__(self) -> int:
         return len(self.data)
@@ -118,7 +110,7 @@ class KineticsDataset(Dataset):
     
     def __getitem__(self, index: int) -> Tuple[Any, Any]:
 
-        img_id, target, behavior = self.data[index], self.targets[index], self.behaviors[index]
+        img_id, target, subcat = self.data[index], self.targets[index], self.subcategories[index]
 
         video_id_path = os.path.join(self.data_folder,img_id)
         if self.fps == 5:
@@ -129,24 +121,27 @@ class KineticsDataset(Dataset):
         video = []
         std_video_len = self.fps*10
 
-        tmp_len = len(os.listdir(images_path))
+        current_video_len = len(os.listdir(images_path))
 
-        
-        for i in range(std_video_len):
-            image_name = 'image_{:05d}.jpg'.format((i%tmp_len)+1)
+        for i in range(current_video_len):
+            image_name = 'image_{:05d}.jpg'.format((i%current_video_len)+1)
             im_path = os.path.join(images_path,image_name)
             with open(im_path, 'rb') as f:
                 img = Image.open(f)
                 img = img.convert('RGB')
                 if self.transform is not None:
-                        img = self.transform(img)
+                    img = self.transform(img)
                 video.append(img)      
         
         video = torch.stack(video,0).permute(1, 0, 2, 3)
+        # repeat video until max frame reach 
+        n_repeat = math.ceil(std_video_len/current_video_len)
+        video = video.repeat(1, n_repeat, 1, 1)
+        # clip the first 50 frames
+        video = video[:,:std_video_len, :, :]
         binarized_target = preprocessing.label_binarize([target], classes=[i for i in range(len(self.class_to_idx.keys()))])
-        return video, target, binarized_target, behavior, images_path
+        return video, target, binarized_target, subcat, images_path
     
-
 
 class VZCDataset(Dataset):
     def __init__(self, data_path, transform, dataset_type, fps):
@@ -168,23 +163,30 @@ class VZCDataset(Dataset):
         self.data = []
         self.targets = []
         
-        #TODO: i guess not used for VZC case
-        #self.behaviors = []
+        # here subcategories should be the vehicles
+        self.subcategories = []
 
-        #TODO: implement a class_to_idx dict, here i did an example
+        #create a mapping between classes - subcategories
+        class_csv = os.path.join(folder_csv, 'classes.csv')
+        self.classes_subcategories = create_dict_classes_subcategories(class_csv)
+
         #create a index for each class -- {class: idx}
+        self.class_to_idx = {key: i for i, key in enumerate(self.classes_subcategories.keys())}
+
+        """ #TODO: implement a class_to_idx dict, here i did an example
+        #create a index for each class -- {class: idx}
+        # note that if we include nothing, it should be the last index to be added, in case we work with a multilabel setting
         self.class_to_idx = {
-            'nothing':0,
-            'food':1,
-            'phone':2,
-            'cigarette':3,
-        }
+            'food':0,
+            'phone':1,
+            'cigarette':2,
+            'nothing':3,
+        } """
         
 
         for _, row in df.iterrows():
-            #TODO: replace to match how the data was called in the folder of vzc
-            # id_data = 'id_' + str(row['youtube_id']) + '_' + '{:06d}'.format(row['time_start']) + '_' + '{:06d}'.format(row['time_end'])
-            id_data = str(row['id'])
+            #TODO: check if the columns will be called id
+            id_data = str(row['video_id'])
             self.data.append(id_data)
 
             #retrieve the class - targets from category.csv
@@ -195,12 +197,112 @@ class VZCDataset(Dataset):
             matching_class = cat_row['Category']
             #retrieve the behavior from category.csv
             self.targets.append(self.class_to_idx[matching_class])
+            # TODO: check if we get the vehicle correctly
+            matching_subcat = cat_row['account_id']
+            self.subcategories.append(str(matching_subcat))
+   
+        self.transform = transform
+        self.fps = fps
+
+
+    def get_class_to_idx(self):
+        return self.class_to_idx
+    
+    def get_class_subcat_dict(self):
+        return self.classes_subcategories
+    
+    def __len__(self) -> int:
+        return len(self.data)
+
+    
+    def __getitem__(self, index: int) -> Tuple[Any, Any]:
+
+        img_id, target, subcat = self.data[index], self.targets[index], self.subcategories[index]
+
+        video_id_path = os.path.join(self.data_folder,img_id)
+        images_path = os.path.join(video_id_path,'jpgs')
+
+        video = []
+        std_video_len = self.fps*16  #TODO: to check if VZC videos are at most 16s (when everything is correct)
+
+
+        current_video_len = len(os.listdir(images_path))
+
+        
+        for i in range(current_video_len):
+            image_name = 'image_{:05d}.jpg'.format((i%current_video_len)+1)
+            im_path = os.path.join(images_path,image_name)
+            with open(im_path, 'rb') as f:
+                img = Image.open(f)
+                img = img.convert('RGB')
+                if self.transform is not None:
+                    img = self.transform(img)
+                video.append(img)      
+        
+        video = torch.stack(video,0).permute(1, 0, 2, 3)
+        # repeat video until max frame reach 
+        n_repeat = math.ceil(std_video_len/current_video_len)
+        video = video.repeat(1, n_repeat, 1, 1)
+        # clip the first 50 frames
+        video = video[:,:std_video_len, :, :]
+        # this is to consider the case where the class nothing is represented by all zeros, for multilabel setting
+        
+        if target != self.class_to_idx['nothing']:
+            binarized_target = preprocessing.label_binarize([target], classes=[i for i in range(len(self.class_to_idx.keys())-1)])
+        else:
+            binarized_target = np.zeros((1,len(self.class_to_idx.keys())-1),dtype=int)
+        return video, target, binarized_target, subcat, images_path
+
+
+
+class VZCTestDataset(Dataset):
+    def __init__(self, data_path, transform, dataset_type, fps):
+
+        #In folder_csv are place: train.csv, validation.csv, test.csv and classes.csv
+        folder_csv = os.path.join(data_path,'Info')
+        if dataset_type == 'train':
+            self.data_csv = os.path.join(folder_csv, 'train.csv')
+        elif dataset_type == 'validation':
+            self.data_csv = os.path.join(folder_csv, 'validation.csv')
+        elif dataset_type == 'test':
+            self.data_csv = os.path.join(folder_csv, 'test.csv')
+
+
+        #self.data_folder = os.path.join(data_path,'Videos')
+
+        df = pd.read_csv(self.data_csv)
+
+        self.data = []
+        self.targets = []
+        
+        #TODO: here subcategories should be the vehicles
+        self.subcategories = []
+
+        #create a mapping between classes - subcategories
+        class_csv = os.path.join(folder_csv, 'classes.csv')
+        self.classes_subcategories = create_dict_classes_subcategories(class_csv)
+
+        #create a index for each class -- {class: idx}
+        self.class_to_idx = {key: i for i, key in enumerate(self.classes_subcategories.keys())}
+        
+
+        for _, row in df.iterrows():
+            #TODO: check if the columns will be called id
+            id_data = str(row['video_id'])
+            self.data.append(id_data)
+
+            #retrieve the behavior from category.csv
+            self.targets.append(self.class_to_idx[row['Category']])
+            self.subcategories.append(str(row['unit_id']))
    
         self.transform = transform
         self.fps = fps
 
     def get_class_to_idx(self):
         return self.class_to_idx
+    
+    def get_class_subcat_dict(self):
+        return self.classes_subcategories
     
     
     def __len__(self) -> int:
@@ -209,38 +311,34 @@ class VZCDataset(Dataset):
     
     def __getitem__(self, index: int) -> Tuple[Any, Any]:
 
-        img_id, target = self.data[index], self.targets[index]
+        img_id, target, subcat = self.data[index], self.targets[index], self.subcategories[index]
 
-        video_id_path = os.path.join(self.data_folder,img_id)
-        #TODO: to be modified, maybe will only be necessary a single directory control
-        """
-        if self.fps == 5:
-            images_path = os.path.join(video_id_path,'5fps_jpgs')
-        else:
-        """
-        images_path = os.path.join(video_id_path,'jpgs')
 
         video = []
-        std_video_len = self.fps*16  # VZC videos are at most 16s (when everything is correct)
+        std_video_len = self.fps*10  # VZC videos are at most 16s (when everything is correct)
 
-        tmp_len = len(os.listdir(images_path))
+
 
         
         for i in range(std_video_len):
-            #TODO: to modify with jpgs names in VZC
-            image_name = 'image_{:05d}.jpg'.format((i%tmp_len)+1)
-            im_path = os.path.join(images_path,image_name)
-            with open(im_path, 'rb') as f:
-                img = Image.open(f)
-                img = img.convert('RGB')
-                if self.transform is not None:
-                        img = self.transform(img)
-                video.append(img)      
+            imarray = np.random.rand(200,200,3) * 255
+            img = Image.fromarray(imarray.astype('uint8')).convert('RGB')
+            img = self.transform(img)
+            video.append(img)      
         
         video = torch.stack(video,0).permute(1, 0, 2, 3)
-        binarized_target = preprocessing.label_binarize([target], classes=[i for i in range(len(self.class_to_idx.keys()))])
-        return video, target, binarized_target, 0, images_path
-
+        # repeat video until max frame reach 
+        n_repeat = math.ceil(std_video_len/std_video_len)
+        video = video.repeat(1, n_repeat, 1, 1)
+        # clip the first 50 frames
+        video = video[:,:std_video_len, :, :]
+        # this is to consider the case where the class nothing is represented by all zeros, for multilabel setting
+        # TODO: add check if to use multilabel setting or not
+        if target != self.class_to_idx['nothing']:
+            binarized_target = preprocessing.label_binarize([target], classes=[i for i in range(len(self.class_to_idx.keys())-1)])
+        else:
+            binarized_target = np.zeros((1,len(self.class_to_idx.keys())-1),dtype=int)
+        return video, target, binarized_target, subcat, 'none'
 
 def get_train_val_images_tiny(data_path):
     if not os.path.exists(data_path):
@@ -344,7 +442,7 @@ class TinyImagenetDataset(Dataset):
 
         
         
-def get_dataset(dataset_type, data_path):
+def get_dataset(dataset_type, data_path, pretrained_path=None):
     if  dataset_type == "cifar100":
         print("Loading Cifar 100")
         train_transform = [transforms.Pad(4), transforms.RandomResizedCrop(32), 
@@ -365,7 +463,8 @@ def get_dataset(dataset_type, data_path):
             valid_set = None
             n_classes = 100
  
-
+        # no subcat, so i fix it to None
+        subcat_dict = None
     elif dataset_type == "tiny-imagenet":
         # images_url = 'http://cs231n.stanford.edu/tiny-imagenet-200.zip'
         print("Loading Tiny Imagenet")
@@ -394,7 +493,8 @@ def get_dataset(dataset_type, data_path):
         test_set = TinyImagenetDataset(test_data, test_targets, class_to_idx, test_transform)
         
         n_classes = 200
-        
+        # no subcat, so i fix it to None
+        subcat_dict = None
     elif dataset_type == "imagenet-subset":
         print("Loading Imagenet Subset")
  
@@ -423,27 +523,45 @@ def get_dataset(dataset_type, data_path):
         test_set = TinyImagenetDataset(test_data, test_targets, class_to_idx, test_transform)
         
         n_classes = 100
+        # no subcat, so i fix it to None
+        subcat_dict = None
     elif dataset_type == "kinetics":
         
         print("Loading Kinetics")
         
-        train_transform = [transforms.Resize(size=(200,200)),
-                           #TODO: in futuro provare con un random crop invece che centercrop
-                           transforms.RandomCrop(172),
-                           transforms.RandomHorizontalFlip(),
-                            transforms.ToTensor(),
-                            #added normalization factors computed on the actual dataset, training set
-                            transforms.Normalize(mean=[0.4516, 0.3883, 0.3569],std=[0.2925, 0.2791, 0.2746])
-                ]
-        train_transform = transforms.Compose(train_transform)
+        if pretrained_path == None:
+            train_transform = [transforms.Resize(size=(200,200)),
+                            
+                            transforms.RandomCrop(172),
+                            transforms.RandomHorizontalFlip(),
+                                transforms.ToTensor(),
+                                #added normalization factors computed on the actual dataset, training set
+                                transforms.Normalize(mean=[0.4516, 0.3883, 0.3569],std=[0.2925, 0.2791, 0.2746])
+                            ]
+            train_transform = transforms.Compose(train_transform)
 
-        test_transform = [transforms.Resize(size=(172,172)),
+            test_transform = [transforms.Resize(size=(172,172)),
+                                transforms.CenterCrop(172),
+                                transforms.ToTensor(),
+                                #added normalization factors computed on the actual dataset, training set
+                                transforms.Normalize(mean=[0.4516, 0.3883, 0.3569],std=[0.2925, 0.2791, 0.2746])
+                            ]  
+            test_transform = transforms.Compose(test_transform)
+        else:
+            train_transform = [transforms.Resize(size=(200,200)),
+                        transforms.RandomCrop(172),
+                        transforms.RandomHorizontalFlip(),
+                        transforms.ToTensor(),
+                        transforms.Normalize(mean=[0.43216, 0.394666, 0.37645],std=[0.22803, 0.22145, 0.216989])
+                            ]
+            train_transform = transforms.Compose(train_transform)
+        
+            test_transform = [transforms.Resize(size=(200,200)),
                             transforms.CenterCrop(172),
                             transforms.ToTensor(),
-                            #added normalization factors computed on the actual dataset, training set
-                            transforms.Normalize(mean=[0.4516, 0.3883, 0.3569],std=[0.2925, 0.2791, 0.2746])
-                          ]  
-        test_transform = transforms.Compose(test_transform)
+                            transforms.Normalize(mean=[0.43216, 0.394666, 0.37645],std=[0.22803, 0.22145, 0.216989])
+                            ]  
+            test_transform = transforms.Compose(test_transform)
 
 
  
@@ -456,25 +574,45 @@ def get_dataset(dataset_type, data_path):
 
         #TODO: per ora aggiungo a mano, modificare da prendere dall'esterno
         n_classes = 5
+        #TODO: per ora aggiungo a mano, modificare da prendere dall'esterno
+        subcat_dict = {
+        'food': [
+            'eating burger', 'eating cake', 'eating carrots', 'eating chips', 'eating doughnuts',
+            'eating hotdog', 'eating ice cream', 'eating spaghetti', 'eating watermelon',
+            'sucking lolly', 'tasting beer', 'tasting food', 'tasting wine', 'sipping cup'
+        ],
+        'phone': [
+            'texting', 'talking on cell phone', 'looking at phone'
+        ],
+        'smoking': [
+            'smoking', 'smoking hookah', 'smoking pipe'
+        ],
+        'fatigue': [
+            'sleeping', 'yawning', 'headbanging', 'headbutting', 'shaking head'
+        ],
+        'selfcare': [
+            'scrubbing face', 'putting in contact lenses', 'putting on eyeliner', 'putting on foundation',
+            'putting on lipstick', 'putting on mascara', 'brushing hair', 'brushing teeth', 'braiding hair',
+            'combing hair', 'dyeing eyebrows', 'dyeing hair'
+        ]
+        }
     elif dataset_type == "vzc":
         
         print("Loading vzc Dataset")
         
         train_transform = [transforms.Resize(size=(200,200)),
-                           transforms.RandomCrop(172),
-                           transforms.RandomHorizontalFlip(),
-                            transforms.ToTensor(),
-                            #TODO: normalize is at the moment with the data from Kinetics used by us, to be modified with your data
-                            transforms.Normalize(mean=[0.4516, 0.3883, 0.3569],std=[0.2925, 0.2791, 0.2746])
-                ]
+                        transforms.RandomCrop(172),
+                        transforms.RandomHorizontalFlip(),
+                        transforms.ToTensor(),
+                        transforms.Normalize(mean=[0.43216, 0.394666, 0.37645],std=[0.22803, 0.22145, 0.216989])
+                            ]
         train_transform = transforms.Compose(train_transform)
-
-        test_transform = [transforms.Resize(size=(172,172)),
-                            transforms.CenterCrop(172),
-                            transforms.ToTensor(),
-                            #TODO: normalize is at the moment with the data from Kinetics used by us, to be modified with your data
-                            transforms.Normalize(mean=[0.4516, 0.3883, 0.3569],std=[0.2925, 0.2791, 0.2746])
-                          ]  
+    
+        test_transform = [transforms.Resize(size=(200,200)),
+                        transforms.CenterCrop(172),
+                        transforms.ToTensor(),
+                        transforms.Normalize(mean=[0.43216, 0.394666, 0.37645],std=[0.22803, 0.22145, 0.216989])
+                        ]  
         test_transform = transforms.Compose(test_transform)
 
 
@@ -486,11 +624,45 @@ def get_dataset(dataset_type, data_path):
         valid_set = VZCDataset(data_path, test_transform, dataset_type='validation', fps=5)
         test_set = VZCDataset(data_path, test_transform, dataset_type='test', fps=5)
 
-        #TODO: for now set here, to be passed from outside later in implementation
-        n_classes = 4
+        # here i set 3, cause we consider the case where there are no classes for a sample
+        n_classes = 3
+        
+        subcat_dict = train_set.get_class_subcat_dict()
+    elif dataset_type == "vzctest":
+        
+        print("Loading vzc Dataset")
+        
+        train_transform = [transforms.Resize(size=(200,200)),
+                        transforms.RandomCrop(172),
+                        transforms.RandomHorizontalFlip(),
+                        transforms.ToTensor(),
+                        transforms.Normalize(mean=[0.43216, 0.394666, 0.37645],std=[0.22803, 0.22145, 0.216989])
+                            ]
+        train_transform = transforms.Compose(train_transform)
+    
+        test_transform = [transforms.Resize(size=(200,200)),
+                        transforms.CenterCrop(172),
+                        transforms.ToTensor(),
+                        transforms.Normalize(mean=[0.43216, 0.394666, 0.37645],std=[0.22803, 0.22145, 0.216989])
+                        ]  
+        test_transform = transforms.Compose(test_transform)
+
+
+ 
+
+        #TODO: for now fps are set here, to be passed from outside later in implementation
+        train_set = VZCTestDataset(data_path, train_transform, dataset_type='train', fps=5)
+        # Here validation is passed outside, separately from the train. In the future could be a subset of training
+        valid_set = VZCTestDataset(data_path, test_transform, dataset_type='validation', fps=5)
+        test_set = VZCTestDataset(data_path, test_transform, dataset_type='test', fps=5)
+
+        # here i set 3, cause we consider the case where there are no classes for a sample
+        n_classes = 3
+        #TODO: add how to get the subcat_dict
+        subcat_dict = train_set.get_class_subcat_dict()
         
     
-    return train_set, test_set, valid_set, n_classes
+    return train_set, test_set, valid_set, n_classes, subcat_dict
 
  
             
