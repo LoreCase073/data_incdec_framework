@@ -137,7 +137,7 @@ class DICM_ewc(IncrementalApproach):
             for n, p in self.model.backbone.named_parameters():
                 if n in self.fisher.keys():
                     ewc_loss += torch.sum(self.fisher[n] * (p - self.older_params[n]).pow(2)) / 2
-            ewc_loss += self.lamb * ewc_loss
+            ewc_loss += self.ewc_lambda * ewc_loss
 
         cls_loss = self.criterion(outputs[0], labels)
         return cls_loss, ewc_loss
@@ -156,8 +156,8 @@ class DICM_ewc(IncrementalApproach):
     
         
     def post_train(self, task_id, train_loader=None):
-        fisher_matrix = EmpiricalFIM(self.device, self.out_path, self.criterion_type)
-        fisher_matrix.compute(self.model, train_loader, task_id)
+        fisher_matrix = EmpiricalFIM(self.device, self.out_path)
+        fisher_matrix.compute(self.model, train_loader, task_id, self.criterion_type)
         if task_id == 0:
             self.fisher = fisher_matrix.get()
         else:
@@ -180,7 +180,7 @@ class DICM_ewc(IncrementalApproach):
             for n, p in self.model.backbone.named_parameters():
                 if n in self.fisher.keys():
                     ewc_loss += torch.sum(self.fisher[n] * (p - self.older_params[n]).pow(2)) / 2
-            ewc_loss += self.lamb * ewc_loss
+            ewc_loss += self.ewc_lambda * ewc_loss
 
         cls_loss = self.criterion(outputs[0], labels)
         return cls_loss, ewc_loss

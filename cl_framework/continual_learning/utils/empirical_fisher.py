@@ -30,9 +30,9 @@ class EmpiricalFIM:
         return self.fisher
 
 
-    def compute(self, model, trn_loader, task_id):
+    def compute(self, model, trn_loader, task_id, criterion_type):
 
-        self.compute_fisher(model, trn_loader)
+        self.compute_fisher(model, trn_loader, criterion_type)
   
         
         
@@ -58,11 +58,9 @@ class EmpiricalFIM:
         self.create(model)
         print("Computing Fisher Information")
     
-        for images, targets in itertools.islice(trn_loader, n_samples_batches):
-
-            _, gap_out = self.model(images.to(self.device))
-            gap_out.requires_grad = True
-            out = self.model.heads[0](gap_out)
+        for images, targets, binarized_targets, _, _ in itertools.islice(trn_loader, n_samples_batches):
+            _, gap_out = model(images.to(self.device))
+            out = model.heads[0](gap_out)
             #preds =  out.argmax(1).flatten()
             indices_max = torch.argmax(out, dim=1, keepdim=True)
             preds_tens = torch.zeros_like(out)

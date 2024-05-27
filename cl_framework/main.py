@@ -12,6 +12,7 @@ from continual_learning.DataIncrementalDecrementalMethod import DataIncrementalD
 from continual_learning.DICM_efc import DICM_efc
 from continual_learning.DICM_lwf import DICM_lwf
 from continual_learning.DICM_fd import DICM_fd
+from continual_learning.DICM_ewc import DICM_ewc
  
 from continual_learning.LearningWithoutForgetting import LWF
 
@@ -34,7 +35,7 @@ def get_training_validation_subset_for_tasks(approach, pipeline, train_set, task
                                                     total_classes,
                                                     subcategories_check,validation_set,
                                                     valid_size, n_class_first_task,subcategories_dict = None, no_class_check = False):
-    if approach == 'incdec' or approach == 'incdec_efc' or approach == 'incdec_lwf' or approach == 'incdec_fd':
+    if approach == 'incdec' or approach == 'incdec_efc' or approach == 'incdec_lwf' or approach == 'incdec_fd' or args.approach == 'incdec_ewc':
         if pipeline == 'baseline':
             cl_train_val = DataIncDecBaselineDataset(train_set,
                                                     n_task, initial_split, 
@@ -67,7 +68,7 @@ def get_test_subset_for_tasks(approach, pipeline, test_set, task_dict,
                                                     total_classes,
                                                     subcategories_check, subcategories_dict = None, no_class_check=False):
     
-    if approach == 'incdec' or approach == 'incdec_efc' or approach == 'incdec_lwf' or approach == 'incdec_fd':
+    if approach == 'incdec' or approach == 'incdec_efc' or approach == 'incdec_lwf' or approach == 'incdec_fd' or args.approach == 'incdec_ewc':
         if pipeline == 'baseline':
             cl_test = DataIncDecBaselineDataset(test_set,
                                                     n_task, initial_split, 
@@ -161,17 +162,17 @@ if __name__ == "__main__":
     
     # mapping between classes and shuffled classes and re-map dataset classes for different order of classes
     # for the incdec approach is not useful, for now at least
-    if not (args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd'): 
+    if not (args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd' or args.approach == 'incdec_ewc'): 
         train_set, test_set, label_mapping = remap_targets(train_set, test_set, total_classes)
     
      
     # class_per_task: number of classes not in the first task, if the first is larger, otherwise it is equal to total_classes/n_task
-    if not (args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd'):
+    if not (args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd' or args.approach == 'incdec_ewc'):
         class_per_task = get_class_per_task(args.n_class_first_task, total_classes, args.n_task)
     
     
     # task_dict = {task_id: list_of_class_ids}
-    if args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd':
+    if args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd' or args.approach == 'incdec_ewc':
         task_dict, subcategories_dict, all_subcategories_dict = get_task_dict_incdec(args.n_task, args.subcategories_csv_path, args.pipeline, args.subcategories_randomize, out_path, subcat_dict)
     else:
         task_dict = get_task_dict(args.n_task, total_classes, class_per_task, args.n_class_first_task)   
@@ -221,7 +222,7 @@ if __name__ == "__main__":
     """
     Logger Init
     """
-    if args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd':
+    if args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd' or args.approach == 'incdec_ewc':
         logger = IncDecLogger(out_path=out_path, n_task=args.n_task, task_dict=task_dict, all_subcategories_dict = all_subcategories_dict, class_to_idx= train_set.get_class_to_idx(), num_classes=total_classes, criterion_type=args.criterion_type)
         val_logger = IncDecLogger(out_path=out_path, n_task=args.n_task, task_dict=task_dict, all_subcategories_dict = all_subcategories_dict, class_to_idx= train_set.get_class_to_idx(), num_classes=total_classes, criterion_type=args.criterion_type, validation_mode=True)
     else:
@@ -297,6 +298,19 @@ if __name__ == "__main__":
                             multilabel=args.multilabel,
                             no_class_check=no_class_check
                             )
+    elif args.approach == 'incdec_ewc':
+        approach = DICM_ewc(args=args, device = device,
+                            out_path=out_path,
+                            task_dict=task_dict,
+                            total_classes=total_classes,
+                            # class_names used to print the confusion matrices and pr_curves
+                            # will work only with Kinetics and vzc dataset
+                            class_to_idx= train_set.get_class_to_idx(),
+                            subcategories_dict = subcategories_dict,
+                            all_subcategories_dict = all_subcategories_dict,
+                            multilabel=args.multilabel,
+                            no_class_check=no_class_check
+                            )
 
     else:
         sys.exit("Approach not Implemented")
@@ -310,7 +324,7 @@ if __name__ == "__main__":
         if  task_id == 0 and args.firsttask_modelpath != "None":
  
             approach.pre_train(task_id, train_loader,  valid_loaders[task_id])
-            if args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd':
+            if args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd' or args.approach == 'incdec_ewc':
                 print("Loading model from path {}".format(args.firsttask_modelpath))
                 # Here i substitute the normal head with a 200 size head, to load the pre-trained model on 200 classes
                 approach.substitute_head(200)
@@ -388,7 +402,7 @@ if __name__ == "__main__":
 
                 approach.train(task_id, train_loader, epoch, n_epochs)
                 
-                if args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd':
+                if args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd' or args.approach == 'incdec_ewc':
                     acc, _ , test_loss, _, mean_ap_eval, _, _, _, _,_,_,_,_ = approach.eval(task_id, task_id, valid_loaders[task_id], epoch, verbose=True, testing=None)
                 else:
                     taw_acc, tag_acc, test_loss  = approach.eval(task_id, task_id, valid_loaders[task_id], epoch,  verbose=True)
@@ -412,7 +426,7 @@ if __name__ == "__main__":
                     print("Loading model from path: {}".format(model_name))
                     rollback_model(approach, model_name, device, name=str(model_name))
                 
-                if args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd':
+                if args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd' or args.approach == 'incdec_ewc':
                     if mean_ap_eval > best_mAP:
                         old_mAP = best_mAP
                         best_mAP = mean_ap_eval
@@ -467,7 +481,7 @@ if __name__ == "__main__":
 
  
         #For incdec approach for now there is a single test set to be evaluated
-        if args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd':
+        if args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd' or args.approach == 'incdec_ewc':
             acc_value, ap_value, _, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory, accuracy_per_subcategory,precision_per_subcategory = approach.eval(task_id, task_id, test_loaders[task_id], epoch,  verbose=False, testing='test')
             logger.update_accuracy(current_training_task_id=task_id, acc_value=acc_value, ap_value=ap_value, acc_per_class=acc_per_class, mean_ap=mean_ap, map_weighted=map_weighted, precision_per_class=precision_per_class, recall_per_class=recall_per_class, exact_match=exact_match, ap_per_subcategory=ap_per_subcategory, recall_per_subcategory=recall_per_subcategory, accuracy_per_subcategory=accuracy_per_subcategory, precision_per_subcategory=precision_per_subcategory)
             logger.update_forgetting(current_training_task_id=task_id)

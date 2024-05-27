@@ -8,7 +8,7 @@ def get_args():
     """
     Structural hyperparams 
     """
-    parser.add_argument("--approach", type=str,default="incdec", choices=["finetuning", "ewc","lwf","incdec", 'incdec_efc', 'incdec_lwf', 'incdec_fd'], help="Type of machine learning approach to be followed.")
+    parser.add_argument("--approach", type=str,default="incdec", choices=["finetuning", "ewc","lwf","incdec", 'incdec_efc', 'incdec_lwf', 'incdec_fd', 'incdec_ewc'], help="Type of machine learning approach to be followed.")
     parser.add_argument("--pipeline", type=str,default="baseline", choices=["baseline","decremental","incremental_decremental","joint_incremental"], help="Type of pipeline to be follower in the incdec case.") 
     parser.add_argument("--n_accumulation", type=int, default=0, help="To be used in case you want to do gradient accumulation.")
     parser.add_argument("--outpath", "-op",default="./", type=str, help="Output directory where to save results.") 
@@ -30,7 +30,7 @@ def get_args():
     """
     EWC Hyperparams
     """
-    parser.add_argument("--ewc_lamb", default=5000.0, type=float, help="")
+    parser.add_argument("--ewc_lambda", default=5000.0, type=float, help="")
     parser.add_argument("--ewc_alpha", default=0.5, type=float)
     """
     LWF hyperparams 
