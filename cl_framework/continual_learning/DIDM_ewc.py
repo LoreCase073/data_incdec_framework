@@ -15,11 +15,13 @@ from sklearn.metrics import PrecisionRecallDisplay
 import os
 import pandas as pd
 from torch import nn
- 
+from torch.utils.data import WeightedRandomSampler, SequentialSampler, DataLoader
+from continual_learning.utils.empirical_fisher import EmpiricalFIM
 
-class DICM_fd(IncrementalApproach):
+
+class DIDM_ewc(IncrementalApproach):
     
-    def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, subcategories_dict, all_subcategories_dict,multilabel,no_class_check):
+    def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, subcategories_dict, all_subcategories_dict, multilabel,no_class_check):
         self.total_classes = total_classes
         
         self.n_accumulation = args.n_accumulation
@@ -27,24 +29,28 @@ class DICM_fd(IncrementalApproach):
         self.class_to_idx = class_to_idx
         self.class_names = list(class_to_idx.keys())
         self.model = BaseModel(backbone=self.backbone, dataset=args.dataset)
+        self.old_model = None
         self.model.add_classification_head(self.total_classes)
         
         self.criterion_type = args.criterion_type
         self.criterion = self.select_criterion(args.criterion_type)
         self.all_subcategories_dict = all_subcategories_dict
+        
         self.freeze_backbone = args.freeze_backbone
-
-        self.fd_lamb = args.fd_lamb
-
+        self.ewc_lambda = args.ewc_lambda
+        self.alpha = 0.5
+        self.fisher = None
+        self.older_params = None
         self.print_running_approach()
         # to check if working with multilabel with samples with no classses
         self.no_class_check = no_class_check
         self.multilabel = multilabel
 
-
     def print_running_approach(self):
-        super(DICM_fd, self).print_running_approach()
-        print("- lambda fd: {}".format(self.fd_lamb))
+        super(DIDM_ewc, self).print_running_approach()
+        print("\n ewc_hyperparams")
+        print("- lambda ewc: {}".format(self.ewc_lambda))
+        print("- alpha ewc: {}".format(self.alpha))
         
 
     def pre_train(self,  task_id, trn_loader, test_loader):
@@ -54,7 +60,8 @@ class DICM_fd(IncrementalApproach):
         self.old_model.freeze_all()
         self.old_model.to(self.device)
         self.old_model.eval()
-        super(DICM_fd, self).pre_train(task_id)
+
+        super(DIDM_ewc, self).pre_train(task_id)
 
 
     def reset_model(self):
@@ -62,6 +69,7 @@ class DICM_fd(IncrementalApproach):
         self.model.reset_backbone()
         self.model.heads = nn.ModuleList()
         self.model.add_classification_head(self.total_classes)
+
 
     def substitute_head(self, num_classes):
         self.model.heads = nn.ModuleList()
@@ -72,10 +80,9 @@ class DICM_fd(IncrementalApproach):
         print(torch.cuda.current_device())
         self.model.to(self.device)
         self.model.train()
-
         
        
-        train_loss, n_samples = 0, 0
+        train_loss, train_ewc_loss, n_samples = 0, 0, 0
         self.optimizer.zero_grad()
         # if to work with loss accumulation, when batch size is too small
         if self.n_accumulation > 0:
@@ -86,16 +93,11 @@ class DICM_fd(IncrementalApproach):
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
 
+                _, old_features = self.old_model(images)
+
                 outputs, features = self.model(images)
-
-                old_features = None
-
-                if task_id > 0:
-                    _, old_features = self.old_model(images)
-                
-                cls_loss, fd_loss = self.criterion_computation(outputs, labels, task_id, features, old_features)   
-                loss = cls_loss + fd_loss
-
+                cls_loss, ewc_loss = self.train_computation(outputs, labels, task_id, features, old_features, current_batch_size)
+                loss = cls_loss + ewc_loss
 
                 loss.backward()
                 train_loss += cls_loss.detach() * current_batch_size
@@ -110,16 +112,12 @@ class DICM_fd(IncrementalApproach):
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
 
+                _, old_features = self.old_model(images)
+
                 outputs, features = self.model(images)
-
-                old_features = None
-
-                if task_id > 0:
-                    _, old_features = self.old_model(images)
-                
-                cls_loss, fd_loss = self.criterion_computation(outputs, labels, task_id, features, old_features)   
-                loss = cls_loss + fd_loss  
-                     
+                cls_loss, ewc_loss = self.train_computation(outputs, labels, task_id, features, old_features, current_batch_size)
+                loss = cls_loss + ewc_loss
+         
                 loss.backward()
                 self.optimizer.step()
                 self.optimizer.zero_grad()
@@ -127,30 +125,66 @@ class DICM_fd(IncrementalApproach):
         
         self.train_log(task_id, epoch, train_loss/n_samples)  
 
-
-    def criterion_computation(self, outputs, labels, task_id, features, old_features):
-
-        cls_loss, fd_loss = 0, 0
+    
+    def train_computation(self, outputs, labels, task_id, features, old_features, current_batch_size):
+        """Returns the loss values"""
+        cls_loss = 0
+        ewc_loss = 0
 
         if task_id > 0:
-            fd_loss += self.fd_lamb * torch.dist(features, old_features, 2)
-        
-        cls_loss += self.criterion(outputs[0], labels)
+      
+            # Eq. 3: elastic weight consolidation quadratic penalty
+            for n, p in self.model.backbone.named_parameters():
+                if n in self.fisher.keys():
+                    ewc_loss += torch.sum(self.fisher[n] * (p - self.older_params[n]).pow(2)) / 2
+            ewc_loss += self.ewc_lambda * ewc_loss
 
-        return cls_loss, fd_loss
+        cls_loss = self.criterion(outputs[0], labels)
+        return cls_loss, ewc_loss
     
 
 
+    # cross entropy correct for our task of video classification
     def select_criterion(self, criterion_type):
+        # here is 0 cause we only have one head
         if criterion_type == "multiclass":
             return torch.nn.CrossEntropyLoss()
         elif criterion_type == "multilabel":
             return torch.nn.BCEWithLogitsLoss()
         
+
+    
         
     def post_train(self, task_id, train_loader=None):
-        pass 
+        fisher_matrix = EmpiricalFIM(self.device, self.out_path)
+        fisher_matrix.compute(self.model, train_loader, task_id, self.criterion_type)
+        if task_id == 0:
+            self.fisher = fisher_matrix.get()
+        else:
+            current_fisher = fisher_matrix.get()
+            for n in self.fisher.keys():
+                self.fisher[n] = (self.alpha * self.fisher[n] + (1 - self.alpha) * current_fisher[n])
+                
+        self.older_params = {n: p.clone().detach() for n, p in self.model.backbone.named_parameters() if p.requires_grad}
 
+
+    def val_computation(self, outputs, labels, task_id, features, old_features, current_batch_size):
+
+        """Returns the loss values"""
+        cls_loss = 0
+        ewc_loss = 0
+
+        if task_id > 0:
+      
+            # Eq. 3: elastic weight consolidation quadratic penalty
+            for n, p in self.model.backbone.named_parameters():
+                if n in self.fisher.keys():
+                    ewc_loss += torch.sum(self.fisher[n] * (p - self.older_params[n]).pow(2)) / 2
+            ewc_loss += self.ewc_lambda * ewc_loss
+
+        cls_loss = self.criterion(outputs[0], labels)
+        return cls_loss, ewc_loss
+    
     
     def eval(self, current_training_task, test_id, loader, epoch, verbose, testing=None):
         if self.multilabel:
@@ -158,33 +192,32 @@ class DICM_fd(IncrementalApproach):
         else:
             metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.total_classes, self.criterion_type, self.all_subcategories_dict, self.class_to_idx)
 
-
         
-        val_cls_loss, val_fd_loss, n_samples = 0, 0, 0
+        val_cls_loss, val_ewc_loss, n_samples = 0, 0, 0
         with torch.no_grad():
             self.model.eval()
             self.old_model.eval()
             for images, targets, binarized_targets, subcategory, data_path in tqdm(loader):
                 images = images.to(self.device)
+
                 labels = self.select_proper_targets(targets, binarized_targets).to(self.device)
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
- 
+
+                _, old_features = self.old_model(images)
+
                 outputs, features = self.model(images)
-
-                old_features = None
-
-                if test_id > 0:
-                    _, old_features = self.old_model(images)
                 
-                cls_loss, fd_loss = self.criterion_computation(outputs, labels, test_id, features, old_features)   
-                
-                val_cls_loss += cls_loss * current_batch_size
+                cls_loss, ewc_loss = self.val_computation(outputs, labels, test_id, features, old_features, current_batch_size)
 
-                val_fd_loss += fd_loss
+                loss = cls_loss + ewc_loss
+                 
 
                 metric_evaluator.update(targets, binarized_targets.float().squeeze(dim=1),
                                         self.compute_probabilities(outputs, 0), subcategory, data_path)
+                
+                val_cls_loss += cls_loss * current_batch_size
+                val_ewc_loss += ewc_loss * current_batch_size
                 
 
             acc, ap, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory, accuracy_per_subcategory, precision_per_subcategory = metric_evaluator.get(verbose=verbose)
@@ -222,7 +255,7 @@ class DICM_fd(IncrementalApproach):
 
             if verbose:
                 print(" - classification loss: {}".format(val_cls_loss/n_samples))
-                print(" - fd loss: {}".format(val_fd_loss/n_samples))
+                print(" - ewc loss: {}".format(val_ewc_loss/n_samples))
 
             return acc, ap, cls_loss/n_samples, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory, accuracy_per_subcategory, precision_per_subcategory
         

@@ -15,10 +15,9 @@ from sklearn.metrics import PrecisionRecallDisplay
 import os
 import pandas as pd
 from torch import nn
-from torch.utils.data import WeightedRandomSampler, SequentialSampler, DataLoader
  
 
-class DICM_replay(IncrementalApproach):
+class DIDM_lwf(IncrementalApproach):
     
     def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, subcategories_dict, all_subcategories_dict, multilabel,no_class_check):
         self.total_classes = total_classes
@@ -29,39 +28,35 @@ class DICM_replay(IncrementalApproach):
         self.class_names = list(class_to_idx.keys())
         self.model = BaseModel(backbone=self.backbone, dataset=args.dataset)
         self.model.add_classification_head(self.total_classes)
-        self.print_running_approach()
+        
         self.criterion_type = args.criterion_type
         self.criterion = self.select_criterion(args.criterion_type)
         self.all_subcategories_dict = all_subcategories_dict
         self.freeze_backbone = args.freeze_backbone
-        # save paths for the dataset in order to fix the files names in order to be saved
-        self.data_path_prefix = None
-        self.data_path_suffix = None
+
+        self.T = args.lwf_T
+        self.lwf_lamb = args.lwf_lamb
+
+        self.print_running_approach()
         # to check if working with multilabel with samples with no classses
         self.no_class_check = no_class_check
         self.multilabel = multilabel
 
 
     def print_running_approach(self):
-        super(DICM_replay, self).print_running_approach()
+        super(DIDM_lwf, self).print_running_approach()
+        print("- temperature: {}".format(self.T))
+        print("- lambda lwf: {}".format(self.lwf_lamb))
         
 
     def pre_train(self,  task_id, trn_loader, test_loader):
         self.model.to(self.device)
-        self.data_path_prefix, self.data_path_suffix = trn_loader.dataset.get_prefix_suffix_data_path()
 
-        # TODO: aggiungere logica di replay buffering
-        # qui sarà da caricare un Dataloader e caricare gli elementi
-        # deve essere anche controllato di caricare soltanto gli elementi spariti, non tutti gli esempi
-        # mi salvo una lista in post_train da li posso recuperare il resto
-
-
-        #TODO: fare che poi la backbone è freezata fino ad un punto preciso, ovvero dove estraggo le features
-
-        if task_id > 0 and self.freeze_backbone == 'yes':
-            self.model.freeze_backbone()
-            print('Backbone will be frozen for this task.')
-        super(DICM_replay, self).pre_train(task_id)
+        self.old_model = deepcopy(self.model)
+        self.old_model.freeze_all()
+        self.old_model.to(self.device)
+        self.old_model.eval()
+        super(DIDM_lwf, self).pre_train(task_id)
 
 
     def reset_model(self):
@@ -81,8 +76,7 @@ class DICM_replay(IncrementalApproach):
         self.model.to(self.device)
         self.model.train()
 
-        #TODO: aggiungere iter() per caricare dai due dataloader separatamente
-        feature_iterator = iter(feature_dataloader)
+        
        
         train_loss, n_samples = 0, 0
         self.optimizer.zero_grad()
@@ -95,19 +89,19 @@ class DICM_replay(IncrementalApproach):
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
 
-                #TODO: fare next per ottenere nuovo example dal nuovo dataloader
-                try:
-                    replay_features = next(feature_iterator)
-                except StopIteration:
-                    feature_iterator = iter(feature_dataloader)
-                    replay_features = next(feature_iterator)
-
-                #TODO: modificare in maniera che in inferenza, prenda sia images che features e le ricombini ad un determinato stadio della rete
                 outputs, _ = self.model(images)
-                loss = self.criterion(outputs[0], labels)
+
+                outputs_old = None
+
+                if task_id > 0:
+                    outputs_old, _= self.old_model(images)
+                
+                cls_loss, lwf_loss = self.criterion_computation(outputs, labels, task_id, outputs_old)   
+                loss = cls_loss + lwf_loss
+
 
                 loss.backward()
-                train_loss += loss.detach() * current_batch_size
+                train_loss += cls_loss.detach() * current_batch_size
                 count_accumulation += 1
                 if ((batch_idx + 1) % self.n_accumulation == 0) or (batch_idx + 1 == len(train_loader)):
                     self.optimizer.step()
@@ -119,27 +113,70 @@ class DICM_replay(IncrementalApproach):
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
 
-                #TODO: fare next per ottenere nuovo example dal nuovo dataloader
-                try:
-                    replay_features = next(feature_iterator)
-                except StopIteration:
-                    feature_iterator = iter(feature_dataloader)
-                    replay_features = next(feature_iterator)
-
-                #TODO: modificare in maniera che in inferenza, prenda sia images che features e le ricombini ad un determinato stadio della rete
                 outputs, _ = self.model(images)
-                loss = self.criterion(outputs[0], labels)             
+
+                outputs_old = None
+
+                if task_id > 0:
+                    outputs_old, _= self.old_model(images)
+                
+                cls_loss, lwf_loss = self.criterion_computation(outputs, labels, task_id, outputs_old)   
+                loss = cls_loss + lwf_loss     
+                     
                 loss.backward()
                 self.optimizer.step()
                 self.optimizer.zero_grad()
-                train_loss += loss.detach() * current_batch_size
+                train_loss += cls_loss.detach() * current_batch_size
         
         self.train_log(task_id, epoch, train_loss/n_samples)  
 
 
-    # cross entropy correct for our task of video classification
+    def criterion_computation(self, outputs, labels, task_id, old_outputs):
+
+        cls_loss, lwf_loss = 0, 0
+
+        if task_id > 0:
+            # scaling with temperatura not implemented for the sigmoid version
+            #TODO: prova a inserire scaling, ancora non implementato
+            lwf_loss += self.lwf_lamb * self.criterion_with_temperature_scale(outputs[0], old_outputs[0], exp=1.0 / self.T)
+        
+        cls_loss += self.criterion(outputs[0], labels)
+
+        return cls_loss, lwf_loss
+    
+
+    def criterion_with_temperature_scale(self, outputs, labels, exp=1.0, size_average=True, eps=1e-5):
+        if self.criterion_type == "multiclass":
+            out = torch.nn.functional.softmax(outputs, dim=1)
+            tar = torch.nn.functional.softmax(labels, dim=1)
+            if exp != 1:
+                out = out.pow(exp)
+                out = out / out.sum(1).view(-1, 1).expand_as(out)
+                tar = tar.pow(exp)
+                tar = tar / tar.sum(1).view(-1, 1).expand_as(tar)
+            out = out + eps / out.size(1)
+            out = out / out.sum(1).view(-1, 1).expand_as(out)
+            ce = -(tar * out.log()).sum(1)
+            if size_average:
+                ce = ce.mean()
+        elif self.criterion_type == "multilabel":
+            out = torch.sigmoid(outputs)
+            tar = torch.sigmoid(labels)
+            if exp != 1:
+                print("Missing Sigmoid implementation with temperature, will be done with T = 1.")
+                # TODO: manca implementazione scaling con temperatura per la sigmoide
+                pass
+
+            ce = torch.nn.functional.binary_cross_entropy(out, tar)
+            
+        
+        
+        return ce
+
+
+
+
     def select_criterion(self, criterion_type):
-        # here is 0 cause we only have one head
         if criterion_type == "multiclass":
             return torch.nn.CrossEntropyLoss()
         elif criterion_type == "multilabel":
@@ -147,48 +184,7 @@ class DICM_replay(IncrementalApproach):
         
         
     def post_train(self, task_id, train_loader=None):
-        #create new Dataloader to do sequential sampling
-        tmp_loader = DataLoader(train_loader.dataset, batch_size=train_loader.batch_size, shuffle=False, num_workers=train_loader.num_workers)
-
-        #n_samples_batches = len(tmp_loader.dataset) // tmp_loader.batch_size
-
-        features_path = os.path.join(self.out_path,'extracted_features')
-        if not os.path.exists(features_path):
-            os.mkdir(features_path)
-        task_id_features_path = os.path.join(features_path,'task_{}'.format(task_id))
-        if not os.path.exists(task_id_features_path):
-            os.mkdir(task_id_features_path)
-        
-
-        # file to save the examples that were saved
-        name_file = os.path.join(task_id_features_path,"task_{}_feature_data.csv".format(task_id))
-        data_paths_list = []
-        labels_list = []
-        subcategories_list = []
-
-        self.model.eval()
-
-        with torch.no_grad():
-            
-            for batch_idx, (images, targets, binarized_targets, subcategory, data_path) in enumerate(tqdm(tmp_loader)):
-                lab = self.select_proper_targets(targets,binarized_targets)
-                
-                features = self.model.backbone.extract_blocks_features(images)
-                for i in range(features.shape[0]):
-                    # TODO: save features and then save a list of the elements used
-                    # fix the data path to only include the name
-                    features_names = data_path[i].replace(self.data_path_prefix, '').replace(self.data_path_suffix,'')
-                    torch.save(features[i], features_names + '.pt')
-                data_paths_list.append(data_path)
-                labels_list.append(lab)
-                subcategories_list.append(subcategory)
-                    
-        
-        self.save_features_list(self.class_names, data_paths_list, labels_list, subcategories_list, name_file)
-
-
-
-
+        pass 
 
     
     def eval(self, current_training_task, test_id, loader, epoch, verbose, testing=None):
@@ -197,21 +193,29 @@ class DICM_replay(IncrementalApproach):
         else:
             metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.total_classes, self.criterion_type, self.all_subcategories_dict, self.class_to_idx)
 
-
         
-        cls_loss, n_samples = 0, 0 
+        val_cls_loss, val_lwf_loss, n_samples = 0, 0, 0
         with torch.no_grad():
             self.model.eval()
+            self.old_model.eval()
             for images, targets, binarized_targets, subcategory, data_path in tqdm(loader):
                 images = images.to(self.device)
                 labels = self.select_proper_targets(targets, binarized_targets).to(self.device)
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
  
-                outputs, features = self.model(images)
+                outputs, _ = self.model(images)
+
+                outputs_old = None
+
+                if test_id > 0:
+                    outputs_old, _= self.old_model(images)
                 
-                cls_loss += self.criterion(outputs[0], labels) * current_batch_size
-                 
+                cls_loss, lwf_loss = self.criterion_computation(outputs, labels, test_id, outputs_old)   
+                
+                val_cls_loss += cls_loss * current_batch_size
+
+                val_lwf_loss += lwf_loss * current_batch_size
 
                 metric_evaluator.update(targets, binarized_targets.float().squeeze(dim=1),
                                         self.compute_probabilities(outputs, 0), subcategory, data_path)
@@ -251,7 +255,8 @@ class DICM_replay(IncrementalApproach):
 
 
             if verbose:
-                print(" - classification loss: {}".format(cls_loss/n_samples))
+                print(" - classification loss: {}".format(val_cls_loss/n_samples))
+                print(" - lwf loss: {}".format(val_lwf_loss/n_samples))
 
             return acc, ap, cls_loss/n_samples, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory, accuracy_per_subcategory, precision_per_subcategory
         
@@ -448,19 +453,3 @@ class DICM_replay(IncrementalApproach):
         df = pd.DataFrame(unified_dict)
         df.to_csv(name_file, index=False)
 
-
-    def save_features_list(self, class_names, data_paths, targets, subcategory, save_path):
-        
-        
-        if self.criterion_type == "multilabel":
-            binary_targets = {}
-            for i in range(len(class_names)):
-                binary_targets["target_" + class_names[i]] = targets[:,i]
-            
-            d = {'video_path':data_paths, 'subcategory': subcategory}
-            unified_dict = d | binary_targets
-        elif self.criterion_type == "multiclass":
-            d = {'video_path':data_paths, 'target':targets, 'subcategory': subcategory}
-            unified_dict = d
-        df = pd.DataFrame(unified_dict)
-        df.to_csv(save_path, index=False)

@@ -15,47 +15,11 @@ from sklearn.metrics import PrecisionRecallDisplay
 import os
 import pandas as pd
 from torch import nn
-from torch.utils.data import WeightedRandomSampler, SequentialSampler, DataLoader
+ 
 
-def jacobian_in_batch(y, x):
-        '''
-        Compute the Jacobian matrix in batch form.
-        Return (B, D_y, D_x)
-        '''
-
-        batch = y.shape[0]
-        single_y_size = np.prod(y.shape[1:])
-        y = y.view(batch, -1)
-        vector = torch.ones(batch).to(y)
-
-        # Compute Jacobian row by row.
-        # dy_i / dx -> dy / dx
-        # (B, D) -> (B, 1, D) -> (B, D, D)
-        jac = [torch.autograd.grad(y[:, i], x, 
-                                grad_outputs=vector, 
-                                retain_graph=True,
-                                create_graph=True)[0].view(batch, -1)
-                    for i in range(single_y_size)]
-        jac = torch.stack(jac, dim=1)
-        
-        return jac
-
-
-def save_efm(cov, task_id, out_path):
-    print("Saving Empirical Feature Matrix")
-    torch.save(cov, os.path.join(out_path, "efm_task_{}.pt".format(task_id)))
-
-
-def isPSD(A, tol=1e-7):
-    A = A.cpu().numpy()
-    E = np.linalg.eigvalsh(A)
-    print("Maximum eigenvalue {}".format(np.max(E)))
-    return np.all(E > -tol)
-
-
-class DICM_efc(IncrementalApproach):
+class DIDM_fd(IncrementalApproach):
     
-    def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, subcategories_dict, all_subcategories_dict, multilabel,no_class_check):
+    def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, subcategories_dict, all_subcategories_dict,multilabel,no_class_check):
         self.total_classes = total_classes
         
         self.n_accumulation = args.n_accumulation
@@ -63,27 +27,24 @@ class DICM_efc(IncrementalApproach):
         self.class_to_idx = class_to_idx
         self.class_names = list(class_to_idx.keys())
         self.model = BaseModel(backbone=self.backbone, dataset=args.dataset)
-        self.old_model = None
         self.model.add_classification_head(self.total_classes)
         
         self.criterion_type = args.criterion_type
         self.criterion = self.select_criterion(args.criterion_type)
         self.all_subcategories_dict = all_subcategories_dict
-        
         self.freeze_backbone = args.freeze_backbone
-        self.efc_lambda = args.efc_lambda
-        self.damping = args.damping
-        self.previous_efm = None
+
+        self.fd_lamb = args.fd_lamb
+
         self.print_running_approach()
         # to check if working with multilabel with samples with no classses
         self.no_class_check = no_class_check
         self.multilabel = multilabel
 
+
     def print_running_approach(self):
-        super(DICM_efc, self).print_running_approach()
-        print("\n efc_hyperparams")
-        print("- efc_lamb: {}".format(self.efc_lambda))
-        print("- damping: {}".format(self.damping)) 
+        super(DIDM_fd, self).print_running_approach()
+        print("- lambda fd: {}".format(self.fd_lamb))
         
 
     def pre_train(self,  task_id, trn_loader, test_loader):
@@ -93,8 +54,7 @@ class DICM_efc(IncrementalApproach):
         self.old_model.freeze_all()
         self.old_model.to(self.device)
         self.old_model.eval()
-
-        super(DICM_efc, self).pre_train(task_id)
+        super(DIDM_fd, self).pre_train(task_id)
 
 
     def reset_model(self):
@@ -102,7 +62,6 @@ class DICM_efc(IncrementalApproach):
         self.model.reset_backbone()
         self.model.heads = nn.ModuleList()
         self.model.add_classification_head(self.total_classes)
-
 
     def substitute_head(self, num_classes):
         self.model.heads = nn.ModuleList()
@@ -113,9 +72,10 @@ class DICM_efc(IncrementalApproach):
         print(torch.cuda.current_device())
         self.model.to(self.device)
         self.model.train()
+
         
        
-        train_loss, train_efc_loss, n_samples = 0, 0, 0
+        train_loss, n_samples = 0, 0
         self.optimizer.zero_grad()
         # if to work with loss accumulation, when batch size is too small
         if self.n_accumulation > 0:
@@ -126,11 +86,16 @@ class DICM_efc(IncrementalApproach):
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
 
-                _, old_features = self.old_model(images)
-
                 outputs, features = self.model(images)
-                cls_loss, efc_loss = self.train_computation(outputs, labels, task_id, features, old_features, current_batch_size)
-                loss = cls_loss + efc_loss
+
+                old_features = None
+
+                if task_id > 0:
+                    _, old_features = self.old_model(images)
+                
+                cls_loss, fd_loss = self.criterion_computation(outputs, labels, task_id, features, old_features)   
+                loss = cls_loss + fd_loss
+
 
                 loss.backward()
                 train_loss += cls_loss.detach() * current_batch_size
@@ -145,12 +110,16 @@ class DICM_efc(IncrementalApproach):
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
 
-                _, old_features = self.old_model(images)
-
                 outputs, features = self.model(images)
-                cls_loss, efc_loss = self.train_computation(outputs, labels, task_id, features, old_features, current_batch_size)
-                loss = cls_loss + efc_loss
-         
+
+                old_features = None
+
+                if task_id > 0:
+                    _, old_features = self.old_model(images)
+                
+                cls_loss, fd_loss = self.criterion_computation(outputs, labels, task_id, features, old_features)   
+                loss = cls_loss + fd_loss  
+                     
                 loss.backward()
                 self.optimizer.step()
                 self.optimizer.zero_grad()
@@ -158,105 +127,30 @@ class DICM_efc(IncrementalApproach):
         
         self.train_log(task_id, epoch, train_loss/n_samples)  
 
-    
-    def train_computation(self, outputs, labels, task_id, features, old_features, current_batch_size):
 
-        cls_loss, efc_loss = 0, 0
+    def criterion_computation(self, outputs, labels, task_id, features, old_features):
+
+        cls_loss, fd_loss = 0, 0
 
         if task_id > 0:
-            efc_loss += self.efm_loss(features[:current_batch_size], old_features)
-            cls_loss += self.criterion(outputs[0], labels)
-        else:
-            # first task only a cross entropy loss
-            cls_loss += self.criterion(outputs[0], labels)
+            fd_loss += self.fd_lamb * torch.dist(features, old_features, 2)
+        
+        cls_loss += self.criterion(outputs[0], labels)
 
-        return cls_loss, efc_loss
+        return cls_loss, fd_loss
     
 
-    def efm_loss(self, features, old_features):
-        features = features.view(features.shape[0], -1)
-        features = features.unsqueeze(1)
-        old_features = old_features.view(old_features.shape[0], -1)
-        old_features = old_features.unsqueeze(1)
-        matrix_reg = self.efc_lambda *  self.previous_efm + self.damping * torch.eye(self.previous_efm.shape[0], device=self.device) 
-        efc_loss = torch.mean(torch.bmm(torch.bmm((features - old_features), matrix_reg.expand(features.shape[0], -1, -1)), (features - old_features).permute(0,2,1)))
-        return  efc_loss
 
-    # cross entropy correct for our task of video classification
     def select_criterion(self, criterion_type):
-        # here is 0 cause we only have one head
         if criterion_type == "multiclass":
             return torch.nn.CrossEntropyLoss()
         elif criterion_type == "multilabel":
             return torch.nn.BCEWithLogitsLoss()
         
-
-    
         
     def post_train(self, task_id, train_loader=None):
-        #create new Dataloader to do sequential sampling
-        tmp_loader = DataLoader(train_loader.dataset, batch_size=train_loader.batch_size, shuffle=False, num_workers=train_loader.num_workers)
+        pass 
 
-        n_samples_batches = len(tmp_loader.dataset) // tmp_loader.batch_size
-
-        self.model.eval() 
-        # ensure that gradients are zero
-        self.model.zero_grad()   
-        empirical_feat_mat = torch.zeros((self.model.get_feat_size(), self.model.get_feat_size()), requires_grad=False).to(self.device)
-  
-        for batch_idx, (images, _, _, _, _) in enumerate(tqdm(tmp_loader)):
-
-            with torch.no_grad():
-                _, gap_out = self.model(images.to(self.device))
-            gap_out.requires_grad = True
-            out = self.model.heads[0](gap_out)
-
-            
-            
-            out_size = out.shape[1]
-            
-            log_p = nn.LogSigmoid()(out) # (n_batch,class)
-            jac = jacobian_in_batch(log_p, gap_out).detach() 
-            gap_out.detach()
-       
-            with torch.no_grad():
-                p = torch.exp(log_p) # (n_batch,class)
-                efm_per_batch = torch.zeros((images.shape[0], self.model.get_feat_size(), self.model.get_feat_size()), device=self.device)
-
-                for c in range(out_size):
-                        efm_per_batch +=  p[:,c].view(images.shape[0], 1, 1) * torch.bmm(jac[:,c, :].unsqueeze(1).permute(0,2,1), jac[:,c, :].unsqueeze(1)) 
-                        
-                empirical_feat_mat +=  torch.sum(efm_per_batch,dim=0)   
-
-
-        n_samples = n_samples_batches * train_loader.batch_size
-     
-        # divide by the total number of samples 
-        empirical_feat_mat = empirical_feat_mat/n_samples
-
-        self.previous_efm = empirical_feat_mat
-        if isPSD(self.previous_efm):
-            print("EFM is semidefinite positive")
-
-        # print rank of matrix
-        matrix_rank = torch.linalg.matrix_rank(self.previous_efm)
-        print("Matrix Rank: {}".format(matrix_rank))
-        # save matrix after each task for analysis
-        save_efm(self.previous_efm, task_id, self.out_path)
-
-
-    def val_computation(self, outputs, labels, task_id, features, old_features, current_batch_size):
-
-        cls_loss, efc_loss = 0, 0
-
-        if task_id > 0:
-            efc_loss = self.efm_loss(features[:current_batch_size], old_features)
-            cls_loss = self.criterion(outputs[0], labels)
-        else:
-            # first task only a cross entropy loss
-            cls_loss = self.criterion(outputs[0], labels)
-
-        return cls_loss, efc_loss
     
     def eval(self, current_training_task, test_id, loader, epoch, verbose, testing=None):
         if self.multilabel:
@@ -264,32 +158,33 @@ class DICM_efc(IncrementalApproach):
         else:
             metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.total_classes, self.criterion_type, self.all_subcategories_dict, self.class_to_idx)
 
+
         
-        val_cls_loss, val_efc_loss, n_samples = 0, 0, 0
+        val_cls_loss, val_fd_loss, n_samples = 0, 0, 0
         with torch.no_grad():
             self.model.eval()
             self.old_model.eval()
             for images, targets, binarized_targets, subcategory, data_path in tqdm(loader):
                 images = images.to(self.device)
-
                 labels = self.select_proper_targets(targets, binarized_targets).to(self.device)
                 current_batch_size = images.shape[0]
                 n_samples += current_batch_size
-
-                _, old_features = self.old_model(images)
-
+ 
                 outputs, features = self.model(images)
-                # self.criterion(outputs[0], labels)   
-                cls_loss, efc_loss = self.val_computation(outputs, labels, test_id, features, old_features, current_batch_size)
 
-                loss = cls_loss + efc_loss
-                 
+                old_features = None
+
+                if test_id > 0:
+                    _, old_features = self.old_model(images)
+                
+                cls_loss, fd_loss = self.criterion_computation(outputs, labels, test_id, features, old_features)   
+                
+                val_cls_loss += cls_loss * current_batch_size
+
+                val_fd_loss += fd_loss
 
                 metric_evaluator.update(targets, binarized_targets.float().squeeze(dim=1),
                                         self.compute_probabilities(outputs, 0), subcategory, data_path)
-                
-                val_cls_loss += cls_loss * current_batch_size
-                val_efc_loss += efc_loss * current_batch_size
                 
 
             acc, ap, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory, accuracy_per_subcategory, precision_per_subcategory = metric_evaluator.get(verbose=verbose)
@@ -327,7 +222,7 @@ class DICM_efc(IncrementalApproach):
 
             if verbose:
                 print(" - classification loss: {}".format(val_cls_loss/n_samples))
-                print(" - efc loss: {}".format(val_efc_loss/n_samples))
+                print(" - fd loss: {}".format(val_fd_loss/n_samples))
 
             return acc, ap, cls_loss/n_samples, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory, accuracy_per_subcategory, precision_per_subcategory
         

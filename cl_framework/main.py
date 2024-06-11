@@ -9,10 +9,10 @@ from torch.utils.data.dataloader import DataLoader
 # approaches 
 from continual_learning.FinetuningMethod import FineTuningMethod
 from continual_learning.DataIncrementalDecrementalMethod import DataIncrementalDecrementalMethod
-from continual_learning.DICM_efc import DICM_efc
-from continual_learning.DICM_lwf import DICM_lwf
-from continual_learning.DICM_fd import DICM_fd
-from continual_learning.DICM_ewc import DICM_ewc
+from data_incdec_framework.cl_framework.continual_learning.DIDM_efc import DIDM_efc
+from data_incdec_framework.cl_framework.continual_learning.DIDM_lwf import DIDM_lwf
+from continual_learning.DIDM_fd import DIDM_fd
+from continual_learning.DIDM_ewc import DIDM_ewc
  
 from continual_learning.LearningWithoutForgetting import LWF
 
@@ -260,7 +260,7 @@ if __name__ == "__main__":
                     no_class_check=no_class_check
                     )
     elif args.approach == 'incdec_efc':
-        approach = DICM_efc(args=args, device = device,
+        approach = DIDM_efc(args=args, device = device,
                             out_path=out_path,
                             task_dict=task_dict,
                             total_classes=total_classes,
@@ -273,7 +273,7 @@ if __name__ == "__main__":
                             no_class_check=no_class_check
                             )
     elif args.approach == 'incdec_lwf':
-        approach = DICM_lwf(args=args, device = device,
+        approach = DIDM_lwf(args=args, device = device,
                             out_path=out_path,
                             task_dict=task_dict,
                             total_classes=total_classes,
@@ -286,7 +286,7 @@ if __name__ == "__main__":
                             no_class_check=no_class_check
                             )
     elif args.approach == 'incdec_fd':
-        approach = DICM_fd(args=args, device = device,
+        approach = DIDM_fd(args=args, device = device,
                             out_path=out_path,
                             task_dict=task_dict,
                             total_classes=total_classes,
@@ -299,7 +299,7 @@ if __name__ == "__main__":
                             no_class_check=no_class_check
                             )
     elif args.approach == 'incdec_ewc':
-        approach = DICM_ewc(args=args, device = device,
+        approach = DIDM_ewc(args=args, device = device,
                             out_path=out_path,
                             task_dict=task_dict,
                             total_classes=total_classes,
