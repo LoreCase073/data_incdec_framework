@@ -2,8 +2,6 @@ import torch
 from tqdm import tqdm
 from copy import deepcopy
 
-from sklearn.utils import compute_class_weight
-
 from continual_learning.IncrementalApproach import IncrementalApproach
 from continual_learning.models.BaseModel import BaseModel
 from continual_learning.metrics.metric_evaluator_incdec import MetricEvaluatorIncDec
@@ -15,7 +13,7 @@ from sklearn.metrics import PrecisionRecallDisplay
 import os
 import pandas as pd
 from torch import nn
-from torch.utils.data import WeightedRandomSampler, SequentialSampler, DataLoader
+from torch.utils.data import DataLoader
 
 def jacobian_in_batch(y, x):
         '''

@@ -1,8 +1,5 @@
 import torch
 from tqdm import tqdm
-from copy import deepcopy
-
-from sklearn.utils import compute_class_weight
 
 from continual_learning.IncrementalApproach import IncrementalApproach
 from continual_learning.models.BaseModel import BaseModel
@@ -348,6 +345,9 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
     
 
     def save_error_analysis(self, task_id, class_names, data_paths, predictions, targets, probabilities, subcategory, testing):
+        """
+        Save error analysis csv files for each task.
+        """
         ea_path = os.path.join(self.out_path,'error_analysis')
         if not os.path.exists(ea_path):
             os.mkdir(ea_path)

@@ -1,8 +1,5 @@
 import torch
 from tqdm import tqdm
-from copy import deepcopy
-
-from sklearn.utils import compute_class_weight
 
 from continual_learning.IncrementalApproach import IncrementalApproach
 from continual_learning.models.BaseModel import BaseModel
@@ -17,7 +14,7 @@ import pandas as pd
 from torch import nn
 from torch.utils.data import WeightedRandomSampler, SequentialSampler, DataLoader
  
-
+# TODO: TO BE COMPLETED, not yet implemented
 class DIDM_replay(IncrementalApproach):
     
     def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, subcategories_dict, all_subcategories_dict, multilabel,no_class_check):
