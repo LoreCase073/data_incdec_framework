@@ -10,7 +10,7 @@ class OptimizerManager:
         self.scheduler_type = scheduler_type
         self.approach = approach
     
-    def get_optimizer(self, task_id, model, auxiliary_classifier, weight_decay, patience, freeze_bn):
+    def get_optimizer(self, task_id, model, weight_decay, patience, freeze_bn):
         #freeze batch normalization layers
         if task_id > 0 and freeze_bn == 'yes':
             model.freeze_bn() 

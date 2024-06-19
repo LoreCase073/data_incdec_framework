@@ -1,6 +1,4 @@
 import argparse
-from ast import parse
-import sys
     
 def get_args():
     parser = argparse.ArgumentParser()
@@ -8,7 +6,7 @@ def get_args():
     """
     Structural hyperparams 
     """
-    parser.add_argument("--approach", type=str,default="incdec", choices=["finetuning", "ewc","lwf","incdec", 'incdec_efc', 'incdec_lwf', 'incdec_fd', 'incdec_ewc'], help="Type of machine learning approach to be followed.")
+    parser.add_argument("--approach", type=str,default="incdec", choices=["incdec", 'incdec_lwf', 'incdec_fd', 'incdec_ewc'], help="Type of machine learning approach to be followed.")
     parser.add_argument("--pipeline", type=str,default="baseline", choices=["baseline","decremental","incremental_decremental","joint_incremental"], help="Type of pipeline to be follower in the incdec case.") 
     parser.add_argument("--n_accumulation", type=int, default=0, help="To be used in case you want to do gradient accumulation.")
     parser.add_argument("--outpath", "-op",default="./", type=str, help="Output directory where to save results.") 
@@ -22,12 +20,6 @@ def get_args():
     parser.add_argument("--restore_initial_parameters", type=str, default="no", choices=["yes", "no"], help="If training need to be done restoring at each task the inizial, randoms weights. Choices: ['yes','no']")
 
     """
-    EFC hyperparams 
-    """
-    parser.add_argument("--efc_lambda", default=1.0, type=float, help="")
-    parser.add_argument("--damping", default=0.0, type=float, help="")
-    
-    """
     EWC Hyperparams
     """
     parser.add_argument("--ewc_lambda", default=5000.0, type=float, help="")
@@ -37,8 +29,6 @@ def get_args():
     """
     parser.add_argument("--lwf_lamb", default=1.0, type=float, help="Coefficient to weight the lwf regularization term.")
     parser.add_argument("--lwf_T", default=1.0, type=float, help="")
-
-
     """
     FD hyperparams 
     """
@@ -60,24 +50,26 @@ def get_args():
     parser.add_argument("--patience", type=int, default=10, help="Patience for the reduce_plateau scheduler.")
     parser.add_argument("--device", type=int, default=0)
     parser.add_argument("--criterion_type", type=str, default="multilabel", choices=["multiclass", "multilabel"], help="Select the type of loss to be used, for multiclass is cross_entropy, for multilabel BCE.")
-    parser.add_argument("--multilabel", type=str, default="no", choices=["yes", "no"], help="Select if to consider a multilabel setting in evaluation. Used if multilabel is used and for VZC.")
+    #TODO: remove
+    #parser.add_argument("--multilabel", type=str, default="no", choices=["yes", "no"], help="Select if to consider a multilabel setting in evaluation. Used if multilabel is used and for VZC.")
 
     "Dataset Settings"
-    parser.add_argument("--dataset", type=str, default="kinetics", choices=["cifar100","tiny-imagenet","imagenet-subset", "kinetics", "vzc", "vzctest"], help="dataset to use") 
+    parser.add_argument("--dataset", type=str, default="kinetics", choices=["kinetics"], help="dataset to use") 
     parser.add_argument("--data_path",type=str, default="./Kinetics",help="path where dataset is saved")
     parser.add_argument("--subcategories_csv_path",type=str, default="./Kinetics/Info/subcategories_to_remove.csv",help="path where the csv with the specification of the subcategories to be removed/substituted is stored, for the pipeline decremental/incremental_decremental.")
     parser.add_argument("--subcategories_randomize", type=str, default="yes", choices=["yes", "no"], help="Use it if we want to work with subcategories (subcategories), and in the decremental or incremental/decremental pipeline you want to randomize the order in which are removed/substituted") 
-    parser.add_argument("--n_class_first_task", type=int, default=5, help="if greater than -1 use a larger number of classes for the first class, n_task include this one. If incdec approach set it is irrelevant.")
     parser.add_argument("--n_task", type=int, default=6, help="number of tasks, including the initial one")
     parser.add_argument("--initial_split", type=int, default=2, choices=[2], help="how to divide in the initial split the dataset. 2 will divide in 50%/50%")
     parser.add_argument("--valid_size", type=float, default=0.0, help="percentage of train for validation set, default not use validation set")
     parser.add_argument("--sampler", type=str, default="balanced", choices=["imbalance_sampler","balanced"], help="Select the type of sampler to ber used by dataloader. imbalance sampler is for class imbalance cases. balanced is the standard one.")
-    parser.add_argument("--subcategories_check", type=str, default="yes", choices=["yes", "no"], help="Use it if we want to work with subcategories (subcategories), do not include it if not") 
-
+    #TODO: remove
+    #parser.add_argument("--subcategories_check", type=str, default="yes", choices=["yes", "no"], help="Use it if we want to work with subcategories (subcategories), do not include it if not") 
+    #parser.add_argument("--n_class_first_task", type=int, default=5, help="if greater than -1 use a larger number of classes for the first class, n_task include this one. If incdec approach set it is irrelevant.")
+    
     """
     Network Params
     """
-    parser.add_argument("--backbone", type=str, default="movinetA0", choices=["resnet18","3dresnet18","3dresnet10","movinetA0","movinetA1","movinetA2"])
+    parser.add_argument("--backbone", type=str, default="movinetA0", choices=["3dresnet10","movinetA0","movinetA1","movinetA2"])
     parser.add_argument("--firsttask_modelpath", type=str, default="None", help="specify model path if start from a pre-trained model after first task")
     parser.add_argument("--pretrained_path", type=str, default="None", help="specify model path if start from a pre-trained model for also task 0")
 

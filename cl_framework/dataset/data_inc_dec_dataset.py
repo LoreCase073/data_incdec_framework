@@ -11,20 +11,17 @@ class DataIncDecBaselineDataset():
         self.dataset = dataset
         self.train = train 
 
-        #initial_split will explain how to split the data
-        #will usually be 50-50
+        # initial_split will explain how to split the data
+        # in our case is always 50/50
         self.initial_split = initial_split
         #n_task will also say how much will need to split the second 50% of data
         self.n_task = n_task
         self.len_dataset = len(dataset)
         #number of classes
-        if no_class_check == True:
-            # this is because we pass all the classes -1 in case of vzc
-            self.total_classes = total_classes + 1
-        else:
-            self.total_classes = total_classes
+        self.total_classes = total_classes
 
         self.validation = validation
+
         #compute class sample count for the sample weights to be used in weighted random sample
         self.class_sample_count = np.array([len(np.where(self.dataset.targets == t)[0]) for t in np.unique(self.dataset.targets)])
         self.sample_weight = 1. / self.class_sample_count
@@ -55,12 +52,12 @@ class DataIncDecBaselineDataset():
 
                     sec_class_indices = [idx for idx in current_class_indices if idx in second_split]
 
-                    #number of data from the first split to be removed
+                    # number of data from the first split to be removed
                     if self.n_task > 1:
                         f_data_task = int(len(f_class_indices)/(self.n_task-1))
                     else:
                         f_data_task = int(len(f_class_indices))
-                    #number of data from the second split to be added
+                    # number of data from the second split to be added
                     if self.n_task > 1:
                         sec_data_task = int(len(sec_class_indices)/(self.n_task-1))
                     else:
@@ -79,16 +76,16 @@ class DataIncDecBaselineDataset():
             cl_train_dataset = [Subset(self.dataset, ids)  for ids in train_indices_list]
             cl_train_sizes = [len(ids) for ids in train_indices_list]
 
-            #TODO: implementare validation set, sia per validation esterno sia da separarlo da train
             val_indices_list = [[] for _ in range(self.n_task)] 
             if self.validation != None:
-                #Here validation passed from out of the train, same for all the tasks
+                # Here validation passed from out of the train, same for all the tasks
                 for i in range(self.n_task):
                     for idx_class in range(self.total_classes):
                         current_class_indices = np.where(np.array(self.validation.targets) == idx_class)[0]
                         val_indices_list[i].extend(list(current_class_indices))
             else:
                 #TODO: implement if validation is not passed from out of the train
+                #TODO: in realtà forse rimuovere questa scelta per la decisione finale
                 pass
 
             cl_val_dataset = [Subset(self.validation, ids)  for ids in val_indices_list]
@@ -100,7 +97,7 @@ class DataIncDecBaselineDataset():
         else:
             #TEST
             
-            # test indices should be equal for each task
+            # test indices should be the same for each training
             test_indices_list = [[] for _ in range(self.n_task)] 
             for i in range(self.n_task):
                     for idx_class in range(self.total_classes):
@@ -170,9 +167,6 @@ class DataIncDecBaselineDataset():
         return first_split, second_split
 
 
-""" 
-Work in progress...
- """
 class DataIncrementalDecrementalPipelineDataset():
     def __init__(self, dataset, subcategories_dictionary, 
                     n_task, initial_split,
@@ -182,18 +176,14 @@ class DataIncrementalDecrementalPipelineDataset():
         self.train = train
         self.subcategories_dictionary = subcategories_dictionary
 
-        #initial_split will explain how to split the data
-        #will usually be 50-50
+        # initial_split will explain how to split the data
+        # in our case is always 50/50
         self.initial_split = initial_split
         #n_task will also say how much will need to split the second 50% of data
         self.n_task = n_task
         self.len_dataset = len(dataset)
         #number of classes
-        if no_class_check == True:
-            # this is because we pass all the classes -1 in case of vzc
-            self.total_classes = total_classes + 1
-        else:
-            self.total_classes = total_classes
+        self.total_classes = total_classes
 
         self.validation = validation
         
@@ -213,8 +203,7 @@ class DataIncrementalDecrementalPipelineDataset():
 
 
 
-            #TODO: controllare di aver fatto l'eliminazione dei subcategories e quindi la suddivisione del dataset correttamente
-
+            
             for idx_class in range(self.total_classes):
                 # get the class name to use in subcategories_dictionary
                 class_name = [ c for c, idx in self.dataset.class_to_idx.items() if idx == idx_class ][0]
@@ -258,8 +247,8 @@ class DataIncrementalDecrementalPipelineDataset():
             
             cl_train_dataset = [Subset(self.dataset, ids)  for ids in train_indices_list]
             cl_train_sizes = [len(ids) for ids in train_indices_list]
-
-            #TODO: controllare che validation sia preso in maniera corretta
+            
+            #VALIDATION
             val_indices_list = [[] for _ in range(self.n_task)] 
             if self.validation != None:
                 
@@ -292,7 +281,6 @@ class DataIncrementalDecrementalPipelineDataset():
         else:
             #TEST
             
-            #TODO: controllare logica per test, dovrebbe essere sempre uguale per ogni task
             test_indices_list = [[] for _ in range(self.n_task)] 
             for i in range(self.n_task):
                     for idx_class in range(self.total_classes):
@@ -304,28 +292,9 @@ class DataIncrementalDecrementalPipelineDataset():
 
             return cl_test_dataset, cl_test_sizes, None, None
         
-    def new_get_weighted_random_sampler(self,indices):
-        """ 
-         TODO: controllare di aver fatto il sampler correttamente """
-        tmp_targets = [self.dataset.targets[i] for i in indices]
-        class_sample_count = np.array([0 for i in range(self.total_classes)])
-        sample_weight = [0 for i in range(self.total_classes)]
-        for i in range(self.total_classes):
-            classes = np.unique(self.dataset.targets)
-            class_sample_count[i] = len(np.where(tmp_targets == classes[i])[0])
-            
-        sample_weight = 1. / class_sample_count
-        sample_weight[sample_weight == np.inf] = 0
-
-        samples_weight = np.array(sample_weight[[self.dataset.targets[i] for i in indices]])
-        sampler = WeightedRandomSampler(samples_weight, len(samples_weight))
-
-        return sampler
     
 
     def get_weighted_random_sampler(self,indices):
-        """ 
-         TODO: controllare di aver fatto il sampler correttamente """
         tmp_targets = [self.dataset.targets[i] for i in indices]
         class_sample_count = np.array([len(np.where(tmp_targets == t)[0]) for t in np.unique(tmp_targets)])
         sample_weight = 1. / class_sample_count
@@ -334,7 +303,8 @@ class DataIncrementalDecrementalPipelineDataset():
         sampler = WeightedRandomSampler(samples_weight, len(samples_weight))
 
         return sampler
-    
+
+
     def get_initial_splits(self):
         first_split = []
         second_split = []
@@ -382,6 +352,25 @@ class DataIncrementalDecrementalPipelineDataset():
                 second_split.extend(list(second_split_indices))
         
         return first_split, second_split
+    
+
+    """     
+    def new_get_weighted_random_sampler(self,indices):
+        tmp_targets = [self.dataset.targets[i] for i in indices]
+        class_sample_count = np.array([0 for i in range(self.total_classes)])
+        sample_weight = [0 for i in range(self.total_classes)]
+        for i in range(self.total_classes):
+            classes = np.unique(self.dataset.targets)
+            class_sample_count[i] = len(np.where(tmp_targets == classes[i])[0])
+            
+        sample_weight = 1. / class_sample_count
+        sample_weight[sample_weight == np.inf] = 0
+
+        samples_weight = np.array(sample_weight[[self.dataset.targets[i] for i in indices]])
+        sampler = WeightedRandomSampler(samples_weight, len(samples_weight))
+
+        return sampler
+ """
 
 
 
@@ -394,18 +383,14 @@ class JointIncrementalBaselineDataset():
         self.dataset = dataset
         self.train = train 
 
-        #initial_split will explain how to split the data
-        #will usually be 50-50
+        # initial_split will explain how to split the data
+        # in our case is always 50/50
         self.initial_split = initial_split
         #n_task will also say how much will need to split the second 50% of data
         self.n_task = n_task
         self.len_dataset = len(dataset)
         #number of classes
-        if no_class_check == True:
-            # this is because we pass all the classes -1 in case of vzc
-            self.total_classes = total_classes + 1
-        else:
-            self.total_classes = total_classes
+        self.total_classes = total_classes
 
         self.validation = validation
         #compute class sample count for the sample weights to be used in weighted random sample
@@ -463,7 +448,6 @@ class JointIncrementalBaselineDataset():
             cl_train_dataset = [Subset(self.dataset, ids)  for ids in train_indices_list]
             cl_train_sizes = [len(ids) for ids in train_indices_list]
 
-            #TODO: implementare validation set, sia per validation esterno sia da separarlo da train
             val_indices_list = [[] for _ in range(self.n_task)] 
             
             if self.validation != None:

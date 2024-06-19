@@ -1,9 +1,7 @@
 import torch
-import os
-from sklearn.metrics import accuracy_score, confusion_matrix, multilabel_confusion_matrix, precision_recall_curve, PrecisionRecallDisplay
-import matplotlib.pyplot as plt
+from sklearn.metrics import accuracy_score, confusion_matrix, multilabel_confusion_matrix, precision_recall_curve
 import numpy as np
-from torchmetrics.classification import MulticlassAveragePrecision, MultilabelAveragePrecision, Recall, Precision
+from torchmetrics.classification import MulticlassAveragePrecision, Recall, Precision
 from sklearn.preprocessing import label_binarize
 
 

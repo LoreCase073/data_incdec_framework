@@ -4,7 +4,6 @@ from tqdm import tqdm
 from continual_learning.IncrementalApproach import IncrementalApproach
 from continual_learning.models.BaseModel import BaseModel
 from continual_learning.metrics.metric_evaluator_incdec import MetricEvaluatorIncDec
-from continual_learning.metrics.metric_evaluator_incdec_multilabel import MetricEvaluatorIncDec_multilabel
 import numpy as np
 import matplotlib.pyplot as plt
 import itertools

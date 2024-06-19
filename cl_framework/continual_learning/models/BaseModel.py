@@ -1,14 +1,9 @@
  
 import torch
-from .resnet18 import resnet18
-from .resnet18_imagenet import resnet18_imagenet
-from .resnet3d.resnet import generate_model_3dresnet
 from .movinets.models import MoViNetIncDec
 from .movinets.config import _C
 from torch import nn
-import sys 
-import math
-import torch.nn.functional as F 
+import sys
 
          
 class BaseModel(nn.Module):
@@ -17,18 +12,7 @@ class BaseModel(nn.Module):
         self.backbone_type = backbone
         self.dataset = dataset
  
-        if self.backbone_type == "resnet18" :
-            if dataset == "cifar100":
-                self.backbone = resnet18(avg_pool_size=4, pretrained=False)  
-            elif dataset == "tiny-imagenet":
-                self.backbone = resnet18(avg_pool_size=8, pretrained=False)
-            elif dataset == "imagenet-subset":
-                self.backbone = resnet18_imagenet()
-        elif self.backbone_type == '3dresnet18':
-            self.backbone = generate_model_3dresnet(18)
-        elif self.backbone_type == '3dresnet10':
-            self.backbone = generate_model_3dresnet(10)
-        elif self.backbone_type == 'movinetA0':
+        if self.backbone_type == 'movinetA0':
             self.backbone = MoViNetIncDec(_C.MODEL.MoViNetA0, causal = False, pretrained = False)
         elif self.backbone_type == 'movinetA1':
             self.backbone = MoViNetIncDec(_C.MODEL.MoViNetA1, causal = False, pretrained = False)
@@ -43,27 +27,15 @@ class BaseModel(nn.Module):
         return self.backbone.feature_space_size
 
     def add_classification_head(self, n_out):
-        #TODO: qui forse fare che se il modello è per DataIncDec, forse una sola testa, non più...
         if self.backbone_type == "movinetA0" or self.backbone_type == "movinetA1" or self.backbone_type == "movinetA2":
             self.heads.append(
                 torch.nn.Sequential(self.backbone.add_head(num_classes=n_out)))
-        else:
-            self.heads.append(
-                torch.nn.Sequential(nn.Linear(self.backbone.feature_space_size, n_out, bias=False)))
+        
 
     def reset_backbone(self, backbone = None):
 
-        if self.dataset == "cifar100":
-            self.backbone = resnet18(avg_pool_size=4, pretrained=False)  
-        elif self.dataset == "tiny-imagenet":
-            self.backbone = resnet18(avg_pool_size=8, pretrained=False)  
-        
-        elif self.dataset == "imagenet-subset":
-            self.backbone = resnet18_imagenet()
-        elif self.dataset == "kinetics" or backbone == "3dresnet18":
-             self.backbone == generate_model_3dresnet(18)
-        elif backbone == "movinetA0":
-             self.backbone = MoViNetIncDec(_C.MODEL.MoViNetA0, causal = False, pretrained = False)
+        if backbone == "movinetA0":
+            self.backbone = MoViNetIncDec(_C.MODEL.MoViNetA0, causal = False, pretrained = False)
         elif backbone == "movinetA1":
             self.backbone = MoViNetIncDec(_C.MODEL.MoViNetA1, causal = False, pretrained = False)
         elif backbone == "movinetA2":
@@ -78,9 +50,6 @@ class BaseModel(nn.Module):
             for id, head in enumerate(self.heads):
                 x = head(features)
                 results[id] = x.flatten(1)
-        else:
-            for id, head in enumerate(self.heads):
-                results[id] = head(features)
         
         return results, features
     
