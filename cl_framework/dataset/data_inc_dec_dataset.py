@@ -6,7 +6,7 @@ import torch
 class DataIncDecBaselineDataset():
     def __init__(self, dataset,  
                     n_task, initial_split,
-                    total_classes, subcategories_check='yes', train=True, validation=None, valid_size=None, no_class_check=False):
+                    total_classes, subcategories_check='yes', train=True, validation=None):
         
         self.dataset = dataset
         self.train = train 

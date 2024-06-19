@@ -15,7 +15,7 @@ from torch import nn
 
 class DataIncrementalDecrementalMethod(IncrementalApproach):
     
-    def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, subcategories_dict, all_subcategories_dict, multilabel,no_class_check):
+    def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, subcategories_dict, all_subcategories_dict, multilabel):
         self.total_classes = total_classes
         
         self.n_accumulation = args.n_accumulation
@@ -30,8 +30,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         self.criterion = self.select_criterion(args.criterion_type)
         self.all_subcategories_dict = all_subcategories_dict
         self.freeze_backbone = args.freeze_backbone
-        # to check if working with multilabel with samples with no classses
-        self.no_class_check = no_class_check
+        
         self.multilabel = multilabel
 
 
@@ -115,10 +114,7 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
 
     
     def eval(self, current_training_task, test_id, loader, epoch, verbose, testing=None):
-        if self.multilabel:
-            metric_evaluator = MetricEvaluatorIncDec_multilabel(self.out_path, self.total_classes, self.criterion_type, self.all_subcategories_dict, self.class_to_idx)
-        else:
-            metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.total_classes, self.criterion_type, self.all_subcategories_dict, self.class_to_idx)
+        metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.total_classes, self.criterion_type, self.all_subcategories_dict, self.class_to_idx)
 
 
         

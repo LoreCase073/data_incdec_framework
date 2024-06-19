@@ -18,7 +18,7 @@ from continual_learning.utils.empirical_fisher import EmpiricalFIM
 
 class DIDM_ewc(IncrementalApproach):
     
-    def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, subcategories_dict, all_subcategories_dict, multilabel,no_class_check):
+    def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, subcategories_dict, all_subcategories_dict, multilabel):
         self.total_classes = total_classes
         
         self.n_accumulation = args.n_accumulation
@@ -39,8 +39,7 @@ class DIDM_ewc(IncrementalApproach):
         self.fisher = None
         self.older_params = None
         self.print_running_approach()
-        # to check if working with multilabel with samples with no classses
-        self.no_class_check = no_class_check
+        
         self.multilabel = multilabel
 
     def print_running_approach(self):
@@ -184,10 +183,8 @@ class DIDM_ewc(IncrementalApproach):
     
     
     def eval(self, current_training_task, test_id, loader, epoch, verbose, testing=None):
-        if self.multilabel:
-            metric_evaluator = MetricEvaluatorIncDec_multilabel(self.out_path, self.total_classes, self.criterion_type, self.all_subcategories_dict, self.class_to_idx)
-        else:
-            metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.total_classes, self.criterion_type, self.all_subcategories_dict, self.class_to_idx)
+        
+        metric_evaluator = MetricEvaluatorIncDec(self.out_path, self.total_classes, self.criterion_type, self.all_subcategories_dict, self.class_to_idx)
 
         
         val_cls_loss, val_ewc_loss, n_samples = 0, 0, 0
