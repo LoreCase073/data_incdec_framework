@@ -60,11 +60,11 @@ def get_args():
     parser.add_argument("--subcategories_randomize", type=str, default="yes", choices=["yes", "no"], help="Use it if we want to work with subcategories (subcategories), and in the decremental or incremental/decremental pipeline you want to randomize the order in which are removed/substituted") 
     parser.add_argument("--n_task", type=int, default=6, help="number of tasks, including the initial one")
     parser.add_argument("--initial_split", type=int, default=2, choices=[2], help="how to divide in the initial split the dataset. 2 will divide in 50%/50%")
-    parser.add_argument("--valid_size", type=float, default=0.0, help="percentage of train for validation set, default not use validation set")
     parser.add_argument("--sampler", type=str, default="balanced", choices=["imbalance_sampler","balanced"], help="Select the type of sampler to ber used by dataloader. imbalance sampler is for class imbalance cases. balanced is the standard one.")
     #TODO: remove
     #parser.add_argument("--subcategories_check", type=str, default="yes", choices=["yes", "no"], help="Use it if we want to work with subcategories (subcategories), do not include it if not") 
     #parser.add_argument("--n_class_first_task", type=int, default=5, help="if greater than -1 use a larger number of classes for the first class, n_task include this one. If incdec approach set it is irrelevant.")
+    #parser.add_argument("--valid_size", type=float, default=0.0, help="percentage of train for validation set, default not use validation set")
     
     """
     Network Params

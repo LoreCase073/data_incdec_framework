@@ -29,26 +29,24 @@ def get_training_validation_subset_for_tasks(approach, pipeline, train_set,
                                                     n_task, initial_split, 
                                                     total_classes,
                                                     subcategories_check,validation_set,
-                                                    valid_size,subcategories_dict = None, no_class_check = False):
+                                                    subcategories_dict = None):
     if approach == 'incdec' or approach == 'incdec_efc' or approach == 'incdec_lwf' or approach == 'incdec_fd' or args.approach == 'incdec_ewc':
         if pipeline == 'baseline':
             cl_train_val = DataIncDecBaselineDataset(train_set,
                                                     n_task, initial_split, 
                                                     total_classes,
                                                     subcategories_check=subcategories_check,
-                                                    train=True, validation=validation_set,
-                                                    valid_size=valid_size, no_class_check=no_class_check)
+                                                    train=True, validation=validation_set,)
         elif pipeline == 'decremental' or pipeline == 'incremental_decremental':
             cl_train_val = DataIncrementalDecrementalPipelineDataset(train_set, subcategories_dict, 
                     n_task, initial_split,
-                    total_classes, subcategories_check='yes', train=True, validation=validation_set, valid_size=valid_size, no_class_check=no_class_check)
+                    total_classes, subcategories_check='yes', train=True, validation=validation_set)
         elif pipeline == 'joint_incremental':
             cl_train_val = JointIncrementalBaselineDataset(train_set,
                                                     n_task, initial_split, 
                                                     total_classes,
                                                     subcategories_check=subcategories_check,
-                                                    train=True, validation=validation_set,
-                                                    valid_size=valid_size, no_class_check=no_class_check)
+                                                    train=True, validation=validation_set)
         
     return cl_train_val
 
@@ -64,28 +62,26 @@ def get_test_subset_for_tasks(approach, pipeline, test_set,
                                                     n_task, initial_split, 
                                                     total_classes,
                                                     subcategories_check=subcategories_check,
-                                                    train=False, validation=None,
-                                                    valid_size=None)
+                                                    train=False, validation=None)
         elif pipeline == 'decremental' or pipeline == 'incremental_decremental':
             cl_test = DataIncrementalDecrementalPipelineDataset(test_set, subcategories_dict, 
                     n_task, initial_split,
-                    total_classes, subcategories_check='yes', train=False, validation=None, valid_size=None)
+                    total_classes, subcategories_check='yes', train=False, validation=None)
         elif pipeline == 'joint_incremental':
             cl_test = JointIncrementalBaselineDataset(test_set,
                                                     n_task, initial_split, 
                                                     total_classes,
                                                     subcategories_check=subcategories_check,
-                                                    train=False, validation=None,
-                                                    valid_size=None)
+                                                    train=False, validation=None)
         
     return cl_test
 
-def get_data_loaders(valid_size, validation_set, sampler, batch_size, nw, train_dataset_list, val_dataset_list, test_dataset_list):
+def get_data_loaders(validation_set, sampler, batch_size, nw, train_dataset_list, val_dataset_list, test_dataset_list):
     train_loaders = []
     valid_loaders = []
     test_loaders = [DataLoader(test, batch_size=batch_size, shuffle=False, num_workers=nw) for test in test_dataset_list]
 
-    if valid_size > 0 or validation_set != None:
+    if validation_set != None:
         if sampler == 'imbalance_sampler':
             for train in train_dataset_list:
                 sampler = cl_train_val.get_weighted_random_sampler(train.indices)
@@ -144,18 +140,7 @@ if __name__ == "__main__":
     
     train_set, test_set, validation_set, total_classes, subcat_dict = get_dataset(args.dataset, args.data_path, args.pretrained_path)
     
-    #TODO: remove these, useless for incdec
-    """ # mapping between classes and shuffled classes and re-map dataset classes for different order of classes
-    # for the incdec approach is not useful, for now at least
-    if not (args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd' or args.approach == 'incdec_ewc'): 
-        train_set, test_set, label_mapping = remap_targets(train_set, test_set, total_classes)
-    
-     
-    # class_per_task: number of classes not in the first task, if the first is larger, otherwise it is equal to total_classes/n_task
-    if not (args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd' or args.approach == 'incdec_ewc'):
-        class_per_task = get_class_per_task(args.n_class_first_task, total_classes, args.n_task) """
-    
-    
+      
     # task_dict = {task_id: list_of_class_ids}
     if args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd' or args.approach == 'incdec_ewc':
         task_dict, subcategories_dict, all_subcategories_dict = get_task_dict_incdec(args.n_task, args.subcategories_csv_path, args.pipeline, args.subcategories_randomize, out_path, subcat_dict)
@@ -166,20 +151,13 @@ if __name__ == "__main__":
     Generate Subset For Each Task
     """
 
-    #TODO: remove
-    # check if working with a multilabel setting with nothing class, so all zeros. 
-    """ if args.multilabel == 'yes' and (args.dataset == 'vzc' or args.dataset == 'vzctest'):
-        no_class_check = True
-    else:
-        no_class_check = False """
     
-    #TODO: sistemare no_class_check
     cl_train_val = get_training_validation_subset_for_tasks(args.approach, args.pipeline, train_set,
                                                             args.n_task, args.initial_split,
                                                             total_classes,
                                                             args.subcategories_check,
                                                             validation_set,
-                                                            args.valid_size,args.n_class_first_task, subcategories_dict)
+                                                            subcategories_dict)
 
     
     train_dataset_list, train_sizes, val_dataset_list, val_sizes = cl_train_val.collect()
@@ -201,7 +179,7 @@ if __name__ == "__main__":
     valid_loaders = []
     test_loaders = []
     
-    train_loaders, valid_loaders, test_loaders = get_data_loaders(args.valid_size, validation_set, args.sampler, args.batch_size, 
+    train_loaders, valid_loaders, test_loaders = get_data_loaders(validation_set, args.sampler, args.batch_size, 
                                                                   args.nw, train_dataset_list, val_dataset_list, test_dataset_list)
 
     
@@ -226,9 +204,7 @@ if __name__ == "__main__":
                     task_dict=task_dict,
                     total_classes=total_classes,
                     class_to_idx= train_set.get_class_to_idx(),
-                    subcategories_dict = subcategories_dict,
                     all_subcategories_dict = all_subcategories_dict,
-                    multilabel=args.multilabel,
                     )
     elif args.approach == 'incdec_lwf':
         approach = DIDM_lwf(args=args, device = device,
@@ -236,9 +212,7 @@ if __name__ == "__main__":
                             task_dict=task_dict,
                             total_classes=total_classes,
                             class_to_idx= train_set.get_class_to_idx(),
-                            subcategories_dict = subcategories_dict,
                             all_subcategories_dict = all_subcategories_dict,
-                            multilabel=args.multilabel,
                             )
     elif args.approach == 'incdec_fd':
         approach = DIDM_fd(args=args, device = device,
@@ -246,9 +220,7 @@ if __name__ == "__main__":
                             task_dict=task_dict,
                             total_classes=total_classes,
                             class_to_idx= train_set.get_class_to_idx(),
-                            subcategories_dict = subcategories_dict,
                             all_subcategories_dict = all_subcategories_dict,
-                            multilabel=args.multilabel,
                             )
     elif args.approach == 'incdec_ewc':
         approach = DIDM_ewc(args=args, device = device,
@@ -256,9 +228,7 @@ if __name__ == "__main__":
                             task_dict=task_dict,
                             total_classes=total_classes,
                             class_to_idx= train_set.get_class_to_idx(),
-                            subcategories_dict = subcategories_dict,
                             all_subcategories_dict = all_subcategories_dict,
-                            multilabel=args.multilabel,
                             )
 
     else:

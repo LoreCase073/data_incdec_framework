@@ -18,7 +18,7 @@ from continual_learning.utils.empirical_fisher import EmpiricalFIM
 
 class DIDM_ewc(IncrementalApproach):
     
-    def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, subcategories_dict, all_subcategories_dict, multilabel):
+    def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, all_subcategories_dict):
         self.total_classes = total_classes
         
         self.n_accumulation = args.n_accumulation
@@ -39,8 +39,6 @@ class DIDM_ewc(IncrementalApproach):
         self.fisher = None
         self.older_params = None
         self.print_running_approach()
-        
-        self.multilabel = multilabel
 
     def print_running_approach(self):
         super(DIDM_ewc, self).print_running_approach()

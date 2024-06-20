@@ -15,7 +15,7 @@ from torch import nn
 
 class DataIncrementalDecrementalMethod(IncrementalApproach):
     
-    def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, subcategories_dict, all_subcategories_dict, multilabel):
+    def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, all_subcategories_dict):
         self.total_classes = total_classes
         
         self.n_accumulation = args.n_accumulation
@@ -30,8 +30,6 @@ class DataIncrementalDecrementalMethod(IncrementalApproach):
         self.criterion = self.select_criterion(args.criterion_type)
         self.all_subcategories_dict = all_subcategories_dict
         self.freeze_backbone = args.freeze_backbone
-        
-        self.multilabel = multilabel
 
 
     def print_running_approach(self):

@@ -16,7 +16,7 @@ from torch import nn
 
 class DIDM_lwf(IncrementalApproach):
     
-    def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, subcategories_dict, all_subcategories_dict, multilabel):
+    def __init__(self, args, device, out_path, task_dict, total_classes, class_to_idx, all_subcategories_dict):
         self.total_classes = total_classes
         
         self.n_accumulation = args.n_accumulation
@@ -35,8 +35,6 @@ class DIDM_lwf(IncrementalApproach):
         self.lwf_lamb = args.lwf_lamb
 
         self.print_running_approach()
-        
-        self.multilabel = multilabel
 
 
     def print_running_approach(self):

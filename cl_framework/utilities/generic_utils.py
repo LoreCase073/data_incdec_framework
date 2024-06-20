@@ -36,6 +36,7 @@ def experiment_folder(root_path, dev_mode, approach_name):
         os.mkdir(out_path)
     return out_path, exp_folder
 
+#TODO: rimuovere
 def get_class_per_task(n_class_first_task, total_classes, n_task):
     assert n_class_first_task <= total_classes
     
@@ -114,7 +115,7 @@ def rollback_model_movinet(approach, out_path, name=None):
 def store_model(approach, out_path, name=""):
     torch.save(deepcopy(approach.model.state_dict()), os.path.join(out_path, name+"_model.pth"))
 
-
+#TODO: rimuovere
 def remap_targets(train_set, test_set, total_classes):
     l = list(range(total_classes))
     l_sorted = deepcopy(l)
