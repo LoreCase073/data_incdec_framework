@@ -12,7 +12,6 @@ from sklearn.metrics import PrecisionRecallDisplay
 import os
 import pandas as pd
 from torch import nn
-from torch.utils.data import WeightedRandomSampler, SequentialSampler, DataLoader
 from continual_learning.utils.empirical_fisher import EmpiricalFIM
 
 

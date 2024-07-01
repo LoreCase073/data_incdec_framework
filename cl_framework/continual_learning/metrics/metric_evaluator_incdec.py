@@ -186,26 +186,24 @@ class MetricEvaluatorIncDec():
         ap_per_subcategory = {}
         ap_metric = MulticlassAveragePrecision(num_classes=self.num_classes, average=None)
         for class_name in self.all_subcategories_dict:
-            # do not do it for the nothing class
-            if class_name != 'nothing':
-                idx_class = self.class_to_idx[class_name]
-                class_subcategories = self.all_subcategories_dict[class_name]
-                for idx_subcat in range(len(class_subcategories)):
-                    
-                    subcategory_name = class_subcategories[idx_subcat]
-                    current_class_indices = np.where(np.array(labels) == idx_class)[0].tolist()
-                    current_subcategory_indices = np.where((np.array(subcategories) == subcategory_name))[0].tolist()
-
-                    current_subcategory_indices = list(set(current_subcategory_indices).intersection(current_class_indices))
-
-                    other_classes_indices = np.where(np.array(labels) != idx_class)[0].tolist()
-
-                    subset_indices = torch.IntTensor(list(current_subcategory_indices + other_classes_indices))
-
-                    subset_predictions = torch.index_select(predictions, dim=0, index=subset_indices)
-                    subset_labels = torch.index_select(labels, dim=0, index=subset_indices)
+            idx_class = self.class_to_idx[class_name]
+            class_subcategories = self.all_subcategories_dict[class_name]
+            for idx_subcat in range(len(class_subcategories)):
                 
-                ap_per_subcategory[subcategory_name] = ap_metric(subset_predictions, subset_labels)[idx_class]
+                subcategory_name = class_subcategories[idx_subcat]
+                current_class_indices = np.where(np.array(labels) == idx_class)[0].tolist()
+                current_subcategory_indices = np.where((np.array(subcategories) == subcategory_name))[0].tolist()
+
+                current_subcategory_indices = list(set(current_subcategory_indices).intersection(current_class_indices))
+
+                other_classes_indices = np.where(np.array(labels) != idx_class)[0].tolist()
+
+                subset_indices = torch.IntTensor(list(current_subcategory_indices + other_classes_indices))
+
+                subset_predictions = torch.index_select(predictions, dim=0, index=subset_indices)
+                subset_labels = torch.index_select(labels, dim=0, index=subset_indices)
+            
+            ap_per_subcategory[subcategory_name] = ap_metric(subset_predictions, subset_labels)[idx_class]
 
         return ap_per_subcategory
     
@@ -213,26 +211,24 @@ class MetricEvaluatorIncDec():
         recall_per_subcategory = {}
         recall_metric = Recall(task='multiclass',num_classes=self.num_classes, average=None)
         for class_name in self.all_subcategories_dict:
-            # do not do it for the nothing class
-            if class_name != 'nothing':
-                idx_class = self.class_to_idx[class_name]
-                class_subcategories = self.all_subcategories_dict[class_name]
-                for idx_subcat in range(len(class_subcategories)):
-                    
-                    subcategory_name = class_subcategories[idx_subcat]
-                    current_class_indices = np.where(np.array(labels) == idx_class)[0].tolist()
-                    current_subcategory_indices = np.where((np.array(subcategories) == subcategory_name))[0].tolist()
-
-                    current_subcategory_indices = list(set(current_subcategory_indices).intersection(current_class_indices))
-
-                    other_classes_indices = np.where(np.array(labels) != idx_class)[0].tolist()
-
-                    subset_indices = torch.IntTensor(list(current_subcategory_indices + other_classes_indices))
-
-                    subset_predictions = torch.index_select(pos_max_prediction, dim=0, index=subset_indices)
-                    subset_labels = torch.index_select(labels, dim=0, index=subset_indices)
+            idx_class = self.class_to_idx[class_name]
+            class_subcategories = self.all_subcategories_dict[class_name]
+            for idx_subcat in range(len(class_subcategories)):
                 
-                recall_per_subcategory[subcategory_name] = recall_metric(subset_predictions, subset_labels)[idx_class]
+                subcategory_name = class_subcategories[idx_subcat]
+                current_class_indices = np.where(np.array(labels) == idx_class)[0].tolist()
+                current_subcategory_indices = np.where((np.array(subcategories) == subcategory_name))[0].tolist()
+
+                current_subcategory_indices = list(set(current_subcategory_indices).intersection(current_class_indices))
+
+                other_classes_indices = np.where(np.array(labels) != idx_class)[0].tolist()
+
+                subset_indices = torch.IntTensor(list(current_subcategory_indices + other_classes_indices))
+
+                subset_predictions = torch.index_select(pos_max_prediction, dim=0, index=subset_indices)
+                subset_labels = torch.index_select(labels, dim=0, index=subset_indices)
+            
+            recall_per_subcategory[subcategory_name] = recall_metric(subset_predictions, subset_labels)[idx_class]
 
         return recall_per_subcategory
     
@@ -241,26 +237,24 @@ class MetricEvaluatorIncDec():
         precision_per_subcategory = {}
         precision_metric = Precision(task='multiclass',num_classes=self.num_classes, average=None)
         for class_name in self.all_subcategories_dict:
-            # do not do it for the nothing class
-            if class_name != 'nothing':
-                idx_class = self.class_to_idx[class_name]
-                class_subcategories = self.all_subcategories_dict[class_name]
-                for idx_subcat in range(len(class_subcategories)):
-                    
-                    subcategory_name = class_subcategories[idx_subcat]
-                    current_class_indices = np.where(np.array(labels) == idx_class)[0].tolist()
-                    current_subcategory_indices = np.where((np.array(subcategories) == subcategory_name))[0].tolist()
-
-                    current_subcategory_indices = list(set(current_subcategory_indices).intersection(current_class_indices))
-
-                    other_classes_indices = np.where(np.array(labels) != idx_class)[0].tolist()
-
-                    subset_indices = torch.IntTensor(list(current_subcategory_indices + other_classes_indices))
-
-                    subset_predictions = torch.index_select(pos_max_prediction, dim=0, index=subset_indices)
-                    subset_labels = torch.index_select(labels, dim=0, index=subset_indices)
+            idx_class = self.class_to_idx[class_name]
+            class_subcategories = self.all_subcategories_dict[class_name]
+            for idx_subcat in range(len(class_subcategories)):
                 
-                precision_per_subcategory[subcategory_name] = precision_metric(subset_predictions, subset_labels)[idx_class]
+                subcategory_name = class_subcategories[idx_subcat]
+                current_class_indices = np.where(np.array(labels) == idx_class)[0].tolist()
+                current_subcategory_indices = np.where((np.array(subcategories) == subcategory_name))[0].tolist()
+
+                current_subcategory_indices = list(set(current_subcategory_indices).intersection(current_class_indices))
+
+                other_classes_indices = np.where(np.array(labels) != idx_class)[0].tolist()
+
+                subset_indices = torch.IntTensor(list(current_subcategory_indices + other_classes_indices))
+
+                subset_predictions = torch.index_select(pos_max_prediction, dim=0, index=subset_indices)
+                subset_labels = torch.index_select(labels, dim=0, index=subset_indices)
+            
+            precision_per_subcategory[subcategory_name] = precision_metric(subset_predictions, subset_labels)[idx_class]
 
         return precision_per_subcategory
     
@@ -269,25 +263,23 @@ class MetricEvaluatorIncDec():
         accuracy_per_subcategory = {}
         
         for class_name in self.all_subcategories_dict:
-            # do not do it for the nothing class
-            if class_name != 'nothing':
-                idx_class = self.class_to_idx[class_name]
-                class_subcategories = self.all_subcategories_dict[class_name]
-                for idx_subcat in range(len(class_subcategories)):
-                    
-                    subcategory_name = class_subcategories[idx_subcat]
-                    current_class_indices = np.where(np.array(labels) == idx_class)[0].tolist()
-                    current_subcategory_indices = np.where((np.array(subcategories) == subcategory_name))[0].tolist()
-
-                    current_subcategory_indices = list(set(current_subcategory_indices).intersection(current_class_indices))
-
-                    other_classes_indices = np.where(np.array(labels) != idx_class)[0].tolist()
-
-                    subset_indices = torch.IntTensor(list(current_subcategory_indices + other_classes_indices))
-
-                    subset_predictions = torch.index_select(pos_max_prediction, dim=0, index=subset_indices)
-                    subset_labels = torch.index_select(labels, dim=0, index=subset_indices)
+            idx_class = self.class_to_idx[class_name]
+            class_subcategories = self.all_subcategories_dict[class_name]
+            for idx_subcat in range(len(class_subcategories)):
                 
-                accuracy_per_subcategory[subcategory_name] = self.compute_multiclass_class_accuracy(subset_labels.numpy(),subset_predictions.numpy())[idx_class]
+                subcategory_name = class_subcategories[idx_subcat]
+                current_class_indices = np.where(np.array(labels) == idx_class)[0].tolist()
+                current_subcategory_indices = np.where((np.array(subcategories) == subcategory_name))[0].tolist()
+
+                current_subcategory_indices = list(set(current_subcategory_indices).intersection(current_class_indices))
+
+                other_classes_indices = np.where(np.array(labels) != idx_class)[0].tolist()
+
+                subset_indices = torch.IntTensor(list(current_subcategory_indices + other_classes_indices))
+
+                subset_predictions = torch.index_select(pos_max_prediction, dim=0, index=subset_indices)
+                subset_labels = torch.index_select(labels, dim=0, index=subset_indices)
+            
+            accuracy_per_subcategory[subcategory_name] = self.compute_multiclass_class_accuracy(subset_labels.numpy(),subset_predictions.numpy())[idx_class]
 
         return accuracy_per_subcategory

@@ -8,7 +8,7 @@ from torch.utils.data.dataloader import DataLoader
 
 # approaches 
 from continual_learning.DataIncrementalDecrementalMethod import DataIncrementalDecrementalMethod
-from data_incdec_framework.cl_framework.continual_learning.DIDM_lwf import DIDM_lwf
+from continual_learning.DIDM_lwf import DIDM_lwf
 from continual_learning.DIDM_fd import DIDM_fd
 from continual_learning.DIDM_ewc import DIDM_ewc
  
