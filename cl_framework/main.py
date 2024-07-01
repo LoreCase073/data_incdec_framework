@@ -30,21 +30,20 @@ def get_training_validation_subset_for_tasks(approach, pipeline, train_set,
                                                     total_classes,
                                                     validation_set,
                                                     subcategories_dict = None):
-    if approach == 'incdec' or approach == 'incdec_efc' or approach == 'incdec_lwf' or approach == 'incdec_fd' or args.approach == 'incdec_ewc':
-        if pipeline == 'baseline':
-            cl_train_val = DataIncDecBaselineDataset(train_set,
-                                                    n_task, initial_split, 
-                                                    total_classes,
-                                                    train=True, validation=validation_set,)
-        elif pipeline == 'decremental' or pipeline == 'incremental_decremental':
-            cl_train_val = DataIncrementalDecrementalPipelineDataset(train_set, subcategories_dict, 
-                    n_task, initial_split,
-                    total_classes, train=True, validation=validation_set)
-        elif pipeline == 'joint_incremental':
-            cl_train_val = JointIncrementalBaselineDataset(train_set,
-                                                    n_task, initial_split, 
-                                                    total_classes,
-                                                    train=True, validation=validation_set)
+    if pipeline == 'baseline':
+        cl_train_val = DataIncDecBaselineDataset(train_set,
+                                                n_task, initial_split, 
+                                                total_classes,
+                                                train=True, validation=validation_set,)
+    elif pipeline == 'decremental' or pipeline == 'incremental_decremental':
+        cl_train_val = DataIncrementalDecrementalPipelineDataset(train_set, subcategories_dict, 
+                n_task, initial_split,
+                total_classes, train=True, validation=validation_set)
+    elif pipeline == 'joint_incremental':
+        cl_train_val = JointIncrementalBaselineDataset(train_set,
+                                                n_task, initial_split, 
+                                                total_classes,
+                                                train=True, validation=validation_set)
         
     return cl_train_val
 
@@ -53,22 +52,20 @@ def get_test_subset_for_tasks(approach, pipeline, test_set,
                                                     n_task, initial_split, 
                                                     total_classes,
                                                     subcategories_dict = None):
-    
-    if approach == 'incdec' or approach == 'incdec_efc' or approach == 'incdec_lwf' or approach == 'incdec_fd' or args.approach == 'incdec_ewc':
-        if pipeline == 'baseline':
-            cl_test = DataIncDecBaselineDataset(test_set,
-                                                    n_task, initial_split, 
-                                                    total_classes,
-                                                    train=False, validation=None)
-        elif pipeline == 'decremental' or pipeline == 'incremental_decremental':
-            cl_test = DataIncrementalDecrementalPipelineDataset(test_set, subcategories_dict, 
-                    n_task, initial_split,
-                    total_classes, train=False, validation=None)
-        elif pipeline == 'joint_incremental':
-            cl_test = JointIncrementalBaselineDataset(test_set,
-                                                    n_task, initial_split, 
-                                                    total_classes,
-                                                    train=False, validation=None)
+    if pipeline == 'baseline':
+        cl_test = DataIncDecBaselineDataset(test_set,
+                                                n_task, initial_split, 
+                                                total_classes,
+                                                train=False, validation=None)
+    elif pipeline == 'decremental' or pipeline == 'incremental_decremental':
+        cl_test = DataIncrementalDecrementalPipelineDataset(test_set, subcategories_dict, 
+                n_task, initial_split,
+                total_classes, train=False, validation=None)
+    elif pipeline == 'joint_incremental':
+        cl_test = JointIncrementalBaselineDataset(test_set,
+                                                n_task, initial_split, 
+                                                total_classes,
+                                                train=False, validation=None)
         
     return cl_test
 
@@ -138,8 +135,7 @@ if __name__ == "__main__":
     
       
     # task_dict = {task_id: list_of_class_ids}
-    if args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd' or args.approach == 'incdec_ewc':
-        task_dict, subcategories_dict, all_subcategories_dict = get_task_dict_incdec(args.n_task, args.subcategories_csv_path, args.pipeline, args.subcategories_randomize, out_path, subcat_dict)
+    task_dict, subcategories_dict, all_subcategories_dict = get_task_dict_incdec(args.n_task, args.subcategories_csv_path, args.pipeline, args.subcategories_randomize, out_path, subcat_dict)
     
     
         
@@ -180,9 +176,8 @@ if __name__ == "__main__":
     """
     Logger Init
     """
-    if args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd' or args.approach == 'incdec_ewc':
-        logger = IncDecLogger(out_path=out_path, n_task=args.n_task, task_dict=task_dict, all_subcategories_dict = all_subcategories_dict, class_to_idx= train_set.get_class_to_idx(), num_classes=total_classes, criterion_type=args.criterion_type)
-        val_logger = IncDecLogger(out_path=out_path, n_task=args.n_task, task_dict=task_dict, all_subcategories_dict = all_subcategories_dict, class_to_idx= train_set.get_class_to_idx(), num_classes=total_classes, criterion_type=args.criterion_type, validation_mode=True)
+    logger = IncDecLogger(out_path=out_path, n_task=args.n_task, task_dict=task_dict, all_subcategories_dict = all_subcategories_dict, class_to_idx= train_set.get_class_to_idx(), num_classes=total_classes, criterion_type=args.criterion_type)
+    val_logger = IncDecLogger(out_path=out_path, n_task=args.n_task, task_dict=task_dict, all_subcategories_dict = all_subcategories_dict, class_to_idx= train_set.get_class_to_idx(), num_classes=total_classes, criterion_type=args.criterion_type, validation_mode=True)
     result_folder(out_path, "tensorboard")
     result_folder(out_path, "logger")
     result_folder(out_path, "validation_logger")
@@ -237,12 +232,11 @@ if __name__ == "__main__":
         if  task_id == 0 and args.firsttask_modelpath != "None":
  
             approach.pre_train(task_id, train_loader,  valid_loaders[task_id])
-            if args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd' or args.approach == 'incdec_ewc':
-                print("Loading model from path {}".format(args.firsttask_modelpath))
-                # Here i substitute the normal head with a 200 size head, to load the pre-trained model on 200 classes
-                approach.substitute_head(200)
-                rollback_model_movinet(approach, args.firsttask_modelpath, name='checkpoint_adam.pt')
-                approach.substitute_head(total_classes)
+            print("Loading model from path {}".format(args.firsttask_modelpath))
+            # Here i substitute the normal head with a 200 size head, to load the pre-trained model on 200 classes
+            approach.substitute_head(200)
+            rollback_model_movinet(approach, args.firsttask_modelpath, name='checkpoint_adam.pt')
+            approach.substitute_head(total_classes)
 
         
     
@@ -286,16 +280,13 @@ if __name__ == "__main__":
             best_epoch = 0
             best_loss = math.inf 
             
-            if task_id == 0 and args.dataset == "imagenet-subset":
-                n_epochs = 160 # default number of epochs for imagenet subset 
-            else:
-                n_epochs = args.epochs
+            n_epochs = args.epochs
             
             
             """
             Main train Loop
             """
-            # for early stopping when the validation loss doesn't improve
+            # for early stopping 
             no_decrement_count = 0
             best_loss = float(math.inf)
                     
@@ -311,8 +302,7 @@ if __name__ == "__main__":
 
                 approach.train(task_id, train_loader, epoch, n_epochs)
                 
-                if args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd' or args.approach == 'incdec_ewc':
-                    acc, _ , test_loss, _, mean_ap_eval, _, _, _, _,_,_,_,_ = approach.eval(task_id, task_id, valid_loaders[task_id], epoch, verbose=True, testing=None)
+                acc, _ , test_loss, _, mean_ap_eval, _, _, _, _,_,_,_,_ = approach.eval(task_id, task_id, valid_loaders[task_id], epoch, verbose=True, testing=None)
                 
                 previous_lr = approach.optimizer.param_groups[0]["lr"]
                 
@@ -333,26 +323,25 @@ if __name__ == "__main__":
                     print("Loading model from path: {}".format(model_name))
                     rollback_model(approach, model_name, device, name=str(model_name))
                 
-                if args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd' or args.approach == 'incdec_ewc':
-                    if mean_ap_eval > best_mAP:
-                        old_mAP = best_mAP
-                        best_mAP = mean_ap_eval
-                        name_model = "best_mAP_task_" + str(task_id)
-                        store_model(approach, out_path,name=name_model)
-                        print(f"  --> from mAP {old_mAP:.3f} to {best_mAP:.3f}")
-                        best_epoch = epoch
-                        no_decrement_count = 0
-                    else:
-                        no_decrement_count += 1
-                    if args.scheduler_type == "fixd":
-                        if no_decrement_count == args.early_stopping_val:
-                            print(f"Early stopping because classification loss didn't improve for{args.early_stopping_val} epochs\t")
-                            break
-                    else:
-                        # Stops if the learning rate is lower than a threshold
-                        if current_lr < float(1e-5):
-                            print(f"Early stopping because learning rate threshold is reached \t")
-                            break
+                if mean_ap_eval > best_mAP:
+                    old_mAP = best_mAP
+                    best_mAP = mean_ap_eval
+                    name_model = "best_mAP_task_" + str(task_id)
+                    store_model(approach, out_path,name=name_model)
+                    print(f"  --> from mAP {old_mAP:.3f} to {best_mAP:.3f}")
+                    best_epoch = epoch
+                    no_decrement_count = 0
+                else:
+                    no_decrement_count += 1
+                if args.scheduler_type == "fixd":
+                    if no_decrement_count == args.early_stopping_val:
+                        print(f"Early stopping because classification loss didn't improve for{args.early_stopping_val} epochs\t")
+                        break
+                else:
+                    # Stops if the learning rate is lower than a threshold
+                    if current_lr < float(1e-5):
+                        print(f"Early stopping because learning rate threshold is reached \t")
+                        break
 
                 print(f"Current learning rate for the next epoch is: {current_lr}")
                     
@@ -382,11 +371,10 @@ if __name__ == "__main__":
 
  
         #For incdec approach for now there is a single test set to be evaluated
-        if args.approach == 'incdec' or args.approach == 'incdec_efc' or args.approach == 'incdec_lwf' or args.approach == 'incdec_fd' or args.approach == 'incdec_ewc':
-            acc_value, ap_value, _, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory, accuracy_per_subcategory,precision_per_subcategory = approach.eval(task_id, task_id, test_loaders[task_id], epoch,  verbose=False, testing='test')
-            logger.update_accuracy(current_training_task_id=task_id, acc_value=acc_value, ap_value=ap_value, acc_per_class=acc_per_class, mean_ap=mean_ap, map_weighted=map_weighted, precision_per_class=precision_per_class, recall_per_class=recall_per_class, exact_match=exact_match, ap_per_subcategory=ap_per_subcategory, recall_per_subcategory=recall_per_subcategory, accuracy_per_subcategory=accuracy_per_subcategory, precision_per_subcategory=precision_per_subcategory)
-            logger.update_forgetting(current_training_task_id=task_id)
-            logger.print_latest(current_training_task_id=task_id)
+        acc_value, ap_value, _, acc_per_class, mean_ap, map_weighted, precision_per_class, recall_per_class, exact_match, ap_per_subcategory, recall_per_subcategory, accuracy_per_subcategory,precision_per_subcategory = approach.eval(task_id, task_id, test_loaders[task_id], epoch,  verbose=False, testing='test')
+        logger.update_accuracy(current_training_task_id=task_id, acc_value=acc_value, ap_value=ap_value, acc_per_class=acc_per_class, mean_ap=mean_ap, map_weighted=map_weighted, precision_per_class=precision_per_class, recall_per_class=recall_per_class, exact_match=exact_match, ap_per_subcategory=ap_per_subcategory, recall_per_subcategory=recall_per_subcategory, accuracy_per_subcategory=accuracy_per_subcategory, precision_per_subcategory=precision_per_subcategory)
+        logger.update_forgetting(current_training_task_id=task_id)
+        logger.print_latest(current_training_task_id=task_id)
         
  
         """

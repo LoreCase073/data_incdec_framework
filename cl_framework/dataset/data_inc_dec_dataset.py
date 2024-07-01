@@ -82,10 +82,6 @@ class DataIncDecBaselineDataset():
                     for idx_class in range(self.total_classes):
                         current_class_indices = np.where(np.array(self.validation.targets) == idx_class)[0]
                         val_indices_list[i].extend(list(current_class_indices))
-            else:
-                #TODO: implement if validation is not passed from out of the train
-                #TODO: in realtà forse rimuovere questa scelta per la decisione finale
-                pass
 
             cl_val_dataset = [Subset(self.validation, ids)  for ids in val_indices_list]
             cl_val_sizes =[len(ids) for ids in val_indices_list]
@@ -249,9 +245,7 @@ class DataIncrementalDecrementalPipelineDataset():
 
                             #add and remove data and make the list of indices for the task
                             val_indices_list[idx_task].extend(list(current_subcategory_indices))
-            else:
-                #TODO: implement if validation is not passed from out of the train
-                pass
+
 
             cl_val_dataset = [Subset(self.validation, ids)  for ids in val_indices_list]
             cl_val_sizes =[len(ids) for ids in val_indices_list]
@@ -419,9 +413,7 @@ class JointIncrementalBaselineDataset():
                     for idx_class in range(self.total_classes):
                         current_class_indices = np.where(np.array(self.validation.targets) == idx_class)[0]
                         val_indices_list[i].extend(list(current_class_indices))
-            else:
-                #TODO: implement if validation is not passed from out of the train
-                pass
+
 
             cl_val_dataset = [Subset(self.validation, ids)  for ids in val_indices_list]
             cl_val_sizes =[len(ids) for ids in val_indices_list]

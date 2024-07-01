@@ -27,19 +27,18 @@ class SummaryLogger():
 
 
     def update_summary(self, exp_name, logger, avg_time):
-        if self.approach == 'incdec'  or self.approach == 'incdec_efc' or self.approach == 'incdec_lwf' or self.approach == 'incdec_fd' or self.approach == 'incdec_ewc':
-            list_map = list(np.around(logger.mean_ap, decimals=3))
-            list_map_weighted = list(np.around(logger.map_weighted, decimals=3))
-            
+        list_map = list(np.around(logger.mean_ap, decimals=3))
+        list_map_weighted = list(np.around(logger.map_weighted, decimals=3))
+        
 
 
-            df = pd.DataFrame([[exp_name]+ 
-                                self.list_parameter_values+ 
-                                ["#".join(str(item) for item in list_map)]+
-                                ["#".join(str(item) for item in list_map_weighted)]], columns=self.incdec_columns)
-            
-            df_time = pd.DataFrame([avg_time],columns=['Avg_Time_per_ep'])
-            df_time.to_csv(os.path.join(self.out_path, exp_name,  "avg_time.csv"), index=False)
+        df = pd.DataFrame([[exp_name]+ 
+                            self.list_parameter_values+ 
+                            ["#".join(str(item) for item in list_map)]+
+                            ["#".join(str(item) for item in list_map_weighted)]], columns=self.incdec_columns)
+        
+        df_time = pd.DataFrame([avg_time],columns=['Avg_Time_per_ep'])
+        df_time.to_csv(os.path.join(self.out_path, exp_name,  "avg_time.csv"), index=False)
         
         df.to_csv(os.path.join(self.out_path, exp_name,  "summary.csv"), index=False)
     
