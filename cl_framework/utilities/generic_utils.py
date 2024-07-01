@@ -36,21 +36,6 @@ def experiment_folder(root_path, dev_mode, approach_name):
         os.mkdir(out_path)
     return out_path, exp_folder
 
-#TODO: rimuovere
-def get_class_per_task(n_class_first_task, total_classes, n_task):
-    assert n_class_first_task <= total_classes
-    
-    if n_class_first_task > -1:
-        class_per_task = int((total_classes - n_class_first_task)/(n_task - 1))
-        assert class_per_task > 1 
-        assert n_class_first_task + (n_task - 1) * class_per_task  == total_classes
-    else:
-        class_per_task =  int(total_classes/ n_task)   
-        assert class_per_task > 1 
-        assert n_task * class_per_task == total_classes
-
-    return class_per_task
-
 def result_folder(out_path, name):
     if not os.path.exists(os.path.join(out_path, name)):
         os.mkdir(os.path.join(out_path, name))
@@ -64,30 +49,6 @@ def store_params(out_path, n_epoch, bs, n_task, old_reconstruction, loss_weight)
     params['old_reconstruction'] = old_reconstruction
     params['loss_weight'] = loss_weight
     store_dictionary(params, out_path, name='params')
-
-
-def get_task_dict(n_task, total_classes, class_per_task, n_class_first_task):
-    d = {}
-    l = list(range(total_classes))
-    
-    if n_class_first_task > - 1:
-        offset = n_class_first_task
-        for i in range(n_task):
-            if i == 0:
-                d[i] = [i for i in range(0, n_class_first_task)]
-            else:
-                d[i] = l[offset + (i-1)*class_per_task: offset+ (i-1)* class_per_task + class_per_task]     
-            
-    else:
-      
-        for i in range(n_task):
-            d[i] = l[i*class_per_task:  i* class_per_task + class_per_task]     
-               
-    return d 
-
-
-
-            
 
 
 def store_dictionary(d, out_path, name):

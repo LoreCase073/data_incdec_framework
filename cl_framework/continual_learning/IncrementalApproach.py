@@ -14,7 +14,6 @@ class IncrementalApproach(metaclass=abc.ABCMeta):
       self.out_path = out_path
       self.class_per_task = class_per_task
       self.task_dict = task_dict 
-      self.n_class_first_task = args.n_class_first_task
       
       # Model args
       self.approach = args.approach
@@ -125,16 +124,9 @@ class IncrementalApproach(metaclass=abc.ABCMeta):
       else:            
 
             self.optimizer, self.reduce_lr_on_plateau = self.optimizer_manager.get_optimizer(task_id, self.model, self.auxiliary_classifier, self.weight_decay, self.patience, self.freeze_bn)
-
- 
-             
-   def rescale_targets(self, targets, t):
-       offset =  (t-1)*self.class_per_task + self.n_class_first_task  if self.n_class_first_task > -1 and t > 0 else t*self.class_per_task
-       targets = targets - offset
-       return targets
     
 
-    
+   
    @abc.abstractmethod
    def train(self, *args):
       pass 
