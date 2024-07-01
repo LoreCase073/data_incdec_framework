@@ -28,24 +28,22 @@ import time
 def get_training_validation_subset_for_tasks(approach, pipeline, train_set,
                                                     n_task, initial_split, 
                                                     total_classes,
-                                                    subcategories_check,validation_set,
+                                                    validation_set,
                                                     subcategories_dict = None):
     if approach == 'incdec' or approach == 'incdec_efc' or approach == 'incdec_lwf' or approach == 'incdec_fd' or args.approach == 'incdec_ewc':
         if pipeline == 'baseline':
             cl_train_val = DataIncDecBaselineDataset(train_set,
                                                     n_task, initial_split, 
                                                     total_classes,
-                                                    subcategories_check=subcategories_check,
                                                     train=True, validation=validation_set,)
         elif pipeline == 'decremental' or pipeline == 'incremental_decremental':
             cl_train_val = DataIncrementalDecrementalPipelineDataset(train_set, subcategories_dict, 
                     n_task, initial_split,
-                    total_classes, subcategories_check='yes', train=True, validation=validation_set)
+                    total_classes, train=True, validation=validation_set)
         elif pipeline == 'joint_incremental':
             cl_train_val = JointIncrementalBaselineDataset(train_set,
                                                     n_task, initial_split, 
                                                     total_classes,
-                                                    subcategories_check=subcategories_check,
                                                     train=True, validation=validation_set)
         
     return cl_train_val
@@ -54,24 +52,22 @@ def get_training_validation_subset_for_tasks(approach, pipeline, train_set,
 def get_test_subset_for_tasks(approach, pipeline, test_set,  
                                                     n_task, initial_split, 
                                                     total_classes,
-                                                    subcategories_check, subcategories_dict = None):
+                                                    subcategories_dict = None):
     
     if approach == 'incdec' or approach == 'incdec_efc' or approach == 'incdec_lwf' or approach == 'incdec_fd' or args.approach == 'incdec_ewc':
         if pipeline == 'baseline':
             cl_test = DataIncDecBaselineDataset(test_set,
                                                     n_task, initial_split, 
                                                     total_classes,
-                                                    subcategories_check=subcategories_check,
                                                     train=False, validation=None)
         elif pipeline == 'decremental' or pipeline == 'incremental_decremental':
             cl_test = DataIncrementalDecrementalPipelineDataset(test_set, subcategories_dict, 
                     n_task, initial_split,
-                    total_classes, subcategories_check='yes', train=False, validation=None)
+                    total_classes, train=False, validation=None)
         elif pipeline == 'joint_incremental':
             cl_test = JointIncrementalBaselineDataset(test_set,
                                                     n_task, initial_split, 
                                                     total_classes,
-                                                    subcategories_check=subcategories_check,
                                                     train=False, validation=None)
         
     return cl_test
@@ -155,7 +151,6 @@ if __name__ == "__main__":
     cl_train_val = get_training_validation_subset_for_tasks(args.approach, args.pipeline, train_set,
                                                             args.n_task, args.initial_split,
                                                             total_classes,
-                                                            args.subcategories_check,
                                                             validation_set,
                                                             subcategories_dict)
 
@@ -167,8 +162,7 @@ if __name__ == "__main__":
     
     cl_test = get_test_subset_for_tasks(args.approach, args.pipeline, test_set,
                                                             args.n_task, args.initial_split, 
-                                                            total_classes,
-                                                            args.subcategories_check,subcategories_dict)
+                                                            total_classes,subcategories_dict)
 
 
     test_dataset_list, test_sizes, _, _  = cl_test.collect()

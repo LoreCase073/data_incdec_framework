@@ -6,7 +6,7 @@ import torch
 class DataIncDecBaselineDataset():
     def __init__(self, dataset,  
                     n_task, initial_split,
-                    total_classes, subcategories_check='yes', train=True, validation=None):
+                    total_classes, train=True, validation=None):
         
         self.dataset = dataset
         self.train = train 
@@ -25,7 +25,6 @@ class DataIncDecBaselineDataset():
         #compute class sample count for the sample weights to be used in weighted random sample
         self.class_sample_count = np.array([len(np.where(self.dataset.targets == t)[0]) for t in np.unique(self.dataset.targets)])
         self.sample_weight = 1. / self.class_sample_count
-        self.subcategories_check = subcategories_check
 
 
     
@@ -119,50 +118,33 @@ class DataIncDecBaselineDataset():
     def get_initial_splits(self):
         first_split = []
         second_split = []
-        # do the splits including subcategory information in the splits, if not just work on the classes
-        if self.subcategories_check == 'yes':
-            #now divide the two first splits of the dataset
-            for idx_class in range(self.total_classes):
-                #takes the class name from the idx
-                #class_to_idx {class: idx}
-                class_name = [ c for c, idx in self.dataset.class_to_idx.items() if idx == idx_class ][0]
+        #now divide the two first splits of the dataset
+        for idx_class in range(self.total_classes):
+            #takes the class name from the idx
+            #class_to_idx {class: idx}
+            class_name = [ c for c, idx in self.dataset.class_to_idx.items() if idx == idx_class ][0]
 
-                #iterate over the subcategories for class_name
-                #classes_subcategories {class: [sub1,sub2...]}
-                for it_subcategories in (self.dataset.classes_subcategories[class_name]):
-                    
-                    
-                    
-                    #Return indices of elements from the current it_subcategories
-                    current_class_indices = np.where(np.array(self.dataset.targets) == idx_class)[0].tolist()
-                    current_subcategory_indices = np.where(np.array(self.dataset.subcategories) == it_subcategories)[0].tolist()
-                    current_subcategory_indices = np.array(list(set(current_subcategory_indices).intersection(current_class_indices)))
-                    np.random.shuffle(current_subcategory_indices)
-
-                    num_data_first_split = int(len(current_subcategory_indices)/self.initial_split)
-
-                    #create the two splits for each subcategory
-                    first_split_indices = current_subcategory_indices[:num_data_first_split]
-                    second_split_indices = current_subcategory_indices[num_data_first_split:]
-                    #add these indices for the first task
-                    first_split.extend(list(first_split_indices))
-                    second_split.extend(list(second_split_indices))
-        else:
-            for idx_class in range(self.total_classes):
-                #takes the class name from the idx
-                #class_to_idx {class: idx}
+            #iterate over the subcategories for class_name
+            #classes_subcategories {class: [sub1,sub2...]}
+            for it_subcategories in (self.dataset.classes_subcategories[class_name]):
                 
-                current_class_indices = np.where(np.array(self.dataset.targets) == idx_class)[0]
-                np.random.shuffle(current_class_indices)
+                
+                
+                #Return indices of elements from the current it_subcategories
+                current_class_indices = np.where(np.array(self.dataset.targets) == idx_class)[0].tolist()
+                current_subcategory_indices = np.where(np.array(self.dataset.subcategories) == it_subcategories)[0].tolist()
+                current_subcategory_indices = np.array(list(set(current_subcategory_indices).intersection(current_class_indices)))
+                np.random.shuffle(current_subcategory_indices)
 
-                num_data_first_split = int(len(current_class_indices)/self.initial_split)
+                num_data_first_split = int(len(current_subcategory_indices)/self.initial_split)
 
                 #create the two splits for each subcategory
-                first_split_indices = current_class_indices[:num_data_first_split]
-                second_split_indices = current_class_indices[num_data_first_split:]
+                first_split_indices = current_subcategory_indices[:num_data_first_split]
+                second_split_indices = current_subcategory_indices[num_data_first_split:]
                 #add these indices for the first task
                 first_split.extend(list(first_split_indices))
                 second_split.extend(list(second_split_indices))
+        
         
         return first_split, second_split
 
@@ -170,7 +152,7 @@ class DataIncDecBaselineDataset():
 class DataIncrementalDecrementalPipelineDataset():
     def __init__(self, dataset, subcategories_dictionary, 
                     n_task, initial_split,
-                    total_classes, subcategories_check='yes', train=True, validation=None):
+                    total_classes, train=True, validation=None):
         
         self.dataset = dataset
         self.train = train
@@ -187,7 +169,6 @@ class DataIncrementalDecrementalPipelineDataset():
 
         self.validation = validation
         
-        self.subcategories_check = subcategories_check
 
 
     
@@ -308,48 +289,31 @@ class DataIncrementalDecrementalPipelineDataset():
     def get_initial_splits(self):
         first_split = []
         second_split = []
-        # do the splits including subcategory information in the splits, if not just work on the classes
-        if self.subcategories_check == 'yes':
-            #now divide the two first splits of the dataset
-            for idx_class in range(self.total_classes):
-                #takes the class name from the idx
-                #class_to_idx {class: idx}
-                class_name = [ c for c, idx in self.dataset.class_to_idx.items() if idx == idx_class ][0]
+        #now divide the two first splits of the dataset
+        for idx_class in range(self.total_classes):
+            #takes the class name from the idx
+            #class_to_idx {class: idx}
+            class_name = [ c for c, idx in self.dataset.class_to_idx.items() if idx == idx_class ][0]
 
-                #iterate over the subcategories for class_name
-                #classes_subcategories {class: [sub1,sub2...]}
-                for it_subcategories in (self.dataset.classes_subcategories[class_name]):
-                    
-                    #Return indices of elements from the current it_subcategories
-                    current_class_indices = np.where(np.array(self.dataset.targets) == idx_class)[0].tolist()
-                    current_subcategory_indices = np.where(np.array(self.dataset.subcategories) == it_subcategories)[0].tolist()
-                    current_subcategory_indices = np.array(list(set(current_subcategory_indices).intersection(current_class_indices)))
-                    np.random.shuffle(current_subcategory_indices)
-
-                    num_data_first_split = int(len(current_subcategory_indices)/self.initial_split)
-
-                    #create the two splits for each subcategory
-                    first_split_indices = current_subcategory_indices[:num_data_first_split]
-                    second_split_indices = current_subcategory_indices[num_data_first_split:]
-                    #add these indices for the first task
-                    first_split.extend(list(first_split_indices))
-                    second_split.extend(list(second_split_indices))
-        else:
-            for idx_class in range(self.total_classes):
-                #takes the class name from the idx
-                #class_to_idx {class: idx}
+            #iterate over the subcategories for class_name
+            #classes_subcategories {class: [sub1,sub2...]}
+            for it_subcategories in (self.dataset.classes_subcategories[class_name]):
                 
-                current_class_indices = np.where(np.array(self.dataset.targets) == idx_class)[0]
-                np.random.shuffle(current_class_indices)
+                #Return indices of elements from the current it_subcategories
+                current_class_indices = np.where(np.array(self.dataset.targets) == idx_class)[0].tolist()
+                current_subcategory_indices = np.where(np.array(self.dataset.subcategories) == it_subcategories)[0].tolist()
+                current_subcategory_indices = np.array(list(set(current_subcategory_indices).intersection(current_class_indices)))
+                np.random.shuffle(current_subcategory_indices)
 
-                num_data_first_split = int(len(current_class_indices)/self.initial_split)
+                num_data_first_split = int(len(current_subcategory_indices)/self.initial_split)
 
                 #create the two splits for each subcategory
-                first_split_indices = current_class_indices[:num_data_first_split]
-                second_split_indices = current_class_indices[num_data_first_split:]
+                first_split_indices = current_subcategory_indices[:num_data_first_split]
+                second_split_indices = current_subcategory_indices[num_data_first_split:]
                 #add these indices for the first task
                 first_split.extend(list(first_split_indices))
                 second_split.extend(list(second_split_indices))
+        
         
         return first_split, second_split
     
@@ -378,7 +342,7 @@ class DataIncrementalDecrementalPipelineDataset():
 class JointIncrementalBaselineDataset():
     def __init__(self, dataset,  
                     n_task, initial_split,
-                    total_classes, subcategories_check='yes', train=True, validation=None):
+                    total_classes, train=True, validation=None):
         
         self.dataset = dataset
         self.train = train 
@@ -396,7 +360,6 @@ class JointIncrementalBaselineDataset():
         #compute class sample count for the sample weights to be used in weighted random sample
         self.class_sample_count = np.array([len(np.where(self.dataset.targets == t)[0]) for t in np.unique(self.dataset.targets)])
         self.sample_weight = 1. / self.class_sample_count
-        self.subcategories_check = subcategories_check
 
 
     
@@ -490,45 +453,27 @@ class JointIncrementalBaselineDataset():
     def get_initial_splits(self):
         first_split = []
         second_split = []
-        # do the splits including subcategory information in the splits, if not just work on the classes
-        if self.subcategories_check == 'yes':
-            #now divide the two first splits of the dataset
-            for idx_class in range(self.total_classes):
-                #takes the class name from the idx
-                #class_to_idx {class: idx}
-                class_name = [ c for c, idx in self.dataset.class_to_idx.items() if idx == idx_class ][0]
+        #now divide the two first splits of the dataset
+        for idx_class in range(self.total_classes):
+            #takes the class name from the idx
+            #class_to_idx {class: idx}
+            class_name = [ c for c, idx in self.dataset.class_to_idx.items() if idx == idx_class ][0]
 
-                #iterate over the subcategories for class_name
-                #classes_subcategories {class: [sub1,sub2...]}
-                for it_subcategories in (self.dataset.classes_subcategories[class_name]):
+            #iterate over the subcategories for class_name
+            #classes_subcategories {class: [sub1,sub2...]}
+            for it_subcategories in (self.dataset.classes_subcategories[class_name]):
 
-                    #Return indices of elements from the current it_subcategories
-                    current_class_indices = np.where(np.array(self.dataset.targets) == idx_class)[0].tolist()
-                    current_subcategory_indices = np.where(np.array(self.dataset.subcategories) == it_subcategories)[0].tolist()
-                    current_subcategory_indices = np.array(list(set(current_subcategory_indices).intersection(current_class_indices)))
-                    np.random.shuffle(current_subcategory_indices)
+                #Return indices of elements from the current it_subcategories
+                current_class_indices = np.where(np.array(self.dataset.targets) == idx_class)[0].tolist()
+                current_subcategory_indices = np.where(np.array(self.dataset.subcategories) == it_subcategories)[0].tolist()
+                current_subcategory_indices = np.array(list(set(current_subcategory_indices).intersection(current_class_indices)))
+                np.random.shuffle(current_subcategory_indices)
 
-                    num_data_first_split = int(len(current_subcategory_indices)/self.initial_split)
-
-                    #create the two splits for each subcategory
-                    first_split_indices = current_subcategory_indices[:num_data_first_split]
-                    second_split_indices = current_subcategory_indices[num_data_first_split:]
-                    #add these indices for the first task
-                    first_split.extend(list(first_split_indices))
-                    second_split.extend(list(second_split_indices))
-        else:
-            for idx_class in range(self.total_classes):
-                #takes the class name from the idx
-                #class_to_idx {class: idx}
-                
-                current_class_indices = np.where(np.array(self.dataset.targets) == idx_class)[0]
-                np.random.shuffle(current_class_indices)
-
-                num_data_first_split = int(len(current_class_indices)/self.initial_split)
+                num_data_first_split = int(len(current_subcategory_indices)/self.initial_split)
 
                 #create the two splits for each subcategory
-                first_split_indices = current_class_indices[:num_data_first_split]
-                second_split_indices = current_class_indices[num_data_first_split:]
+                first_split_indices = current_subcategory_indices[:num_data_first_split]
+                second_split_indices = current_subcategory_indices[num_data_first_split:]
                 #add these indices for the first task
                 first_split.extend(list(first_split_indices))
                 second_split.extend(list(second_split_indices))
